@@ -1,0 +1,14 @@
+{
+  "routes": [
+    {
+      "path": "/api/translate",
+      "method": "POST",
+      "target": "functiongraph:TranslateSign"
+    },
+    {
+      "path": "/api/users",
+      "method": "GET",
+      "target": "functiongraph:GetUsers"
+    }
+  ]
+}

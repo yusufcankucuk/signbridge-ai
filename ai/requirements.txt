@@ -1,0 +1,6 @@
+# Python AI dependencies for SignBridge
+tensorflow
+mediapipe
+numpy
+pandas
+scikit-learn
