@@ -1,4 +1,4 @@
-# SignBridge 🌉
+# SignBridge 
 
 SignBridge, sağlık ortamlarında Türk İşaret Dili (TİD) kullanan hastalar ile işaret dili bilmeyen sağlık çalışanları arasında güvenli, çift yönlü iletişim kurmayı sağlayan yapay zeka destekli bir yardımcı sistemdir[cite: 1]. Bu depo, projenin "Önce Web" (Web-First) MVP sürümünü[cite: 1] barındıran monorepo yapısıdır.
 
