@@ -1,0 +1,169 @@
+{
+  "total": 16,
+  "statuses": {
+    "needs_review": 9,
+    "approved": 7
+  },
+  "details": [
+    {
+      "sampleId": "meb_aci_ref01",
+      "qualityStatus": "needs_review",
+      "qualityReason": "low_hand_visibility",
+      "shoulderFrameRatio": 1.0,
+      "handFrameRatio": 0.3956043956043956,
+      "sourceFps": 25.0,
+      "sourceFrames": 91,
+      "preprocessingVersion": "landmark46-v1"
+    },
+    {
+      "sampleId": "meb_agri_ref01",
+      "qualityStatus": "approved",
+      "qualityReason": "ok",
+      "shoulderFrameRatio": 1.0,
+      "handFrameRatio": 0.5517241379310345,
+      "sourceFps": 25.0,
+      "sourceFrames": 87,
+      "preprocessingVersion": "landmark46-v1"
+    },
+    {
+      "sampleId": "meb_astim_ref01",
+      "qualityStatus": "approved",
+      "qualityReason": "ok",
+      "shoulderFrameRatio": 1.0,
+      "handFrameRatio": 0.6470588235294118,
+      "sourceFps": 25.0,
+      "sourceFrames": 102,
+      "preprocessingVersion": "landmark46-v1"
+    },
+    {
+      "sampleId": "meb_ates_ref01",
+      "qualityStatus": "approved",
+      "qualityReason": "ok",
+      "shoulderFrameRatio": 1.0,
+      "handFrameRatio": 0.5609756097560976,
+      "sourceFps": 25.0,
+      "sourceFrames": 82,
+      "preprocessingVersion": "landmark46-v1"
+    },
+    {
+      "sampleId": "meb_bas_ref01",
+      "qualityStatus": "needs_review",
+      "qualityReason": "low_hand_visibility",
+      "shoulderFrameRatio": 1.0,
+      "handFrameRatio": 0.4426229508196721,
+      "sourceFps": 25.0,
+      "sourceFrames": 61,
+      "preprocessingVersion": "landmark46-v1"
+    },
+    {
+      "sampleId": "meb_bas_donmesi_ref01",
+      "qualityStatus": "approved",
+      "qualityReason": "ok",
+      "shoulderFrameRatio": 1.0,
+      "handFrameRatio": 0.5360824742268041,
+      "sourceFps": 25.0,
+      "sourceFrames": 97,
+      "preprocessingVersion": "landmark46-v1"
+    },
+    {
+      "sampleId": "meb_dokuntu_alerji_ref01",
+      "qualityStatus": "approved",
+      "qualityReason": "ok",
+      "shoulderFrameRatio": 1.0,
+      "handFrameRatio": 0.5247524752475248,
+      "sourceFps": 25.0,
+      "sourceFrames": 101,
+      "preprocessingVersion": "landmark46-v1"
+    },
+    {
+      "sampleId": "meb_grip_ref01",
+      "qualityStatus": "needs_review",
+      "qualityReason": "low_hand_visibility",
+      "shoulderFrameRatio": 1.0,
+      "handFrameRatio": 0.37894736842105264,
+      "sourceFps": 25.0,
+      "sourceFrames": 95,
+      "preprocessingVersion": "landmark46-v1"
+    },
+    {
+      "sampleId": "meb_kalp_carpintisi_ref01",
+      "qualityStatus": "needs_review",
+      "qualityReason": "low_hand_visibility",
+      "shoulderFrameRatio": 1.0,
+      "handFrameRatio": 0.4787234042553192,
+      "sourceFps": 25.0,
+      "sourceFrames": 94,
+      "preprocessingVersion": "landmark46-v1"
+    },
+    {
+      "sampleId": "meb_kalp_krizi_ref01",
+      "qualityStatus": "needs_review",
+      "qualityReason": "low_hand_visibility",
+      "shoulderFrameRatio": 1.0,
+      "handFrameRatio": 0.40594059405940597,
+      "sourceFps": 25.0,
+      "sourceFrames": 101,
+      "preprocessingVersion": "landmark46-v1"
+    },
+    {
+      "sampleId": "meb_kanama_ref01",
+      "qualityStatus": "approved",
+      "qualityReason": "ok",
+      "shoulderFrameRatio": 1.0,
+      "handFrameRatio": 0.5104166666666666,
+      "sourceFps": 25.0,
+      "sourceFrames": 96,
+      "preprocessingVersion": "landmark46-v1"
+    },
+    {
+      "sampleId": "meb_kuduz_ref01",
+      "qualityStatus": "needs_review",
+      "qualityReason": "low_hand_visibility",
+      "shoulderFrameRatio": 1.0,
+      "handFrameRatio": 0.45918367346938777,
+      "sourceFps": 25.0,
+      "sourceFrames": 98,
+      "preprocessingVersion": "landmark46-v1"
+    },
+    {
+      "sampleId": "meb_kusma_ref01",
+      "qualityStatus": "needs_review",
+      "qualityReason": "low_hand_visibility",
+      "shoulderFrameRatio": 1.0,
+      "handFrameRatio": 0.44594594594594594,
+      "sourceFps": 25.0,
+      "sourceFrames": 74,
+      "preprocessingVersion": "landmark46-v1"
+    },
+    {
+      "sampleId": "meb_oksurmek_ref01",
+      "qualityStatus": "needs_review",
+      "qualityReason": "low_hand_visibility",
+      "shoulderFrameRatio": 1.0,
+      "handFrameRatio": 0.45569620253164556,
+      "sourceFps": 25.0,
+      "sourceFrames": 79,
+      "preprocessingVersion": "landmark46-v1"
+    },
+    {
+      "sampleId": "meb_seker_hastaligi_ref01",
+      "qualityStatus": "needs_review",
+      "qualityReason": "low_hand_visibility",
+      "shoulderFrameRatio": 1.0,
+      "handFrameRatio": 0.4606741573033708,
+      "sourceFps": 25.0,
+      "sourceFrames": 89,
+      "preprocessingVersion": "landmark46-v1"
+    },
+    {
+      "sampleId": "meb_yanik_ref01",
+      "qualityStatus": "approved",
+      "qualityReason": "ok",
+      "shoulderFrameRatio": 1.0,
+      "handFrameRatio": 0.5,
+      "sourceFps": 25.0,
+      "sourceFrames": 92,
+      "preprocessingVersion": "landmark46-v1"
+    }
+  ]
+}

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase'; // Yol projenin yapısına göre değişebilir (örn: '../../../lib/supabase')
+import { getSupabase } from '@/lib/supabase';
 
 export async function POST() {
+    const supabase = getSupabase();
     const expiresAt = new Date(Date.now() + 30 * 60000).toISOString(); // 30 dk sonra expire
 
     const { data, error } = await supabase

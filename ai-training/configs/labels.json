@@ -1,8 +1,13 @@
 {
-  "labels": [
-    "hello",
-    "thank_you",
-    "help",
-    "emergency"
+  "schemaVersion": "1.0",
+  "modelVocabulary": "autsl20-v1",
+  "manualVocabulary": "meb16-v1",
+  "files": {
+    "modelLabels": "labels.autsl20.json",
+    "manualLabels": "labels.meb16.json"
+  },
+  "notes": [
+    "Only AUTSL-20 labels are trainable in the first model.",
+    "MEB labels are reference/manual-only until multi-signer recordings exist."
   ]
 }

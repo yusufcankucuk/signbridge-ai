@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "NO_HANDS_DETECTED",
+    "message": "Eller algılanamadı. Lütfen iki elinizi kamerada görünür tutarak tekrar deneyin."
+  }
+}

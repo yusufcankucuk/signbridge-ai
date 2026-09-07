@@ -1,4 +1,9 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {};
+const nextConfig = {
+  output: 'standalone',
+  turbopack: {
+    root: __dirname,
+  },
+};
 
-export default nextConfig;
+module.exports = nextConfig;

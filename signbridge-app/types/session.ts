@@ -32,11 +32,15 @@ export interface InteractionEvent {
 // --- Payload (İçerik) Detayları ---
 
 export interface PredictionPayload {
-    classId: string;
+    classId: string | null;
     displayText: string;
-    confidence: number;
+    confidence: number | null;
     alternatives: string[];
     isLowConfidence: boolean;
+    predictionMode: 'model' | 'mock' | 'manual';
+    modelVersion: string | null;
+    preprocessingVersion: string;
+    vocabularyVersion: string;
 }
 
 export interface ConfirmationPayload {
