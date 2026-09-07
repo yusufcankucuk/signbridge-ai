@@ -1,0 +1,11 @@
+{
+  "classId": "agri",
+  "displayText": "Ağrı",
+  "confidence": null,
+  "alternatives": [],
+  "isLowConfidence": false,
+  "predictionMode": "manual",
+  "modelVersion": null,
+  "preprocessingVersion": "landmark46-v1",
+  "vocabularyVersion": "meb16-v1"
+}

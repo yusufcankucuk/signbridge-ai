@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "preprocessingVersion": "landmark46-v1",
+  "sequenceLength": 60,
+  "coordinateDimensions": 2,
+  "selectedLandmarks": {
+    "pose": [11, 12, 13, 14],
+    "leftHand": [33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53],
+    "rightHand": [54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74]
+  },
+  "normalization": "shoulder_midpoint_and_distance",
+  "minimumConfidence": 0.1,
+  "minimumSequenceFrames": 8,
+  "minimumShoulderFrameRatio": 0.6,
+  "minimumHandFrameRatio": 0.5,
+  "resampling": "linear_coordinates_nearest_mask",
+  "modelFeaturesPerLandmark": ["x", "y", "mask"],
+  "horizontalFlipAllowed": false
+}

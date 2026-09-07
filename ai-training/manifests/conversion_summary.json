@@ -1,0 +1,39 @@
+{
+  "preprocessingVersion": "landmark46-v1",
+  "reports": [
+    {
+      "manifest": "autsl20_train.csv",
+      "total": 2448,
+      "statuses": {
+        "approved": 2445,
+        "needs_review": 3
+      },
+      "reasons": {
+        "ok": 2445,
+        "low_hand_visibility": 3
+      }
+    },
+    {
+      "manifest": "autsl20_validation.csv",
+      "total": 380,
+      "statuses": {
+        "approved": 378,
+        "needs_review": 2
+      },
+      "reasons": {
+        "ok": 378,
+        "low_hand_visibility": 2
+      }
+    },
+    {
+      "manifest": "autsl20_test.csv",
+      "total": 318,
+      "statuses": {
+        "approved": 318
+      },
+      "reasons": {
+        "ok": 318
+      }
+    }
+  ]
+}
