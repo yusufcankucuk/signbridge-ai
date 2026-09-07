@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
-    const { id } = params;
+export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+    const supabase = getSupabase();
+    const { id } = await params;
 
     // 1. Durumu ended olarak işaretle
     await supabase.from('consultation_sessions').update({ state: 'ended' }).eq('id', id);

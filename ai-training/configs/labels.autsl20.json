@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "1.0",
+  "vocabularyVersion": "autsl20-v1",
+  "dataset": "AUTSL",
+  "labels": [
+    {"index": 0, "classId": "doktor", "displayText": "Doktor", "originalClassId": 52, "trainingStatus": "trainable"},
+    {"index": 1, "classId": "eczane", "displayText": "Eczane", "originalClassId": 58, "trainingStatus": "trainable"},
+    {"index": 2, "classId": "evet", "displayText": "Evet", "originalClassId": 65, "trainingStatus": "trainable"},
+    {"index": 3, "classId": "gostermek", "displayText": "Göstermek", "originalClassId": 77, "trainingStatus": "trainable"},
+    {"index": 4, "classId": "hasta", "displayText": "Hasta", "originalClassId": 82, "trainingStatus": "trainable"},
+    {"index": 5, "classId": "hastane", "displayText": "Hastane", "originalClassId": 83, "trainingStatus": "trainable"},
+    {"index": 6, "classId": "hayir", "displayText": "Hayır", "originalClassId": 86, "trainingStatus": "trainable"},
+    {"index": 7, "classId": "icmek", "displayText": "İçmek", "originalClassId": 94, "trainingStatus": "trainable"},
+    {"index": 8, "classId": "igne", "displayText": "İğne", "originalClassId": 95, "trainingStatus": "trainable"},
+    {"index": 9, "classId": "ilac", "displayText": "İlaç", "originalClassId": 96, "trainingStatus": "trainable"},
+    {"index": 10, "classId": "iyi", "displayText": "İyi", "originalClassId": 100, "trainingStatus": "trainable"},
+    {"index": 11, "classId": "kaza", "displayText": "Kaza", "originalClassId": 108, "trainingStatus": "trainable"},
+    {"index": 12, "classId": "kotu", "displayText": "Kötü", "originalClassId": 122, "trainingStatus": "trainable"},
+    {"index": 13, "classId": "nerede", "displayText": "Nerede", "originalClassId": 138, "trainingStatus": "trainable"},
+    {"index": 14, "classId": "seker", "displayText": "Şeker", "originalClassId": 172, "trainingStatus": "trainable"},
+    {"index": 15, "classId": "tehlike", "displayText": "Tehlike", "originalClassId": 192, "trainingStatus": "trainable", "riskTier": "red_flag"},
+    {"index": 16, "classId": "tuvalet", "displayText": "Tuvalet", "originalClassId": 200, "trainingStatus": "trainable"},
+    {"index": 17, "classId": "yarabandi", "displayText": "Yara bandı", "originalClassId": 210, "trainingStatus": "trainable"},
+    {"index": 18, "classId": "yardim", "displayText": "Yardım", "originalClassId": 211, "trainingStatus": "trainable", "riskTier": "red_flag"},
+    {"index": 19, "classId": "yorgun", "displayText": "Yorgun", "originalClassId": 222, "trainingStatus": "trainable"}
+  ]
+}

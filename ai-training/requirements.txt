@@ -1,6 +1,11 @@
-# Python AI dependencies for SignBridge
-tensorflow
-mediapipe
-numpy
-pandas
-scikit-learn
+# SignBridge AI - Python 3.9 tested dependency set
+tensorflow==2.15.1
+mediapipe==0.10.14
+opencv-python-headless==4.10.0.84
+numpy==1.26.4
+pandas==2.2.2
+scikit-learn==1.5.1
+matplotlib==3.9.2
+seaborn==0.13.2
+pytest==8.3.2
+jsonschema==4.23.0

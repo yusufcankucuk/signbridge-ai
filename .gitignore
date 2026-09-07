@@ -27,6 +27,12 @@ data/interim/
 data/landmarks/
 artifacts/models/
 *.npz
+*.pkl
+*.keras
+*.h5
+saved_model/
+ai-training/outputs/
+ai-training/data/
 *.mp4
 *.avi
 *.mov

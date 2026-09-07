@@ -1,46 +1,134 @@
-# SignBridge 
+# SignBridge
 
-SignBridge, sağlık ortamlarında Türk İşaret Dili (TİD) kullanan hastalar ile işaret dili bilmeyen sağlık çalışanları arasında güvenli, çift yönlü iletişim kurmayı sağlayan yapay zeka destekli bir yardımcı sistemdir[cite: 1]. Bu depo, projenin "Önce Web" (Web-First) MVP sürümünü barındıran monorepo yapısıdır.
+SignBridge, Türk İşaret Dili (TİD) kullanan hasta ile işaret dili bilmeyen sağlık çalışanının tek cihaz üzerinden, hasta onaylı ve güvenli biçimde iletişim kurmasını hedefleyen öğrenci MVP'sidir.
 
-## 🔄 Geliştirme İş Akışı (GitHub Flow)
+## MVP kapsamı
 
-1.  **Ana Dallar:** `main` dalı her zaman çalışan ve demoya hazır kodu barındırır. Entegrasyonlar `develop` dalında birleştirilir.
-2.  **Feature Branch Kullanımı:** Yeni görevler için `feature/kisa-aciklama` formatında kısa ömürlü dallar açın.
-3.  **Pull Request (PR):** Değişiklikler `develop` dalına PR açılarak birleştirilir. En az bir kişi kod incelemesi (Code Review) yapmalıdır. 
-4.  **Entegrasyon Kuralı:** PR birleştirilirken projenin uçtan uca (Hasta -> Onay -> Doktor) tek cihazda çalıştığından ve `npm run build` komutunun hatasız tamamlandığından emin olunmalıdır.
+1. Hasta kameraya tek bir izole işaret yapar.
+2. AUTSL-20 modeli en olası sınıfı ve güven puanını üretir.
+3. Güven düşükse sistem tahmin yürütmez; yeniden deneme veya manuel seçim sunar.
+4. Hasta sonucu onaylar ya da düzeltir.
+5. Doktor yazılı/sesli yanıt verir ve hasta ekranda okur.
 
-## 🏗 Mimari ve Teknoloji Yığını
+Model tıbbi tanı koymaz, kesintisiz işaret dili cümlesi çözmez ve profesyonel tercümanın yerini almaz.
 
-*   **Frontend (Web/Mobil Geçişli):** Next.js (App Router), React, Tailwind CSS. Görüntüden iskelet çıkarma işlemi MediaPipe JS ile doğrudan tarayıcıda yapılır[cite: 1].
-*   **Backend & API:** Next.js API Routes (Node.js).
-*   **Veritabanı:** Supabase (Gerçek zamanlı akış) / Huawei GaussDB.
-*   **AI & Bulut Çekirdeği:** Huawei ModelArts (Çıkarım REST API), Huawei OBS (Model ve veri depolama)[cite: 1].
-*   **AI Eğitimi:** Python, PyTorch/MindSpore, 1D CNN/GRU[cite: 1].
+## Depo yapısı
 
-\`\`\`bash
-## 📂 Amaca Yönelik Depo Yapısı
+- `ai-training/`: veri manifestleri, ön işleme, eğitim, değerlendirme ve tahmin kodu
+- `signbridge-app/`: Next.js tek cihazlı görüşme uygulaması
+- `infrastructure/`: Supabase/GaussDB ve Huawei Cloud taslakları
+- `docs/`: API, durum makinesi ve AI sözleşmeleri
 
-* **`ai-training/`**: AI Veri hazırlığı, landmark çıkarımı (Python) ve ModelArts eğitim scriptleri.
-* **`signbridge-app/`**: Next.js Uygulaması (Kamera UI, Hasta/Doktor Ekranları, API Route'ları).
-* **`infrastructure/`**: AI API Mock JSON sözleşmeleri, veritabanı şemaları ve bulut ayarları.
-* **`docs/`**: Proje dokümantasyonu ve mimari kararlar.
-\`\`\`
+## Kolay başlangıç
 
-## 🚀 Kurulum ve Çalıştırma
+Komutları deponun ana klasöründe çalıştırın. Uygulamayı ilk kez deniyorsanız **Docker ile başlangıç** önerilir; web ve AI servisini tek komutla hazırlar.
 
-### Web (Next.js) Ortamını Başlatma
-\`\`\`bash
-cd web
-npm install
+Her iki yöntemde de aşağıdaki model çıktılarının mevcut olması gerekir:
+
+```text
+ai-training/outputs/saved_model/
+ai-training/outputs/runtime_config.json
+```
+
+PowerShell ile kontrol edebilirsiniz:
+
+```powershell
+Test-Path .\ai-training\outputs\saved_model
+Test-Path .\ai-training\outputs\runtime_config.json
+```
+
+İki komut da `True` döndürmelidir. Dosyalar yoksa önce [AI veri ve model kılavuzunu](ai-training/README.md) izleyerek modeli eğitin.
+
+### Seçenek 1 — Docker ile başlangıç
+
+Gerekenler: Docker Desktop ve çalışan bir Supabase projesi.
+
+1. Ayar dosyasını oluşturun:
+
+   ```powershell
+   Copy-Item .env.docker.example .env
+   notepad .env
+   ```
+
+2. `.env` içindeki `SUPABASE_URL` ve `SUPABASE_ANON_KEY` değerlerini Supabase projenizdeki gerçek değerlerle değiştirin.
+
+3. Sistemi oluşturup başlatın:
+
+   ```powershell
+   docker compose up --build -d
+   docker compose ps
+   ```
+
+4. `web` ve `ai-inference` durumları `healthy` olduğunda [http://localhost:3000](http://localhost:3000) adresini açın. İlk AI model yüklemesi bilgisayara göre 1-3 dakika sürebilir.
+
+5. İşiniz bittiğinde sistemi kapatın:
+
+   ```powershell
+   docker compose down
+   ```
+
+Bu komut model veya veri dosyalarını silmez. Docker içinde model eğitimi ve ayrıntılı açıklamalar için [Docker kılavuzuna](docs/docker.md) bakın.
+
+### Seçenek 2 — Docker olmadan başlangıç
+
+Gerekenler: Python 3.9, Node.js 22, npm ve çalışan bir Supabase projesi. AI ve web servisleri iki ayrı PowerShell penceresinde açık tutulur.
+
+#### 1. PowerShell — AI servisi
+
+```powershell
+cd ai-training
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.inference.txt
+$env:MODEL_PATH = (Resolve-Path .\outputs\saved_model).Path
+$env:RUNTIME_CONFIG_PATH = (Resolve-Path .\outputs\runtime_config.json).Path
+.\.venv\Scripts\python.exe -m uvicorn src.service:app --host 127.0.0.1 --port 8000
+```
+
+`Uvicorn running on http://127.0.0.1:8000` mesajını gördüğünüzde bu pencereyi açık bırakın.
+
+#### 2. PowerShell — Web uygulaması
+
+Yeni bir PowerShell penceresi açıp depo kökünden şu komutları çalıştırın:
+
+```powershell
+cd signbridge-app
+Copy-Item .env.example .env.local
+notepad .env.local
+```
+
+`.env.local` içinde şu üç değeri düzenleyin:
+
+```dotenv
+SUPABASE_URL=https://GERCEK_PROJE_ADI.supabase.co
+SUPABASE_ANON_KEY=GERCEK_SUPABASE_ANON_KEY
+AI_SERVICE_URL=http://127.0.0.1:8000
+```
+
+Ardından web uygulamasını başlatın:
+
+```powershell
+npm ci
 npm run dev
-\`\`\`
-Uygulama `http://localhost:3000` adresinde çalışacaktır. Ortam değişkenlerini `.env.local` dosyasına eklemeyi unutmayın.
+```
 
-### AI Ortamını Başlatma
-\`\`\`bash
-cd ai
-python -m venv venv
-source venv/bin/activate  # Windows için: venv\Scripts\activate
-pip install -r requirements.txt
-\`\`\`
+[http://localhost:3000](http://localhost:3000) adresini açın. Servisleri kapatmak için iki PowerShell penceresinde de `Ctrl+C` tuşlarına basın.
 
+### Çalıştığını kontrol etme
+
+Web sağlık kontrolü:
+
+```powershell
+Invoke-RestMethod http://localhost:3000/api/health
+```
+
+Başarılı sonuçta `status` alanı `ok` olur. Sorun yaşarsanız Docker için `docker compose logs --tail 100 web ai-inference`, Docker olmadan çalıştırmada ise iki PowerShell penceresindeki hata mesajlarını kontrol edin.
+
+AI hattının ayrıntıları [ai-training/README.md](ai-training/README.md), uygulama akışı [docs/api-and-state-machine.md](docs/api-and-state-machine.md), entegrasyon veri biçimi ise [docs/ai-contract.md](docs/ai-contract.md) dosyasındadır.
+
+## Dal düzeni
+
+- `main`: gösterime hazır sürüm
+- `develop`: entegrasyon dalı
+- `feature/...`: tek görevlik geliştirme dalı
+
+Her değişiklik `develop` dalına pull request ile alınmalı; birleşmeden önce ilgili testler ve `npm run build` çalıştırılmalıdır.
