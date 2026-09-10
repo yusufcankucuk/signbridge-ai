@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://signbridge.local/schemas/prediction-v1.json",
+  "title": "SignBridgePrediction",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "classId",
+    "displayText",
+    "confidence",
+    "alternatives",
+    "isLowConfidence",
+    "predictionMode",
+    "modelVersion",
+    "preprocessingVersion",
+    "vocabularyVersion"
+  ],
+  "properties": {
+    "classId": {"type": ["string", "null"]},
+    "displayText": {"type": "string", "minLength": 1},
+    "confidence": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+    "alternatives": {"type": "array", "items": {"type": "string"}, "maxItems": 3},
+    "isLowConfidence": {"type": "boolean"},
+    "predictionMode": {"enum": ["model", "mock", "manual"]},
+    "modelVersion": {"type": ["string", "null"]},
+    "preprocessingVersion": {"type": "string"},
+    "vocabularyVersion": {"type": "string"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"isLowConfidence": {"const": true}}},
+      "then": {"properties": {"classId": {"type": "null"}}}
+    },
+    {
+      "if": {"properties": {"predictionMode": {"const": "manual"}}},
+      "then": {
+        "properties": {
+          "confidence": {"type": "null"},
+          "modelVersion": {"type": "null"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"predictionMode": {"const": "model"}}},
+      "then": {"properties": {"modelVersion": {"type": "string", "minLength": 1}}}
+    }
+  ]
+}
