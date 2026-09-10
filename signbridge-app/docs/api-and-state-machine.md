@@ -34,8 +34,8 @@ Tüm API istekleri **POST** metodu ile yapılmalı ve oturum akışına uygun ol
   * *Body:* (Boş)
   * *Açıklama:* Yeni bir oturum başlatır ve dönen yanıttan oturum `id` değeri alınır.
 * **Adım 2:** `/api/consultations/[id]/prediction`
-  * *Body (JSON):* `{ "classId": "bas_agrisi", "displayText": "Başım ağrıyor", "confidence": 0.92 }`
-  * *Açıklama:* Hastanın kamera kaydı sonucunda üretilen mock (örnek) tahmin API'ye iletilir.
+  * *Body (JSON):* `ai-training/examples/prediction-success.json` biçimindeki sürümlü tahmin sözleşmesi.
+  * *Açıklama:* Model, mock veya manuel seçim sonucu API'ye iletilir. Düşük güvenli model çıktısında `classId` boş kalır ve hasta yeniden çekim/manuel seçim akışına yönlendirilir.
 * **Adım 3:** `/api/consultations/[id]/confirm`
   * *Body (JSON):* `{ "confirmed": true }`
   * *Açıklama:* Hasta tahmini onaylar ve durum doktora (`doctor_review`) geçer.

@@ -1,0 +1,38 @@
+{
+  "dataRoot": "<SIGNBRIDGE_DATA_ROOT>",
+  "autsl20": {
+    "splits": {
+      "train": 2448,
+      "validation": 380,
+      "test": 318
+    },
+    "classes": {
+      "doktor": 140,
+      "eczane": 153,
+      "evet": 160,
+      "gostermek": 161,
+      "hasta": 164,
+      "hastane": 163,
+      "hayir": 158,
+      "icmek": 159,
+      "igne": 145,
+      "ilac": 157,
+      "iyi": 164,
+      "kaza": 161,
+      "kotu": 163,
+      "nerede": 164,
+      "seker": 121,
+      "tehlike": 164,
+      "tuvalet": 163,
+      "yarabandi": 163,
+      "yardim": 161,
+      "yorgun": 162
+    },
+    "total": 3146
+  },
+  "meb16": {
+    "total": 16,
+    "manualSelectable": 12,
+    "trainingStatus": "reference_only"
+  }
+}

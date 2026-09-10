@@ -1,0 +1,11 @@
+{
+  "classId": null,
+  "displayText": "İşaret kesin olarak anlaşılamadı.",
+  "confidence": 0.43,
+  "alternatives": ["yardim", "tehlike", "kotu"],
+  "isLowConfidence": true,
+  "predictionMode": "model",
+  "modelVersion": "autsl20-bigru-v0.1.0",
+  "preprocessingVersion": "landmark46-v1",
+  "vocabularyVersion": "autsl20-v1"
+}

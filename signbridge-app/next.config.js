@@ -2,6 +2,10 @@
 const nextConfig = {
     // Separate validation output from a developer's running preview.
     distDir: process.env.SIGNBRIDGE_BUILD_DIR || '.next',
+  output: 'standalone',
+  turbopack: {
+    root: __dirname,
+  },
 };
 
 module.exports = nextConfig;

@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "1.0",
+  "vocabularyVersion": "meb16-v1",
+  "dataset": "MEB Sağlık Tematik Sözlüğü",
+  "sourceUrl": "https://orgm.meb.gov.tr/icdep/saglik-tematik-sozlukleri-107",
+  "labels": [
+    {"classId": "aci", "displayText": "Acı", "sourceFile": "aci.mp4", "trainingStatus": "reference_only", "manualSelectable": false, "note": "Ağrı ile ilk sürümde çakışmaması için katalogda tutulur."},
+    {"classId": "agri", "displayText": "Ağrı", "sourceFile": "agri.mp4", "trainingStatus": "reference_only", "manualSelectable": true},
+    {"classId": "astim", "displayText": "Astım", "sourceFile": "astim.mp4", "sourceSignerId": "meb_official_02", "trainingStatus": "reference_only", "manualSelectable": true},
+    {"classId": "ates", "displayText": "Ateş", "sourceFile": "ates.mp4", "trainingStatus": "reference_only", "manualSelectable": true},
+    {"classId": "bas", "displayText": "Baş", "sourceFile": "bas.mp4", "sourceSignerId": "meb_official_03", "trainingStatus": "reference_only", "manualSelectable": false, "note": "Tek başına şikâyet olmadığı için ilk menüde gösterilmez."},
+    {"classId": "bas_donmesi", "displayText": "Baş dönmesi", "sourceFile": "bas-donmesi.mp4", "trainingStatus": "reference_only", "manualSelectable": true},
+    {"classId": "dokuntu_alerji", "displayText": "Döküntü / alerji", "sourceFile": "dokuntu-alerji-icin.mp4", "trainingStatus": "reference_only", "manualSelectable": true},
+    {"classId": "grip", "displayText": "Grip / nezle", "sourceFile": "grip.mp4", "trainingStatus": "reference_only", "manualSelectable": false, "note": "Belirti yerine tanı gibi algılanabileceği için ilk menüde gösterilmez."},
+    {"classId": "kalp_carpintisi", "displayText": "Kalp çarpıntısı", "sourceFile": "kalp-carpintisi.mp4", "trainingStatus": "reference_only", "manualSelectable": true},
+    {"classId": "kalp_krizi", "displayText": "Kalp krizi işareti", "sourceFile": "kalp-krizi.mp4", "trainingStatus": "reference_only", "manualSelectable": true, "riskTier": "red_flag", "requiresConfirmation": true},
+    {"classId": "kanama", "displayText": "Kanama", "sourceFile": "kanama.mp4", "trainingStatus": "reference_only", "manualSelectable": true, "riskTier": "red_flag", "requiresConfirmation": true},
+    {"classId": "kuduz", "displayText": "Kuduz", "sourceFile": "kuduz.mp4", "trainingStatus": "reference_only", "manualSelectable": false, "note": "İlk demo için düşük öncelikli özel durum."},
+    {"classId": "kusma", "displayText": "Kusma", "sourceFile": "kusma.mp4", "trainingStatus": "reference_only", "manualSelectable": true},
+    {"classId": "oksurmek", "displayText": "Öksürmek", "sourceFile": "oksurmek.mp4", "trainingStatus": "reference_only", "manualSelectable": true},
+    {"classId": "seker_hastaligi", "displayText": "Şeker hastalığı", "sourceFile": "seker-hastaligi.mp4", "trainingStatus": "reference_only", "manualSelectable": true},
+    {"classId": "yanik", "displayText": "Yanık", "sourceFile": "yanik.mp4", "trainingStatus": "reference_only", "manualSelectable": true, "riskTier": "red_flag", "requiresConfirmation": true}
+  ]
+}

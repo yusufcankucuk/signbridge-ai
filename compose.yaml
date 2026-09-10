@@ -1,0 +1,120 @@
+name: signbridge
+
+services:
+  ai-inference:
+    # tensorflow-cpu 2.15.x Linux ARM64 wheel sağlamadığı için Apple Silicon'da emülasyon kullanılır.
+    platform: linux/amd64
+    build:
+      context: ./ai-training
+      dockerfile: Dockerfile
+    image: signbridge/ai-inference:0.1.0
+    environment:
+      MODEL_PATH: /models/saved_model
+      RUNTIME_CONFIG_PATH: /models/runtime_config.json
+      TF_CPP_MIN_LOG_LEVEL: "2"
+    volumes:
+      - type: bind
+        source: ${MODEL_DIR:-./ai-training/outputs}
+        target: /models
+        read_only: true
+    expose:
+      - "8000"
+    networks:
+      - backend
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=134217728
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 2g
+    cpus: 2.0
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 30s
+
+  web:
+    build:
+      context: ./signbridge-app
+      dockerfile: Dockerfile
+    image: signbridge/web:0.1.0
+    environment:
+      NODE_ENV: production
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
+      AI_PROVIDER: ${AI_PROVIDER:-local}
+      AI_FALLBACK_PROVIDER: ${AI_FALLBACK_PROVIDER:-none}
+      MODELARTS_ENABLED: ${MODELARTS_ENABLED:-false}
+      AI_LOCAL_URL: http://ai-inference:8000
+      AI_EXPECTED_MODEL_VERSION: ${AI_EXPECTED_MODEL_VERSION:-autsl20-bigru-v0.1.0}
+      AI_EXPECTED_PREPROCESSING_VERSION: ${AI_EXPECTED_PREPROCESSING_VERSION:-landmark46-v1}
+      AI_EXPECTED_VOCABULARY_VERSION: ${AI_EXPECTED_VOCABULARY_VERSION:-autsl20-v1}
+      MODELARTS_ENDPOINT: ${MODELARTS_ENDPOINT:-}
+      MODELARTS_AUTH_TOKEN: ${MODELARTS_AUTH_TOKEN:-}
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      ai-inference:
+        condition: service_healthy
+    networks:
+      - frontend
+      - backend
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=67108864
+      - /app/.next/cache:rw,noexec,nosuid,size=67108864
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 1g
+    cpus: 1.0
+    init: true
+    restart: unless-stopped
+    stop_grace_period: 20s
+
+  ai-training:
+    platform: linux/amd64
+    profiles:
+      - training
+    build:
+      context: ./ai-training
+      dockerfile: Dockerfile.train
+    image: signbridge/ai-training:0.1.0
+    environment:
+      SIGNBRIDGE_DATA_ROOT: /data
+      TF_CPP_MIN_LOG_LEVEL: "2"
+    volumes:
+      - type: bind
+        source: ${SIGNBRIDGE_DATA_ROOT:-./data}
+        target: /data
+      - type: bind
+        source: ${MODEL_DIR:-./ai-training/outputs}
+        target: /outputs
+      - type: bind
+        source: ./ai-training/manifests
+        target: /app/manifests
+    networks:
+      - backend
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=536870912
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 512
+    mem_limit: 6g
+    cpus: 4.0
+    init: true
+    restart: "no"
+
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+    internal: true

@@ -6,16 +6,23 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
     "lint": "next lint",
     "dev:frontend": "node scripts/frontend.cjs dev",
     "build:frontend": "node scripts/frontend.cjs build",
     "start:frontend": "node scripts/frontend.cjs start",
     "test:frontend": "node --test tests/frontend-flow.test.cjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:ai-providers": "node --test --test-concurrency=1 tests/ai-provider-integration.test.mjs",
+    "check:client-secrets": "node scripts/check-client-secrets.mjs",
+    "smoke:ai-service": "node scripts/smoke-ai-service.mjs",
+    "smoke:modelarts": "node --env-file=.env.local scripts/smoke-ai-service.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.115.0",
-    "next": "14.2.3",
+    "next": "16.3.4",
     "react": "^18",
     "react-dom": "^18"
   },
@@ -24,8 +31,8 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "autoprefixer": "^10.5.4",
-    "eslint": "^8",
-    "eslint-config-next": "14.2.3",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.4",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"
