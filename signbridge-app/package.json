@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:demo-services": "node --test tests/demo-services.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.115.0",

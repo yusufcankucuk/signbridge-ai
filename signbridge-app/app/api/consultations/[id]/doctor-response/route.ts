@@ -11,11 +11,21 @@ export async function POST(request: Request, { params }: { params: { id: string 
         return NextResponse.json({ error: 'Geçersiz durum geçişi.' }, { status: 409 });
     }
 
-    if (!payload.transcript) {
+    if (typeof payload.transcript !== 'string' || !payload.transcript.trim()) {
         return NextResponse.json({ error: 'Doktor yanıtı boş olamaz.' }, { status: 400 });
     }
 
-    await supabase.from('interaction_events').insert([{ session_id: id, type: 'doctor_response', payload }]);
+    if (payload.source !== 'speech' && payload.source !== 'text') {
+        return NextResponse.json({ error: 'Yanıt kaynağı speech veya text olmalıdır.' }, { status: 400 });
+    }
+
+    const doctorResponse = {
+        transcript: payload.transcript.trim(),
+        source: payload.source,
+        edited: payload.edited === true
+    };
+
+    await supabase.from('interaction_events').insert([{ session_id: id, type: 'doctor_response', payload: doctorResponse }]);
     await supabase.from('consultation_sessions').update({ state: 'patient_review' }).eq('id', id);
 
     return NextResponse.json({ success: true, message: 'Yanıt hastaya iletildi.' });
