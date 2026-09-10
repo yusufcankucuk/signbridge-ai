@@ -6,6 +6,8 @@ Docker yapısı üç parçadan oluşur:
 - `ai-inference`: Eğitilmiş modeli yükleyen FastAPI servisi; yalnızca Docker iç ağından erişilir.
 - `ai-training`: Veri hazırlama ve model eğitimi için isteğe bağlı tek seferlik iş.
 
+AI imajları `tensorflow-cpu==2.15.1` ile uyumluluk için `linux/amd64` platformunda çalışır. Apple Silicon bilgisayarlarda Docker Desktop bu imajları emülasyonla çalıştırır; ilk build ve model yükleme daha uzun sürebilir.
+
 Supabase bu deponun parçası değildir. Web konteyneri, Huawei/Supabase üzerinde mevcut olan projeye ortam değişkenleriyle bağlanır.
 
 ## Ön koşullar

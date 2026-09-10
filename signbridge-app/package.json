@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test:ai-providers": "node --test --test-concurrency=1 tests/ai-provider-integration.test.mjs",
+    "check:client-secrets": "node scripts/check-client-secrets.mjs",
+    "smoke:ai-service": "node scripts/smoke-ai-service.mjs",
+    "smoke:modelarts": "node --env-file=.env.local scripts/smoke-ai-service.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.115.0",
