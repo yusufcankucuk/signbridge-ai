@@ -6,7 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "dev:frontend": "node scripts/frontend.cjs dev",
+    "build:frontend": "node scripts/frontend.cjs build",
+    "start:frontend": "node scripts/frontend.cjs start",
+    "test:frontend": "node --test tests/frontend-flow.test.cjs",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.115.0",

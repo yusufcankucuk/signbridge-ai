@@ -1,0 +1,151 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@media print {
+    body { background: white !important; }
+    body * { visibility: hidden; }
+    #print-document, #print-document * { visibility: visible; }
+    #print-document { position: absolute; inset: 0; width: 100%; padding: 5mm; color: #111; background: white; }
+    body, body > div, .sb-shell-viewport, #icerik, .sb-screen-body { height: auto !important; max-height: none !important; overflow: visible !important; display: block !important; width: 100% !important; max-width: none !important; padding: 0 !important; margin: 0 !important; border: 0 !important; box-shadow: none !important; }
+    #print-document section { break-inside: avoid; box-shadow: none; }
+    .print-actions, .skip-link, header { display: none !important; }
+    @page { size: A4; margin: 10mm; }
+}
+
+/* ==========================================================================
+   SignBridge — temel katman
+   Erişilebilirlik öncelikli: büyük taban punto, güçlü kontrast,
+   her zaman görünür odak halkası, hareket azaltma desteği.
+   ========================================================================== */
+
+:root {
+    --sb-brand: #0e6068;
+    --sb-brand-strong: #0a5057;
+    --sb-doctor: #12507e;
+    --sb-canvas: #fafbfd;
+    --sb-ink: #0b1220;
+    --sb-ink-body: #334155;
+    --sb-line: #e2e8f0;
+    --sb-focus: #61adb4;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    min-height: 100%;
+}
+
+html {
+    /* Tarayıcı yazı tipi ayarını bozmadan tabanı 18px'e taşır */
+    font-size: 100%;
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    background: var(--sb-canvas);
+    color: var(--sb-ink);
+    font-family:
+        "Segoe UI",
+        system-ui,
+        -apple-system,
+        Roboto,
+        Arial,
+        sans-serif;
+    font-size: 1.125rem; /* 18px */
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+textarea,
+select {
+    font: inherit;
+    color: inherit;
+}
+
+button {
+    -webkit-tap-highlight-color: transparent;
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+/* Odak: klavye kullanıcısı için her yerde kalın ve yüksek kontrastlı */
+:focus-visible {
+    outline: 4px solid var(--sb-focus);
+    outline-offset: 2px;
+    border-radius: 6px;
+}
+
+/* Fare/dokunma ile tıklamada halka gösterilmez */
+:focus:not(:focus-visible) {
+    outline: none;
+}
+
+/* Metin seçimi */
+::selection {
+    background: #c6e4e6;
+    color: var(--sb-ink);
+}
+
+/* Ekran okuyucuya özel içerik */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+/* "İçeriğe geç" bağlantısı — odaklanınca görünür olur */
+.skip-link {
+    position: absolute;
+    left: 50%;
+    top: -100px;
+    z-index: 50;
+    transform: translateX(-50%);
+    background: var(--sb-brand);
+    color: #fff;
+    padding: 0.75rem 1.25rem;
+    border-radius: 0 0 0.875rem 0.875rem;
+    font-weight: 700;
+    transition: top 180ms ease;
+}
+
+.skip-link:focus {
+    top: 0;
+}
+
+/* Hareketi azalt tercihi */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* Yüksek kontrast tercihi: kenarları belirginleştir */
+@media (prefers-contrast: more) {
+    :root {
+        --sb-line: #94a3b8;
+        --sb-ink-body: #0b1220;
+    }
+}

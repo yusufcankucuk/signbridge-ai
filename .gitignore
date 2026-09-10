@@ -1,6 +1,9 @@
 # Node.js & Next.js (web & cloud)
 node_modules/
 .next/
+.next-check/
+.next-preview/
+*.tsbuildinfo
 out/
 build/
 dist/
