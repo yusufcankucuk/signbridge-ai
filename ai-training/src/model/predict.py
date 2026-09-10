@@ -10,10 +10,36 @@ from src.common import autsl_labels, load_json
 from src.model.dataset import sequence_to_features
 
 
-def predict_landmarks(model, landmarks: np.ndarray, mask: np.ndarray, runtime: dict[str, object]) -> dict[str, object]:
-    labels = autsl_labels()
+def validate_bundle(model, runtime: dict[str, object], labels: list[dict[str, object]]) -> None:
+    if [x["index"] for x in labels] != list(range(len(labels))):
+        raise ValueError("Etiket indeks sırası geçersiz.")
+    if len({x["classId"] for x in labels}) != len(labels):
+        raise ValueError("Etiketler benzersiz olmalıdır.")
+    if tuple(model.input_shape[1:]) != (60, 138) or model.output_shape[-1] != len(labels):
+        raise ValueError("Model girdi/çıktı boyutu etiketlerle uyumsuz.")
+    threshold = float(runtime["confidenceThreshold"])
+    if not np.isfinite(threshold) or not 0 <= threshold <= 1:
+        raise ValueError("Güven eşiği geçersiz.")
+    if runtime["preprocessingVersion"] != "landmark46-v1" or runtime["vocabularyVersion"] != "autsl20-v1":
+        raise ValueError("Desteklenmeyen paket sürümü.")
+    if labels != autsl_labels():
+        raise ValueError("Paket etiket sırası/sözlüğü mevcut model sözleşmesiyle uyumsuz.")
+
+
+def predict_landmarks(
+    model,
+    landmarks: np.ndarray,
+    mask: np.ndarray,
+    runtime: dict[str, object],
+    labels: list[dict[str, object]] | None = None,
+) -> dict[str, object]:
+    labels = autsl_labels() if labels is None else labels
     features = sequence_to_features(landmarks, mask)
     probabilities = model.predict(features[None, ...], verbose=0)[0]
+    if probabilities.shape != (len(labels),) or not np.isfinite(probabilities).all():
+        raise ValueError("Model geçersiz skor üretti.")
+    if (probabilities < 0).any() or (probabilities > 1).any() or not np.isclose(probabilities.sum(), 1, atol=1e-4):
+        raise ValueError("Model skoru olasılık vektörü değil.")
     ordered = np.argsort(probabilities)[::-1]
     winner = int(ordered[0])
     confidence = float(probabilities[winner])
@@ -39,7 +65,9 @@ def predict_npz(model_path: Path, input_path: Path, runtime_config_path: Path) -
         landmarks = data["landmarks"]
         mask = data["mask"]
     model = tf.keras.models.load_model(str(model_path))
-    return predict_landmarks(model, landmarks, mask, runtime)
+    labels = autsl_labels()
+    validate_bundle(model, runtime, labels)
+    return predict_landmarks(model, landmarks, mask, runtime, labels)
 
 
 def main() -> None:

@@ -7,10 +7,11 @@ from typing import Any, Optional
 
 import numpy as np
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, StrictInt
 
-from src.common import load_json
-from src.model.predict import predict_landmarks
+from src.common import CONFIG_DIR, load_json
+from src.model.predict import predict_landmarks, validate_bundle
+from src.model.dataset import sequence_to_features
 
 
 class PredictionRequest(BaseModel):
@@ -19,7 +20,7 @@ class PredictionRequest(BaseModel):
     sessionId: Optional[str] = None
     preprocessingVersion: str
     landmarks: list[list[list[float]]]
-    mask: list[list[int]]
+    mask: list[list[StrictInt]]
 
 
 state: dict[str, Any] = {}
@@ -36,8 +37,16 @@ async def lifespan(_app: FastAPI):
     runtime = load_json(runtime_path)
     state["runtime"] = runtime
     state["model"] = tf.keras.models.load_model(str(model_path))
-    yield
-    state.clear()
+    label_path = Path(os.getenv("LABELS_PATH", str(CONFIG_DIR / "labels.autsl20.json")))
+    label_config = load_json(label_path)
+    if label_config["vocabularyVersion"] != runtime["vocabularyVersion"]:
+        raise RuntimeError("Etiket sözlüğü sürümü uyumsuz.")
+    state["labels"] = label_config["labels"]
+    validate_bundle(state["model"], runtime, state["labels"])
+    try:
+        yield
+    finally:
+        state.clear()
 
 
 app = FastAPI(title="SignBridge AI Inference", version="0.1.0", lifespan=lifespan)
@@ -60,10 +69,11 @@ def predict(request: PredictionRequest) -> dict[str, object]:
     if request.preprocessingVersion != runtime["preprocessingVersion"]:
         raise HTTPException(status_code=409, detail="Ön işleme sürümü modelle uyumlu değil.")
 
-    landmarks = np.asarray(request.landmarks, dtype=np.float32)
-    mask = np.asarray(request.mask, dtype=np.uint8)
-    if landmarks.shape != (60, 46, 2) or mask.shape != (60, 46):
-        raise HTTPException(status_code=422, detail="Beklenen şekil landmarks=(60,46,2), mask=(60,46).")
-    if not np.isfinite(landmarks).all() or not np.isin(mask, [0, 1]).all():
-        raise HTTPException(status_code=422, detail="Landmark değerleri sonlu, mask değerleri 0 veya 1 olmalıdır.")
-    return predict_landmarks(model, landmarks, mask, runtime)
+    try:
+        landmarks = np.asarray(request.landmarks, dtype=np.float32)
+        # Validate BEFORE narrowing: 256 must not wrap into uint8(0).
+        mask = np.asarray(request.mask)
+        sequence_to_features(landmarks, mask)
+    except (ValueError, TypeError, OverflowError):
+        raise HTTPException(status_code=422, detail="Geçersiz boyut/sayı veya boş/geçersiz mask.")
+    return predict_landmarks(model, landmarks, mask.astype(np.uint8), runtime, state.get("labels"))

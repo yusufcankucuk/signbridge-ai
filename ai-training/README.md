@@ -4,6 +4,13 @@ Bu klasör AUTSL poz verisini güvenli bir eğitim biçimine dönüştürür, 20
 
 Kaynak ve kullanım kararları [DATASETS.md](DATASETS.md) dosyasında kayıtlıdır.
 
+## Haftalık kamera, eşik ve teslim çalışması
+
+Yeni araçların adım adım kullanımı: [AI haftalık doğrulama kılavuzu](../docs/ai-weekly-validation.md).
+Gerçek ölçümler ve tamamlanmamış işler: [10 Eylül teslim raporu](reports/weekly-validation-2026-09-10.md).
+`runs/` kişiye/veriye bağlı yerel kanıtlardır, Git'e eklenmez. Kamera denemeleri ve bulut çalışması
+ayrıca doğrulanmadan tamamlandı sayılmaz.
+
 ## 1. Veri dizini
 
 Ham veriler büyük ve lisanslı olduğu için Git'e eklenmez. Dizin şu yapıda olmalıdır:

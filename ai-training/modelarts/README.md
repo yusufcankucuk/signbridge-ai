@@ -1,5 +1,18 @@
 # Huawei ModelArts çalıştırma notları
 
+## Buluta geçmeden önce
+
+Önce `docs/ai-weekly-validation.md` içindeki yerel doğrulama ve paketleme adımlarını tamamlayın. ModelArts hesabı veya kaynak yetkisi hazır değilse bulutta çalıştırılmış gibi kayıt oluşturmayın; sürümlü paketi ve yerel smoke test sonucunu teslim edin.
+
+Sürüm paketi şu komutla hazırlanır:
+
+```powershell
+$dataRoot = 'C:\Users\yunusozdemir\Desktop\huawei staj\ai icin kullanilacak kaynaklar'
+python -m src.package_release --data-root $dataRoot --output runs/release
+```
+
+Paketin içindeki `data/manifests` dosyaları yalnızca paket içindeki göreli NPZ yollarını kullanır. Böylece yerel bilgisayara özgü `C:\...` yolları ModelArts'a taşınmaz.
+
 ## OBS dizini
 
 Önce yerelde üretilen `processed/autsl20/landmark46-v1` dizinini, manifest CSV'lerini ve `configs` dosyalarını bir OBS klasörüne yükleyin. Ham PKL/video yüklemek zorunlu değildir.
@@ -22,7 +35,18 @@ Eğitim kodunu ayrı bir OBS klasörüne yükleyin veya Git deposundan bağlayı
 --batch-size=32
 ```
 
-`train_start.py`, OBS adreslerini ModelArts geçici diskine kopyalar, ortak `src/train.py` dosyasını çalıştırır ve çıktıları yeniden OBS'ye gönderir. İş başlamadan önce seçilen ModelArts imajında `requirements.txt` bağımlılıklarının kurulabildiği doğrulanmalıdır.
+`train_start.py`, OBS adreslerini ModelArts geçici diskine kopyalar, indirilen `manifests/` dizinini açıkça eğitim koduna iletir, ortak `src/train.py` dosyasını çalıştırır ve çıktıları yeniden OBS'ye gönderir. İş başlamadan önce seçilen ModelArts imajında `requirements.txt` bağımlılıklarının kurulabildiği doğrulanmalıdır.
+
+Tam eğitimden önce aynı giriş dosyasını yerelde bir epoch ve sınıf başına en fazla iki örnekle sınayın:
+
+```powershell
+python modelarts/train_start.py `
+  --data_url runs/release/data `
+  --train_url runs/modelarts-smoke `
+  --smoke
+```
+
+Bu çalıştırma yalnızca veri yollarının, eğitimin, model kaydının ve yeniden yüklemenin çalıştığını doğrular. Üretilen metrik bir başarı ölçümü değildir ve mevcut başarılı modelin üzerine yazılmaz.
 
 ## Dağıtım
 

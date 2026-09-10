@@ -30,14 +30,20 @@ def main() -> None:
     parser.add_argument("--train_url", required=True)
     parser.add_argument("--epochs", default="50")
     parser.add_argument("--batch-size", default="32")
+    parser.add_argument("--manifest-dir", help="Downloaded data manifests; defaults to data_url/manifests")
     args, unknown = parser.parse_known_args()
 
     ai_root = Path(__file__).resolve().parents[1]
-    local_data = Path("/cache/signbridge-data") if _is_obs(args.data_url) else Path(args.data_url)
-    local_output = Path("/cache/signbridge-output") if _is_obs(args.train_url) else Path(args.train_url)
+    local_data = Path("/cache/signbridge-data") if _is_obs(args.data_url) else Path(args.data_url).resolve()
+    local_output = Path("/cache/signbridge-output") if _is_obs(args.train_url) else Path(args.train_url).resolve()
     if _is_obs(args.data_url):
         _copy_from_obs(args.data_url, local_data)
     local_output.mkdir(parents=True, exist_ok=True)
+    if any(local_output.iterdir()):
+        raise ValueError("Çıktı dizini boş olmalıdır; mevcut modelin üzerine yazılmaz.")
+    manifest_dir = Path(args.manifest_dir).resolve() if args.manifest_dir else local_data / "manifests"
+    if not manifest_dir.is_dir():
+        raise FileNotFoundError(f"Taşınmış manifest dizini eksik: {manifest_dir}")
 
     command = [
         sys.executable,
@@ -45,6 +51,8 @@ def main() -> None:
         "src.train",
         "--data-root",
         str(local_data),
+        "--manifest-dir",
+        str(manifest_dir),
         "--output-dir",
         str(local_output),
         "--epochs",
