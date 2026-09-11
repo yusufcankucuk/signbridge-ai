@@ -68,6 +68,15 @@ export function createHttpAiProvider(options: HttpAiProviderOptions): AiProvider
                 );
             }
 
+            if (response.status === 401 || response.status === 403) {
+                throw new AiServiceError(
+                    AI_ERROR_CODES.AUTHENTICATION_ERROR,
+                    'AI servisi kimlik doğrulamasını kabul etmedi.',
+                    503,
+                    false,
+                );
+            }
+
             if (!response.ok) {
                 throw new AiServiceError(
                     AI_ERROR_CODES.UNAVAILABLE,

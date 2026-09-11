@@ -34,8 +34,8 @@ Tüm API istekleri **POST** metodu ile yapılmalı ve oturum akışına uygun ol
   * *Body:* (Boş)
   * *Açıklama:* Yeni bir oturum başlatır ve dönen yanıttan oturum `id` değeri alınır.
 * **Adım 2:** `/api/consultations/[id]/prediction`
-  * *Body (JSON):* `ai-training/examples/prediction-success.json` biçimindeki sürümlü tahmin sözleşmesi.
-  * *Açıklama:* Model, mock veya manuel seçim sonucu API'ye iletilir. Düşük güvenli model çıktısında `classId` boş kalır ve hasta yeniden çekim/manuel seçim akışına yönlendirilir.
+  * *Body (JSON):* `landmarks: number[60][46][2]`, `mask: number[60][46]` ve `preprocessingVersion: "landmark46-v1"`.
+  * *Açıklama:* Next.js backend seçili gerçek AI provider'ını çağırır, doğrulanan model sonucunu kaydeder ve oturumu `patient_confirmation` durumuna geçirir. İstemciden hazır mock/tahmin sonucu kabul edilmez.
 * **Adım 3:** `/api/consultations/[id]/confirm`
   * *Body (JSON):* `{ "confirmed": true }`
   * *Açıklama:* Hasta tahmini onaylar ve durum doktora (`doctor_review`) geçer.
@@ -45,6 +45,14 @@ Tüm API istekleri **POST** metodu ile yapılmalı ve oturum akışına uygun ol
 * **Adım 5:** `/api/consultations/[id]/end`
   * *Body:* (Boş)
   * *Açıklama:* Oturum sonlandırılır ve hastanın tüm hassas verileri temizlenir.
+
+Doktor yanıtından sonra görüşmeye devam edilecekse bitirme yerine:
+
+* **Yeni tur:** `/api/consultations/[id]/next`
+  * *Body:* (Boş)
+  * *Açıklama:* Yalnız `patient_review` durumundan `patient_capture` durumuna geçerek yeni iletişim turunu başlatır.
+
+Tekrarlanabilir tam tur testi `npm run test:e2e-session` komutuyla çalıştırılır. Ayrıntılı kanıt ve gerçek local FastAPI doğrulaması `docs/session-flow-e2e.md` belgesindedir.
 
 ### Yöntem 2: Backend Durum Makinesi Mantık Testi
 

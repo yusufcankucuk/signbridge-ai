@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase';
+import { validateEmptyRequest } from '@/lib/apiValidation';
 
-export async function POST() {
+export async function POST(request: Request) {
+    const validation = await validateEmptyRequest(request);
+    if (!validation.ok) return NextResponse.json({ error: validation.error }, { status: validation.status });
     const supabase = getSupabase();
     const expiresAt = new Date(Date.now() + 30 * 60000).toISOString(); // 30 dk sonra expire
 
@@ -12,7 +15,7 @@ export async function POST() {
         .single();
 
     if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: 'Oturum oluşturulamadı.' }, { status: 500 });
     }
 
     return NextResponse.json(data, { status: 201 });
