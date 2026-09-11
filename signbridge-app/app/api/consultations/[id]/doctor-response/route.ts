@@ -1,22 +1,23 @@
 import { NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase';
 import { SessionManager } from '@/lib/stateMachine';
+import { readJsonObject } from '@/lib/apiValidation';
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
     const supabase = getSupabase();
     const { id } = await params;
-    let body: unknown;
-    try {
-        body = await request.json();
-    } catch {
-        return NextResponse.json({ error: 'Geçerli bir JSON gövdesi gönderilmelidir.' }, { status: 400 });
-    }
-    if (typeof body !== 'object' || body === null) {
-        return NextResponse.json({ error: 'Doktor yanıtı geçerli bir nesne olmalıdır.' }, { status: 400 });
-    }
+    const parsed = await readJsonObject(request, {
+        maxBytes: 8 * 1024,
+        allowedFields: ['transcript', 'source', 'edited'],
+    });
+    if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: parsed.status });
+    const body = parsed.value;
     const payload = body as { transcript?: unknown; source?: unknown; edited?: unknown };
     if (typeof payload.transcript !== 'string' || !payload.transcript.trim()) {
         return NextResponse.json({ error: 'Doktor yanıtı boş olamaz.' }, { status: 400 });
+    }
+    if (payload.transcript.length > 2_000) {
+        return NextResponse.json({ error: 'Doktor yanıtı 2000 karakteri aşamaz.' }, { status: 400 });
     }
     if (payload.source !== 'speech' && payload.source !== 'text') {
         return NextResponse.json({ error: 'Doktor yanıt kaynağı speech veya text olmalıdır.' }, { status: 400 });

@@ -7,7 +7,7 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint .",
-    "lint:backend": "eslint app/api/consultations lib/ai lib/stateMachine.ts lib/supabase.ts tests/session-flow-e2e.test.mjs",
+    "lint:backend": "eslint app/api/ai app/api/consultations lib/ai lib/apiValidation.ts lib/prediction.ts lib/stateMachine.ts lib/supabase.ts tests/ai-provider-integration.test.mjs tests/session-flow-e2e.test.mjs",
     "dev:frontend": "node scripts/frontend.cjs dev",
     "build:frontend": "node scripts/frontend.cjs build",
     "start:frontend": "node scripts/frontend.cjs start",
@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit",
     "test:ai-providers": "node --test --test-concurrency=1 tests/ai-provider-integration.test.mjs",
     "test:e2e-session": "node --test --test-concurrency=1 tests/session-flow-e2e.test.mjs",
+    "test:security": "npm run test:ai-providers && npm run test:e2e-session && npm run check:client-secrets",
     "check:client-secrets": "node scripts/check-client-secrets.mjs",
     "smoke:ai-service": "node scripts/smoke-ai-service.mjs",
     "smoke:modelarts": "node --env-file=.env.local scripts/smoke-ai-service.mjs"

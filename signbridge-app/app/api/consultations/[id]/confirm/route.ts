@@ -1,16 +1,17 @@
 import { NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase';
 import { SessionManager } from '@/lib/stateMachine';
+import { readJsonObject } from '@/lib/apiValidation';
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
     const supabase = getSupabase();
     const { id } = await params;
-    let body: unknown;
-    try {
-        body = await request.json();
-    } catch {
-        return NextResponse.json({ error: 'Geçerli bir JSON gövdesi gönderilmelidir.' }, { status: 400 });
-    }
+    const parsed = await readJsonObject(request, {
+        maxBytes: 2 * 1024,
+        allowedFields: ['confirmed', 'manualSelection'],
+    });
+    if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: parsed.status });
+    const body = parsed.value;
 
     if (typeof body !== 'object' || body === null || typeof (body as { confirmed?: unknown }).confirmed !== 'boolean') {
         return NextResponse.json({ error: 'confirmed alanı boolean olmalıdır.' }, { status: 400 });
@@ -22,6 +23,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
             : undefined;
     if (confirmation.manualSelection !== undefined && !manualSelection) {
         return NextResponse.json({ error: 'manualSelection boş olamaz.' }, { status: 400 });
+    }
+    if (manualSelection && manualSelection.length > 120) {
+        return NextResponse.json({ error: 'manualSelection 120 karakteri aşamaz.' }, { status: 400 });
     }
 
     const { data: session, error: sessionError } = await supabase
