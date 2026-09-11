@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { getSupabase } from '@/lib/supabase';
 import { createSpeechToTextService } from '@/lib/services/speechToTextService.mjs';
 import { recordTechnicalEvent } from '@/lib/services/technicalEventLogger.mjs';
 
 const speechService = createSpeechToTextService();
 
 export async function POST() {
+    const supabase = getSupabase();
     const startedAt = Date.now();
     try {
         // Demo endpoint'i ham ses kabul etmez veya saklamaz; yalnızca örnek metin döndürür.
