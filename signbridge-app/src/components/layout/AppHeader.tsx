@@ -17,14 +17,14 @@ export default function AppHeader({ role, step }: AppHeaderProps) {
         : undefined;
 
     return (
-        <header className="sticky top-0 z-20 shrink-0 border-b border-line bg-white/95 backdrop-blur-sm">
-            <div className="flex h-[64px] items-center justify-between px-5">
+        <header className="sticky top-0 z-20 shrink-0 border-b border-line bg-white/90 backdrop-blur-md">
+            <div className="flex h-14 items-center justify-between px-5">
                 <Link
                     href="/"
                     aria-label="SignBridge ana ekran"
-                    className="-mx-2 flex items-center rounded-md px-2 py-1"
+                    className="-mx-2 flex min-h-11 items-center rounded-md px-2 py-2"
                 >
-                    <Logo size={36} withWordmark />
+                    <Logo size={28} withWordmark />
                 </Link>
 
                 {normalizedRole && (

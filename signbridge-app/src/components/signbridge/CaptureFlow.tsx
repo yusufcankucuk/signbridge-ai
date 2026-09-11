@@ -45,13 +45,13 @@ export function Camera() {
   </>}>
     {state.capture === 'answer' && <p className="text-center font-semibold">{state.pending?.text}</p>}
     <div className="compact-camera"><CameraIcon /><span>Kamera alanı</span></div>
-    <p className="text-center text-sm text-slate-500">Elleriniz ve yüzünüz görünsün.</p>
+    <p className="text-center text-caption text-ink-muted">Elleriniz ve yüzünüz görünsün.</p>
   </Frame>;
 }
 
 export function CameraHelp() {
   return <Frame title="Kamera açılmadı" footer={<><Button href="/camera">Tekrar dene</Button><Button href="/manual-select" variant="outline">Seçerek devam et</Button></>}>
-    <div className="compact-center"><div className="h-20 w-20 text-teal-700"><CameraIcon /></div><p>Kamera iznini kontrol edin.</p></div>
+    <div className="compact-center"><div className="h-20 w-20 text-brand-600"><CameraIcon /></div><p>Kamera iznini kontrol edin.</p></div>
   </Frame>;
 }
 
@@ -68,7 +68,7 @@ export function Recognition() {
     return () => clearTimeout(timer);
   }, [phase, state.active, state.capture, state.pending?.kind, setState, router]);
   return <Frame footer={phase === 'recording' ? <>
-    <button className="compact-record" onClick={() => setPhase('processing')} aria-label="Anlatımı bitir"><span className="h-6 w-6 rounded bg-white" /></button><p className="text-center font-bold text-teal-800">Bitir</p>
+    <button className="compact-record" onClick={() => setPhase('processing')} aria-label="Anlatımı bitir"><span className="h-6 w-6 rounded bg-white" /></button><p className="text-center font-semibold text-brand-700">Bitir</p>
   </> : undefined}>
     <div className="compact-camera"><CameraIcon /><span role="status">{phase === 'processing' ? 'Hazırlanıyor…' : 'Anlatımınızı tamamlayın'}</span></div>
   </Frame>;
@@ -105,12 +105,12 @@ export function ManualSelect() {
   return <Frame title={writing ? 'Ne anlatmak istersiniz?' : 'Şikayetinizi seçin'} footer={writing ? <><Button disabled={!text.trim()} onClick={() => send(text)}>Devam et</Button><button className="compact-link" onClick={() => state.capture === 'complaint' ? setWriting(false) : router.push('/camera')}>Geri</button></> :
     <><Pager index={page} total={Math.ceil(EXPRESSIONS.length / 4)} onChange={setPage} /><button className="compact-link" onClick={() => setWriting(true)}>Başka bir şey anlatacağım</button></>}>
     {writing ? <div className="compact-form flex-1 justify-center"><label>Anlatımınız<textarea rows={4} maxLength={500} value={text} onChange={e => setText(e.target.value)} /></label></div> :
-      <div className="compact-grid my-auto">{EXPRESSIONS.slice(page * 4, page * 4 + 4).map(e => <Choice key={e.id} onClick={() => send(e.sentence)}><div className="compact-symptom-choice-art text-teal-700"><ExpressionVisual expression={e} /></div>{e.label}</Choice>)}</div>}
+      <div className="compact-grid my-auto">{EXPRESSIONS.slice(page * 4, page * 4 + 4).map(e => <Choice key={e.id} onClick={() => send(e.sentence)}><div className="compact-symptom-choice-art text-brand-600"><ExpressionVisual expression={e} /></div>{e.label}</Choice>)}</div>}
   </Frame>;
 }
 
 export function Fallback() {
   return <Frame title="Anlaşılamadı" footer={<><Button href="/camera">Tekrar anlat</Button><Button href="/manual-select" variant="outline">Seçerek anlat</Button></>}>
-    <div className="compact-center"><div className="text-7xl font-light text-teal-700" aria-hidden="true">?</div><p>Tekrar deneyin veya seçin.</p></div>
+    <div className="compact-center"><div className="text-6xl font-light text-brand-600" aria-hidden="true">?</div><p>Tekrar deneyin veya seçin.</p></div>
   </Frame>;
 }

@@ -26,7 +26,7 @@ export function planSlides(plan: Plan): Slide[] {
 }
 function SlideCard({ slide }: { slide: Slide }) {
   return slide.rows ? <div className="compact-medication my-auto"><div className="diagnosis"><p>TEDAVİM</p><h2>{slide.title}</h2></div><dl>{slide.rows.map(([label, value, icon]) => <div key={label}><span className="med-icon" aria-hidden="true">{icon}</span><div className="min-w-0"><dt>{label}</dt><dd>{value}</dd></div></div>)}</dl></div> :
-    <div className="compact-card my-auto"><h2 className="mb-3 text-sm font-bold text-teal-800">{slide.title}</h2><p className="compact-read-text">{slide.text}</p></div>;
+    <div className="compact-card my-auto"><h2 className="mb-3 text-caption font-semibold text-brand-600">{slide.title}</h2><p className="compact-read-text">{slide.text}</p></div>;
 }
 export function PlanCards({ plan }: { plan: Plan }) {
   return <div>{planSlides(plan).map((slide, index) => <section key={index} className="mb-4"><SlideCard slide={slide} /></section>)}</div>;
@@ -94,11 +94,11 @@ export function Treatment() {
       <div className="compact-form my-auto">
         {step === 'diagnosis' && <><label>Tanı / değerlendirme<input maxLength={100} value={plan.diagnosis} onChange={e => update({ diagnosis: e.target.value })} /></label><label>Hasta için kısa açıklama<textarea rows={3} maxLength={500} value={plan.explanation} onChange={e => update({ explanation: e.target.value })} /></label></>}
         {step === 'medicine' && <>
-          {medicationDone && !plan.noMedication ? <><p className="text-xl font-semibold text-teal-800">{plan.medications.length} ilaç eklendi.</p><Button variant="outline" onClick={addMedicine}>Başka ilaç ekle</Button><button className="compact-link" onClick={() => { setMedicineIndex(0); setMedicationDone(false); }}>İlaçları düzenle</button></> :
+          {medicationDone && !plan.noMedication ? <><p className="text-lead font-semibold text-brand-700">{plan.medications.length} ilaç eklendi.</p><Button variant="outline" onClick={addMedicine}>Başka ilaç ekle</Button><button className="compact-link" onClick={() => { setMedicineIndex(0); setMedicationDone(false); }}>İlaçları düzenle</button></> :
             <><label className="compact-check"><input type="checkbox" checked={plan.noMedication} onChange={e => update({ noMedication: e.target.checked })} />İlaçsız tedavi</label>
-            {!plan.noMedication && (current ? <><p className="text-sm text-slate-500">İlaç {medicineIndex + 1} / {plan.medications.length}</p><label>İlaç adı ve gücü<input maxLength={100} value={current.name} onChange={e => updateMedicine('name', e.target.value)} /></label><label>Doz<input maxLength={80} value={current.dose} onChange={e => updateMedicine('dose', e.target.value)} /></label><button className="compact-link" onClick={() => { update({ medications: plan.medications.filter((_, i) => i !== medicineIndex) }); setMedicineIndex(Math.max(0, medicineIndex - 1)); }}>Bu ilacı kaldır</button></> : <Button variant="outline" onClick={addMedicine}>İlaç ekle</Button>)}</>}
+            {!plan.noMedication && (current ? <><p className="text-caption text-ink-muted">İlaç {medicineIndex + 1} / {plan.medications.length}</p><label>İlaç adı ve gücü<input maxLength={100} value={current.name} onChange={e => updateMedicine('name', e.target.value)} /></label><label>Doz<input maxLength={80} value={current.dose} onChange={e => updateMedicine('dose', e.target.value)} /></label><button className="compact-link" onClick={() => { update({ medications: plan.medications.filter((_, i) => i !== medicineIndex) }); setMedicineIndex(Math.max(0, medicineIndex - 1)); }}>Bu ilacı kaldır</button></> : <Button variant="outline" onClick={addMedicine}>İlaç ekle</Button>)}</>}
         </>}
-        {step === 'usage' && current && <><p className="font-semibold text-teal-800">{current.name}</p><label>Sıklık<input maxLength={80} placeholder="Günde kaç kez?" value={current.frequency} onChange={e => updateMedicine('frequency', e.target.value)} /></label><label>Kullanım<input maxLength={100} placeholder="Nasıl alınacak?" value={current.meal} onChange={e => updateMedicine('meal', e.target.value)} /></label><label>Süre<input maxLength={80} placeholder="Kaç gün?" value={current.duration} onChange={e => updateMedicine('duration', e.target.value)} /></label></>}
+        {step === 'usage' && current && <><p className="font-semibold text-brand-700">{current.name}</p><label>Sıklık<input maxLength={80} placeholder="Günde kaç kez?" value={current.frequency} onChange={e => updateMedicine('frequency', e.target.value)} /></label><label>Kullanım<input maxLength={100} placeholder="Nasıl alınacak?" value={current.meal} onChange={e => updateMedicine('meal', e.target.value)} /></label><label>Süre<input maxLength={80} placeholder="Kaç gün?" value={current.duration} onChange={e => updateMedicine('duration', e.target.value)} /></label></>}
         {step === 'advice' && <label>{plan.noMedication ? 'İlaçsız tedavi açıklaması' : 'Öneriler (isteğe bağlı)'}<textarea rows={4} maxLength={500} value={plan.advice} onChange={e => update({ advice: e.target.value })} /></label>}
         {step === 'followup' && <><label className="compact-check"><input type="checkbox" checked={plan.noFollowup} onChange={e => update({ noFollowup: e.target.checked })} />Kontrol planlanmadı</label>{!plan.noFollowup && <label>Kontrol tarihi<input type="date" value={plan.followupDate} onInput={e => update({ followupDate: e.currentTarget.value })} onChange={e => update({ followupDate: e.target.value })} /></label>}</>}
       </div>}
@@ -124,13 +124,13 @@ export function PrintSummary() {
     <><Button onClick={() => { finish(); router.replace('/complete'); }}>Bitir</Button><button className="compact-link" onClick={() => setClosing(false)}>Geri dön</button></> :
     <><Button onClick={() => window.print()}>Özeti yazdır</Button><Button variant="outline" onClick={() => setClosing(true)}>Görüşmeyi bitir</Button><Link href="/patient/summary" className="compact-link">Özete dön</Link></>)}>
     {!valid ? <Empty text="Önce tedavi özetini inceleyin." href="/patient/summary" /> :
-      <><div className="compact-center"><svg className="h-24 w-24 text-teal-700" viewBox="0 0 80 80" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden="true"><path d="M22 8h36v21H22zM22 52H12V28h56v24H58M22 42h36v30H22zM29 51h22M29 59h16"/></svg><p>{closing ? 'Görüşme bilgileri cihazdan temizlenecek.' : 'Tedavi bilgilerinizi yanınıza alın.'}</p></div>
+      <><div className="compact-center"><svg className="h-24 w-24 text-brand-600" viewBox="0 0 80 80" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden="true"><path d="M22 8h36v21H22zM22 52H12V28h56v24H58M22 42h36v30H22zM29 51h22M29 59h16"/></svg><p>{closing ? 'Görüşme bilgileri cihazdan temizlenecek.' : 'Tedavi bilgilerinizi yanınıza alın.'}</p></div>
       <div id="print-document" className="compact-document"><h1>SignBridge • Görüşme özeti</h1><p>Resmî reçete değildir.</p><PlanCards plan={state.plan} /><h2>Görüşme bilgileri</h2><p>Şikayet: {state.expression}</p>{state.turns.map(t => <section key={t.id}><p>Soru: {t.text}</p><p>Yanıt: {t.answer}</p></section>)}{state.followups.map((f, i) => <section key={i}><p>Hasta sorusu: {f.question}</p><p>Doktor açıklaması: {f.answer}</p></section>)}</div></>}
   </Frame>;
 }
 export function Complete() {
   const { state } = useFlow();
   return <Frame allowEmpty footer={!state.active && <Button href="/">Yeni görüşme</Button>}>
-    {state.active ? <Empty text="Görüşmeniz devam ediyor." href="/patient/summary" /> : <div className="compact-center"><div className="text-6xl text-teal-700" aria-hidden="true">✓</div><h1 className="compact-title">Görüşme tamamlandı</h1></div>}
+    {state.active ? <Empty text="Görüşmeniz devam ediyor." href="/patient/summary" /> : <div className="compact-center"><div className="text-6xl text-brand-600" aria-hidden="true">✓</div><h1 className="compact-title">Görüşme tamamlandı</h1></div>}
   </Frame>;
 }

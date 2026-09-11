@@ -38,7 +38,7 @@ const config = {
 } as const;
 
 const sizes = {
-    sm: "gap-1.5 px-2.5 py-1 text-caption [&_svg]:h-4 [&_svg]:w-4",
+    sm: "gap-1.5 px-3 py-1.5 text-caption [&_svg]:h-4 [&_svg]:w-4",
     md: "gap-2 px-3 py-1.5 text-label [&_svg]:h-5 [&_svg]:w-5",
     lg: "gap-2.5 px-4 py-2 text-base [&_svg]:h-6 [&_svg]:w-6",
 };
@@ -53,7 +53,7 @@ export default function RoleBadge({
     return (
         <span
             className={cn(
-                "inline-flex items-center rounded-full border-2 font-bold",
+                "inline-flex items-center rounded-full border font-medium",
                 item.classes,
                 sizes[size],
                 className
@@ -63,7 +63,7 @@ export default function RoleBadge({
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="2"
+                strokeWidth="1.75"
                 aria-hidden="true"
                 className="shrink-0"
             >

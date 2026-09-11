@@ -14,20 +14,108 @@
 }
 
 /* ==========================================================================
-   SignBridge — temel katman
-   Erişilebilirlik öncelikli: büyük taban punto, güçlü kontrast,
+   Yazı tipi — Inter (değişken ağırlık), kendi sunucumuzdan.
+   Dış ağ isteği yok: dosyalar `public/fonts` altında, çevrimdışı kurulumda
+   ve build sırasında internet olmadan da çalışır. Türkçe karakterler
+   latin-ext aralığındadır (ı, İ, ş, ğ), ç/ö/ü latin aralığında.
+   ========================================================================== */
+@font-face {
+    font-family: "InterVariable";
+    font-style: normal;
+    font-display: swap;
+    font-weight: 100 900;
+    src: url("/fonts/inter-latin-ext-wght-normal.woff2") format("woff2");
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+        U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F,
+        U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+        U+A720-A7FF;
+}
+@font-face {
+    font-family: "InterVariable";
+    font-style: normal;
+    font-display: swap;
+    font-weight: 100 900;
+    src: url("/fonts/inter-latin-wght-normal.woff2") format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+        U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+        U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ==========================================================================
+   SignBridge — temel katman ve tasarım token'ları
+   Erişilebilirlik öncelikli: okunaklı taban punto, güçlü kontrast,
    her zaman görünür odak halkası, hareket azaltma desteği.
+   Marka paleti DEĞİŞMEZ; burada yalnızca tipografi, boşluk, yuvarlaklık ve
+   gölge ölçekleri tek bir yerden tanımlanır ve her ekran bunları kullanır.
    ========================================================================== */
 
 :root {
+    /* --- Marka ve yüzey renkleri (tailwind.config.ts ile birebir aynı) --- */
     --sb-brand: #0e6068;
     --sb-brand-strong: #0a5057;
+    --sb-brand-deep: #084046;
+    --sb-brand-accent: #119a98;
+    --sb-brand-50: #e8f4f5;
+    --sb-brand-100: #c6e4e6;
+    --sb-brand-200: #96ccd1;
     --sb-doctor: #12507e;
+    --sb-doctor-strong: #0e4269;
+    --sb-doctor-50: #eaf1f8;
+    --sb-doctor-100: #cbdcee;
+    --sb-danger: #a4262c;
     --sb-canvas: #fafbfd;
+    --sb-surface: #ffffff;
+    --sb-surface-subtle: #f1f5f9;
     --sb-ink: #0b1220;
     --sb-ink-body: #334155;
+    --sb-ink-muted: #475569;
     --sb-line: #e2e8f0;
+    --sb-line-strong: #cbd5e1;
     --sb-focus: #61adb4;
+
+    /* --- Tipografi ölçeği ---
+       Taban 17px; okunabilir en küçük metin 15px. 13px yalnızca ekran
+       altındaki tamamlayıcı dipnot içindir (talimat/etiket/buton değil). */
+    --sb-font: "InterVariable", "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+    --sb-text-display: 2.25rem; /* 36 — splash marka adı */
+    --sb-text-title: 1.625rem; /* 26 — ekran başlığı (iri ama ince) */
+    --sb-text-section: 1.1875rem; /* 19 — bölüm / kart başlığı */
+    --sb-text-body: 1.0625rem; /* 17 — gövde */
+    --sb-text-secondary: 0.9375rem; /* 15 — yardımcı metin */
+    --sb-text-fine: 0.8125rem; /* 13 — yalnızca dipnot */
+
+    /* Başlıklar kalın değil: iri punto + orta ağırlık daha sakin durur. */
+    --sb-weight-title: 500;
+    --sb-weight-medium: 500;
+    --sb-weight-strong: 600;
+
+    /* --- 8px tabanlı boşluk ölçeği --- */
+    --sb-space-1: 4px;
+    --sb-space-2: 8px;
+    --sb-space-3: 12px;
+    --sb-space-4: 16px;
+    --sb-space-5: 20px;
+    --sb-space-6: 24px;
+    --sb-space-8: 32px;
+    --sb-space-10: 40px;
+
+    /* --- Yuvarlaklık --- */
+    --sb-radius-sm: 12px;
+    --sb-radius: 16px;
+    --sb-radius-lg: 20px;
+    --sb-radius-xl: 24px;
+    --sb-radius-pill: 999px;
+
+    /* --- Gölge: çok yumuşak, yalnızca gerektiğinde --- */
+    --sb-shadow-sm: 0 1px 2px rgba(11, 18, 32, 0.04);
+    --sb-shadow: 0 1px 2px rgba(11, 18, 32, 0.04), 0 6px 16px rgba(11, 18, 32, 0.05);
+    --sb-shadow-brand: 0 2px 10px rgba(14, 96, 104, 0.18);
+    --sb-shadow-doctor: 0 2px 10px rgba(18, 80, 126, 0.18);
+
+    /* --- Dokunma alanı (hepsi WCAG 2.5.5'in 44px hedefinin üstünde) --- */
+    --sb-tap: 52px;
+    --sb-tap-lg: 56px;
+    --sb-tap-xl: 64px;
 }
 
 * {
@@ -42,7 +130,6 @@ body {
 }
 
 html {
-    /* Tarayıcı yazı tipi ayarını bozmadan tabanı 18px'e taşır */
     font-size: 100%;
     -webkit-text-size-adjust: 100%;
 }
@@ -50,17 +137,28 @@ html {
 body {
     background: var(--sb-canvas);
     color: var(--sb-ink);
-    font-family:
-        "Segoe UI",
-        system-ui,
-        -apple-system,
-        Roboto,
-        Arial,
-        sans-serif;
-    font-size: 1.125rem; /* 18px */
-    line-height: 1.6;
+    font-family: var(--sb-font);
+    font-size: var(--sb-text-body);
+    font-weight: 400;
+    line-height: 1.55;
+    letter-spacing: -0.006em;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4 {
+    margin: 0;
+    color: var(--sb-ink);
+    font-weight: var(--sb-weight-title);
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+}
+
+p {
+    margin: 0;
 }
 
 button,
@@ -68,6 +166,7 @@ input,
 textarea,
 select {
     font: inherit;
+    letter-spacing: inherit;
     color: inherit;
 }
 
@@ -80,21 +179,19 @@ a {
     text-decoration: none;
 }
 
-/* Odak: klavye kullanıcısı için her yerde kalın ve yüksek kontrastlı */
+/* Odak: klavye kullanıcısı için her yerde görünür ve yüksek kontrastlı */
 :focus-visible {
-    outline: 4px solid var(--sb-focus);
+    outline: 3px solid var(--sb-focus);
     outline-offset: 2px;
-    border-radius: 6px;
+    border-radius: 10px;
 }
 
-/* Fare/dokunma ile tıklamada halka gösterilmez */
 :focus:not(:focus-visible) {
     outline: none;
 }
 
-/* Metin seçimi */
 ::selection {
-    background: #c6e4e6;
+    background: var(--sb-brand-100);
     color: var(--sb-ink);
 }
 
@@ -120,9 +217,9 @@ a {
     transform: translateX(-50%);
     background: var(--sb-brand);
     color: #fff;
-    padding: 0.75rem 1.25rem;
-    border-radius: 0 0 0.875rem 0.875rem;
-    font-weight: 700;
+    padding: var(--sb-space-3) var(--sb-space-5);
+    border-radius: 0 0 var(--sb-radius) var(--sb-radius);
+    font-weight: var(--sb-weight-strong);
     transition: top 180ms ease;
 }
 
@@ -146,6 +243,8 @@ a {
 @media (prefers-contrast: more) {
     :root {
         --sb-line: #94a3b8;
+        --sb-line-strong: #64748b;
         --sb-ink-body: #0b1220;
+        --sb-ink-muted: #1e293b;
     }
 }
