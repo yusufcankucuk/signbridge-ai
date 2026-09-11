@@ -4,9 +4,20 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "lint:backend": "eslint app/api/consultations lib/ai lib/stateMachine.ts lib/supabase.ts tests/session-flow-e2e.test.mjs",
+    "dev:frontend": "node scripts/frontend.cjs dev",
+    "build:frontend": "node scripts/frontend.cjs build",
+    "start:frontend": "node scripts/frontend.cjs start",
+    "test:frontend": "node --test tests/frontend-flow.test.cjs",
+    "typecheck": "tsc --noEmit",
+    "test:ai-providers": "node --test --test-concurrency=1 tests/ai-provider-integration.test.mjs",
+    "test:e2e-session": "node --test --test-concurrency=1 tests/session-flow-e2e.test.mjs",
+    "check:client-secrets": "node scripts/check-client-secrets.mjs",
+    "smoke:ai-service": "node scripts/smoke-ai-service.mjs",
+    "smoke:modelarts": "node --env-file=.env.local scripts/smoke-ai-service.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.115.0",

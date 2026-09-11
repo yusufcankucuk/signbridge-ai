@@ -1,15 +1,31 @@
 import { NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase';
+import { SessionManager } from '@/lib/stateMachine';
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
     const supabase = getSupabase();
     const { id } = await params;
 
-    // 1. Durumu ended olarak işaretle
-    await supabase.from('consultation_sessions').update({ state: 'ended' }).eq('id', id);
+    const { data: session, error: sessionError } = await supabase
+        .from('consultation_sessions')
+        .select('state')
+        .eq('id', id)
+        .maybeSingle();
 
-    // 2. Hassas sağlık ve konuşma verilerini içeren interaction_events tablosunu temizle
-    await supabase.from('interaction_events').delete().eq('session_id', id);
+    if (sessionError) return NextResponse.json({ error: 'Oturum okunamadı.' }, { status: 500 });
+    if (!session) return NextResponse.json({ error: 'Oturum bulunamadı.' }, { status: 404 });
+    if (!SessionManager.canTransition(session.state, 'ended')) {
+        return NextResponse.json({ error: 'Geçersiz durum geçişi.' }, { status: 409 });
+    }
 
-    return NextResponse.json({ success: true, message: 'Oturum güvenle sonlandırıldı ve hassas veriler temizlendi.' });
+    const { error: stateError } = await supabase
+        .from('consultation_sessions')
+        .update({ state: 'ended' })
+        .eq('id', id);
+    if (stateError) return NextResponse.json({ error: 'Oturum sonlandırılamadı.' }, { status: 500 });
+
+    const { error: cleanupError } = await supabase.from('interaction_events').delete().eq('session_id', id);
+    if (cleanupError) return NextResponse.json({ error: 'Oturum verileri temizlenemedi.' }, { status: 500 });
+
+    return NextResponse.json({ success: true, nextState: 'ended' });
 }
