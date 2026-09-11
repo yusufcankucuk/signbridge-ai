@@ -10,6 +10,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, ConfigDict, StrictInt
 
 from src.common import CONFIG_DIR, load_json
+from src.decision_policy import load_policy
 from src.model.predict import predict_landmarks, validate_bundle
 from src.model.dataset import sequence_to_features
 
@@ -43,6 +44,8 @@ async def lifespan(_app: FastAPI):
         raise RuntimeError("Etiket sözlüğü sürümü uyumsuz.")
     state["labels"] = label_config["labels"]
     validate_bundle(state["model"], runtime, state["labels"])
+    policy_value = os.getenv("DECISION_POLICY_PATH")
+    state["decision_policy"] = load_policy(Path(policy_value) if policy_value else None, runtime)
     try:
         yield
     finally:
@@ -57,7 +60,12 @@ def health() -> dict[str, object]:
     runtime = state.get("runtime")
     if "model" not in state or not runtime:
         raise HTTPException(status_code=503, detail="Model henüz hazır değil.")
-    return {"status": "ok", "service": "signbridge-ai", "modelVersion": runtime["modelVersion"]}
+    return {
+        "status": "ok",
+        "service": "signbridge-ai",
+        "modelVersion": runtime["modelVersion"],
+        "decisionPolicyVersion": state["decision_policy"]["decisionPolicyVersion"],
+    }
 
 
 @app.post("/predict")
@@ -76,4 +84,11 @@ def predict(request: PredictionRequest) -> dict[str, object]:
         sequence_to_features(landmarks, mask)
     except (ValueError, TypeError, OverflowError):
         raise HTTPException(status_code=422, detail="Geçersiz boyut/sayı veya boş/geçersiz mask.")
-    return predict_landmarks(model, landmarks, mask.astype(np.uint8), runtime, state.get("labels"))
+    return predict_landmarks(
+        model,
+        landmarks,
+        mask.astype(np.uint8),
+        runtime,
+        state.get("labels"),
+        state.get("decision_policy"),
+    )

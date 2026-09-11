@@ -13,7 +13,10 @@
     "predictionMode",
     "modelVersion",
     "preprocessingVersion",
-    "vocabularyVersion"
+    "vocabularyVersion",
+    "decisionPolicyVersion",
+    "rejectionReason",
+    "requiresConfirmation"
   ],
   "properties": {
     "classId": {"type": ["string", "null"]},
@@ -24,12 +27,21 @@
     "predictionMode": {"enum": ["model", "mock", "manual"]},
     "modelVersion": {"type": ["string", "null"]},
     "preprocessingVersion": {"type": "string"},
-    "vocabularyVersion": {"type": "string"}
+    "vocabularyVersion": {"type": "string"},
+    "decisionPolicyVersion": {"type": "string", "minLength": 1},
+    "rejectionReason": {"type": ["string", "null"], "enum": ["low_score", "ambiguous_prediction", null]},
+    "requiresConfirmation": {"type": "boolean"}
   },
   "allOf": [
     {
       "if": {"properties": {"isLowConfidence": {"const": true}}},
-      "then": {"properties": {"classId": {"type": "null"}}}
+      "then": {
+        "properties": {
+          "classId": {"type": "null"},
+          "rejectionReason": {"type": "string"},
+          "requiresConfirmation": {"const": false}
+        }
+      }
     },
     {
       "if": {"properties": {"predictionMode": {"const": "manual"}}},
@@ -43,6 +55,10 @@
     {
       "if": {"properties": {"predictionMode": {"const": "model"}}},
       "then": {"properties": {"modelVersion": {"type": "string", "minLength": 1}}}
+    },
+    {
+      "if": {"properties": {"isLowConfidence": {"const": false}, "predictionMode": {"const": "model"}}},
+      "then": {"properties": {"rejectionReason": {"type": "null"}, "requiresConfirmation": {"const": true}}}
     }
   ]
 }

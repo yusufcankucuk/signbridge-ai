@@ -7,7 +7,10 @@ Kaynak ve kullanım kararları [DATASETS.md](DATASETS.md) dosyasında kayıtlıd
 ## Haftalık kamera, eşik ve teslim çalışması
 
 Yeni araçların adım adım kullanımı: [AI haftalık doğrulama kılavuzu](../docs/ai-weekly-validation.md).
-Gerçek ölçümler ve tamamlanmamış işler: [10 Eylül teslim raporu](reports/weekly-validation-2026-09-10.md).
+Güncel ölçümler ve tamamlanmamış işler: [11 Eylül AI doğrulama raporu](reports/ai-validation-2026-09-11.md).
+Önceki teslimin kaydı: [10 Eylül teslim raporu](reports/weekly-validation-2026-09-10.md).
+Güncel kapsam/model kartı: [AI kapsamı ve model kartı v2](../docs/ai-scope-and-model-card-v2.md).
+AUTSL ile kamera çıkarıcısı karşılaştırması: [poz uyumluluk raporu](../docs/autsl-camera-pose-compatibility.md).
 `runs/` kişiye/veriye bağlı yerel kanıtlardır, Git'e eklenmez. Kamera denemeleri ve bulut çalışması
 ayrıca doğrulanmadan tamamlandı sayılmaz.
 
@@ -93,7 +96,8 @@ Eğitimde küçük koordinat gürültüsü, ölçek değişimi ve geçici landma
 python -m src.model.predict `
   --model outputs/autsl20-bigru-v0.1.0.keras `
   --input "$env:SIGNBRIDGE_DATA_ROOT\processed\autsl20\landmark46-v1\test\signer34_sample5.npz" `
-  --runtime-config outputs/runtime_config.json
+  --runtime-config outputs/runtime_config.json `
+  --decision-policy configs/decision_policy.json
 ```
 
 Gerçek dosya adı manifestten seçilmelidir. Çıktı [../docs/ai-contract.md](../docs/ai-contract.md) sözleşmesine uyar.
@@ -104,8 +108,22 @@ Gerçek dosya adı manifestten seçilmelidir. Çıktı [../docs/ai-contract.md](
 pytest
 ```
 
-Testler ön işleme boyutlarını, sonlu değerleri, sabit sınıf indekslerini ve örnek JSON sözleşmesini denetler.
+Testler ön işleme boyutlarını ve değişmezlerini, sonlu değerleri, sabit sınıf indekslerini, karar politikası
+sürüm uyumunu, kamera gruplarını ve örnek JSON sözleşmesini denetler.
 
-## 7. Huawei ModelArts
+## 7. Karar politikası ve gecikme
+
+`configs/decision_policy.json` aktif, geriye uyumlu 0,80 skor kuralıdır. Validation/OOD çalışmasının ürettiği
+0,95 aday politika ayrı tutulur; OOD holdout hedefini geçemediği için otomatik etkinleştirilmez.
+
+```powershell
+python -m src.evaluate_release --data-root "$env:SIGNBRIDGE_DATA_ROOT" --output runs/my-policy --ood-per-class 10 --trusted-autsl-pickle
+python -m src.benchmark_latency --input '<validation-ornek.npz>' --output runs/my-latency.json
+```
+
+Serviste özel politika kullanmak için `DECISION_POLICY_PATH` verilir. Dosya bozuk veya model sürümüyle
+uyumsuzsa servis başlatılmaz; sessiz geri dönüş yapılmaz.
+
+## 8. Huawei ModelArts
 
 ModelArts eğitim adımları ve OBS klasör yapısı [modelarts/README.md](modelarts/README.md) dosyasındadır. Yerelde çalışan aynı `src/train.py` kodu bulutta da kullanılır; böylece iki ayrı eğitim mantığı oluşmaz.

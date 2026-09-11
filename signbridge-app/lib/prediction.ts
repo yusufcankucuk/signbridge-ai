@@ -1,6 +1,7 @@
 import type { PredictionPayload } from '@/types/session';
 
 const MODES = new Set(['model', 'mock', 'manual']);
+const REJECTION_REASONS = new Set(['low_score', 'ambiguous_prediction']);
 
 export interface LandmarkPredictionRequest {
     sessionId?: string;
@@ -38,12 +39,20 @@ export function isPredictionPayload(value: unknown): value is PredictionPayload 
         !MODES.has(payload.predictionMode) ||
         !isNullableString(payload.modelVersion) ||
         typeof payload.preprocessingVersion !== 'string' ||
-        typeof payload.vocabularyVersion !== 'string'
+        typeof payload.vocabularyVersion !== 'string' ||
+        typeof payload.decisionPolicyVersion !== 'string' ||
+        payload.decisionPolicyVersion.trim().length === 0 ||
+        (payload.rejectionReason !== null &&
+            (typeof payload.rejectionReason !== 'string' || !REJECTION_REASONS.has(payload.rejectionReason))) ||
+        typeof payload.requiresConfirmation !== 'boolean'
     ) {
         return false;
     }
 
     if (payload.isLowConfidence && payload.classId !== null) return false;
+    if (payload.isLowConfidence && payload.rejectionReason === null) return false;
+    if (!payload.isLowConfidence && payload.rejectionReason !== null) return false;
+    if (payload.requiresConfirmation !== (payload.predictionMode === 'model' && !payload.isLowConfidence)) return false;
     if (payload.predictionMode === 'manual' && payload.confidence !== null) return false;
     if (payload.predictionMode === 'model' && payload.modelVersion === null) return false;
     return true;

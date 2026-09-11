@@ -8,12 +8,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.common import autsl_labels
-from src.evaluate_release import threshold_decision, threshold_table
+from src.decision_policy import decide, default_policy, validate_policy
+from src.evaluate_release import calibration_metrics, candidate_table, select_candidate, threshold_decision, threshold_table
 from src.model.predict import predict_landmarks, validate_bundle
-from src.package_release import contained
+from src.package_release import build_package, contained
 from src.service import app, state, PredictionRequest, predict
 from src.summarize_camera import merge_trials
-from src.validate_video import evaluate_raw, trial_matrix
+from src.benchmark_latency import distribution
+from src.validate_video import evaluate_raw, finalize_performance_verification, trial_matrix
 
 
 RUNTIME = dict(modelVersion="autsl20-bigru-v0.1.0", preprocessingVersion="landmark46-v1",
@@ -86,6 +88,51 @@ def test_threshold_boundary(client, payload, score, low):
     body = response.json()
     assert body["isLowConfidence"] is low
     assert body["classId"] == (None if low else "doktor")
+    assert body["rejectionReason"] == ("low_score" if low else None)
+    assert body["requiresConfirmation"] is (not low)
+    assert body["decisionPolicyVersion"] == "score-threshold-v1"
+
+
+def test_margin_policy_rejects_ambiguous_prediction():
+    policy = {
+        **default_policy(RUNTIME),
+        "decisionPolicyVersion": "test-margin-v1",
+        "method": "score_and_margin",
+        "confidenceThreshold": 0.4,
+        "marginThreshold": 0.1,
+    }
+    result = decide(np.array([0.45, 0.40, *([0.15 / 18] * 18)]), policy)
+    assert result.accepted is False
+    assert result.rejection_reason == "ambiguous_prediction"
+
+
+def test_policy_must_match_bundle():
+    policy = default_policy(RUNTIME)
+    validate_policy(policy, RUNTIME)
+    with pytest.raises(ValueError):
+        validate_policy({**policy, "modelVersion": "wrong"}, RUNTIME)
+    with pytest.raises(ValueError):
+        validate_policy({**policy, "method": "score_only", "marginThreshold": .2}, RUNTIME)
+
+
+def test_explicit_missing_policy_fails_before_creating_package(tmp_path):
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    (model_dir / "runtime_config.json").write_text(json.dumps(RUNTIME), encoding="utf-8")
+    destination = tmp_path / "release"
+    with pytest.raises(ValueError, match="bulunamadı"):
+        build_package(tmp_path, model_dir, destination, policy_path=tmp_path / "missing.json")
+    assert not destination.exists()
+
+
+def test_missing_evidence_fails_before_creating_package(tmp_path):
+    model_dir = tmp_path / "model"
+    model_dir.mkdir()
+    (model_dir / "runtime_config.json").write_text(json.dumps(RUNTIME), encoding="utf-8")
+    destination = tmp_path / "release"
+    with pytest.raises(ValueError, match="Evidence file does not exist"):
+        build_package(tmp_path, model_dir, destination, evidence_files=[tmp_path / "missing.json"])
+    assert not destination.exists()
 
 
 def test_bundle_validation():
@@ -110,6 +157,37 @@ def test_threshold_selection():
     assert threshold_decision([dict(accepted_accuracy=None,coverage=0,threshold=.8)])["target_met"] is False
 
 
+def test_candidate_selection_prioritizes_ood_then_coverage():
+    probabilities = np.array([[.9,.1],[.8,.2],[.1,.9],[.2,.8]])
+    labels = np.array([0,0,1,1])
+    ood = np.array([[.91,.09],[.55,.45]])
+    rows = candidate_table(probabilities, labels, ood, thresholds=[.7,.9], margins=[0,.7])
+    selected = select_candidate(rows, minimum_accuracy=.9, minimum_coverage=.5)
+    assert selected is not None
+    assert selected["ood_wrong_accept_rate"] == 0.5
+
+
+def test_candidate_selection_requires_ood_measurement():
+    rows = [{
+        "method": "score_only",
+        "confidence_threshold": .8,
+        "margin_threshold": 0,
+        "accepted_accuracy": .95,
+        "coverage": .7,
+        "ood_wrong_accept_rate": None,
+    }]
+    assert select_candidate(rows, minimum_accuracy=.9, minimum_coverage=.5) is None
+
+
+def test_calibration_metrics_are_finite():
+    scores = np.array([[.8,.2],[.4,.6]])
+    metrics, rows = calibration_metrics(scores, np.array([0,1]), bins=2)
+    assert metrics["samples"] == 2
+    assert np.isfinite(metrics["ece_10_bin"])
+    assert np.isfinite(metrics["multiclass_brier_score"])
+    assert sum(row["count"] for row in rows) == 2
+
+
 def test_quality_gate_does_not_predict():
     model = FixedModel()
     for n, confidence in [(4,np.ones((4,75))), (20,np.zeros((20,75)))]:
@@ -122,18 +200,34 @@ def test_matrix_pending():
     rows = trial_matrix()
     assert len(rows) == len({r["trial_id"] for r in rows}) == 50
     assert all(r["status"] == "pending" for r in rows)
+    assert sum(r["evaluation_group"] == "development" for r in rows) == 25
+    assert sum(r["evaluation_group"] == "holdout" for r in rows) == 25
 
 
 def test_camera_trial_merge():
-    result = merge_trials([dict(trial_id="doktor-normal-1", status="measured", confidence="0.91")])
-    first = next(row for row in result if row["trial_id"] == "doktor-normal-1")
+    trial_id = "development-p01-doktor-normal-1"
+    result = merge_trials([dict(trial_id=trial_id, status="measured", confidence="0.91")])
+    first = next(row for row in result if row["trial_id"] == trial_id)
     assert first["status"] == "measured"
     assert first["confidence"] == "0.91"
     assert sum(row["status"] == "pending" for row in result) == 49
     with pytest.raises(ValueError):
         merge_trials([dict(trial_id="not-in-matrix", status="measured")])
     with pytest.raises(ValueError):
-        merge_trials([dict(trial_id="doktor-normal-1", status="measured")]*2)
+        merge_trials([dict(trial_id=trial_id, status="measured")]*2)
+
+
+def test_per_trial_verification_controls_correctness():
+    row = {"expected_class": "doktor", "predicted_class": "doktor"}
+    assert finalize_performance_verification(row.copy(), "yes")["correct"] is True
+    assert finalize_performance_verification(row.copy(), "unknown")["correct"] == ""
+
+
+def test_latency_distribution():
+    result = distribution([1, 2, 3, 4])
+    assert result["n"] == 4
+    assert result["p50Ms"] == 2.5
+    assert result["maxMs"] == 4
 
 
 @pytest.mark.parametrize("path", ["../secret", "C:/secret", "/absolute"])

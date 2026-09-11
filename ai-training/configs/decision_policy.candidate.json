@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1.0",
+  "decisionPolicyVersion": "autsl20-score-only-candidate-v1",
+  "method": "score_only",
+  "confidenceThreshold": 0.95,
+  "marginThreshold": 0.0,
+  "modelVersion": "autsl20-bigru-v0.1.0",
+  "preprocessingVersion": "landmark46-v1",
+  "vocabularyVersion": "autsl20-v1",
+  "selectionCriteria": {
+    "minimumAcceptedAccuracy": 0.9,
+    "minimumCoverage": 0.5,
+    "tieBreak": "lowest development OOD false accept, highest coverage, simpler method"
+  },
+  "validationResult": {
+    "acceptedAccuracy": 0.9467680608365019,
+    "coverage": 0.6957671957671958,
+    "developmentOodWrongAcceptRate": 0.29
+  },
+  "frozenHoldoutResult": {
+    "qualityPassed": 98,
+    "wrongAccepted": 31,
+    "wrongAcceptRate": 0.3163265306122449,
+    "maximumAllowed": 0.2,
+    "targetMet": false
+  },
+  "deploymentStatus": "not_promoted",
+  "frozenAtUtc": "2026-09-11T15:39:32.964913+00:00"
+}
