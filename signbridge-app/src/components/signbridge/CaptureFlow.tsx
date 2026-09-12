@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFlow } from '../providers/FlowProvider';
 import { Frame, Choice, Empty, Pager, ReadText, CameraIcon } from './CompactUI';
@@ -76,9 +76,15 @@ export function Recognition() {
 
 export function Confirm() {
   const { state, setState } = useFlow(); const router = useRouter();
-  const expression = EXPRESSIONS.find(e => e.sentence === state.candidate?.text);
+  // Onaydan sonra sayfa değişene kadar ekranı olduğu gibi tut; boş uyarı görünmesin.
+  const [leaving, setLeaving] = useState(false);
+  const lastCandidate = useRef(state.candidate);
+  if (state.candidate) lastCandidate.current = state.candidate;
+  const candidate = state.candidate ?? (leaving ? lastCandidate.current : null);
+  const expression = EXPRESSIONS.find(e => e.sentence === candidate?.text);
   const confirm = () => {
-    if (!state.candidate) return;
+    if (!state.candidate || leaving) return;
+    setLeaving(true);
     setState(s => {
       if (!s.candidate) return s;
       if (s.capture === 'answer') return recordAnswer(s, s.candidate.text, s.candidate.source);
@@ -87,12 +93,12 @@ export function Confirm() {
     });
     router.push(state.capture === 'followup' ? '/handoff/doctor?next=answer' : '/handoff/doctor');
   };
-  return <Frame title="Doğru anladım mı?" footer={state.candidate && <>
+  return <Frame title="Doğru anladım mı?" footer={candidate && <>
     <Button onClick={confirm}>Doğru, doktora ilet</Button>
     <div className="grid grid-cols-2"><Link href="/camera" className="compact-link">Tekrar anlat</Link><Link href="/manual-select" className="compact-link">Değiştir</Link></div>
   </>}>
-    {!state.candidate ? <Empty text="Henüz bir anlatım yok." href="/camera" /> : <>
-      {expression ? <><div className="compact-illustration"><div><ExpressionVisual expression={expression} /></div></div><p className="compact-sentence">{expression.sentence}</p></> : <div className="compact-center"><ReadText text={state.candidate.text} /></div>}
+    {!candidate ? <Empty text="Henüz bir anlatım yok." href="/camera" /> : <>
+      {expression ? <><div className="compact-illustration"><div><ExpressionVisual expression={expression} /></div></div><p className="compact-sentence">{expression.sentence}</p></> : <div className="compact-center"><ReadText text={candidate.text} /></div>}
     </>}
   </Frame>;
 }

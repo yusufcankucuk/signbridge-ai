@@ -6,27 +6,49 @@ import { useFlow } from '../providers/FlowProvider';
 import { Frame, Empty, textPages } from './CompactUI';
 import Button from '../ui/Button';
 import { planErrors, type Plan, type Medication } from '../../lib/consultationFlow';
+import { DiagnosisVisual, MedicineVisual, AdviceVisual, CalendarVisual, MedRowIcon } from './PlanVisuals';
 
-type Slide = { title: string; text?: string; rows?: [string, string, string][] };
+type SlideVisual = 'diagnosis' | 'medicine' | 'advice' | 'date';
+type SlideDate = { day: string; month: string; weekday: string };
+type Slide = { title: string; text?: string; rows?: [string, string, string][]; visual?: SlideVisual; date?: SlideDate };
+
+function followupParts(value: string): SlideDate | undefined {
+  const date = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return {
+    day: date.toLocaleDateString('tr-TR', { day: 'numeric' }),
+    month: date.toLocaleDateString('tr-TR', { month: 'long' }),
+    weekday: date.toLocaleDateString('tr-TR', { weekday: 'long' }),
+  };
+}
+
 export function planSlides(plan: Plan): Slide[] {
   const slides: Slide[] = [];
-  for (const text of textPages(plan.diagnosis + '\n\n' + plan.explanation)) slides.push({ title: 'Doktorun yazdıkları', text });
+  for (const text of textPages(plan.diagnosis + '\n\n' + plan.explanation)) slides.push({ title: 'Doktorun yazdıkları', text, visual: 'diagnosis' });
   if (!plan.noMedication) plan.medications.forEach((m, i) => {
-    const rows: [string, string, string][] = [['İlaç', m.name, '⊕'], ['Doz', m.dose, '↔'], ['Sıklık', m.frequency, '◷'], ['Yemek / Kullanım', m.meal, '♧'], ['Süre', m.duration, '▦']];
+    const rows: [string, string, string][] = [['İlaç', m.name, 'name'], ['Doz', m.dose, 'dose'], ['Sıklık', m.frequency, 'frequency'], ['Yemek / Kullanım', m.meal, 'meal'], ['Süre', m.duration, 'duration']];
     if (rows.some(row => row[1].length > 38)) {
-      rows.forEach(([label, value, icon]) => textPages(value, 150).forEach(text => slides.push({ title: `İlaç ${i + 1} • ${label}`, rows: [[label, text, icon]] })));
+      rows.forEach(([label, value, icon]) => textPages(value, 150).forEach(text => slides.push({ title: `İlaç ${i + 1} • ${label}`, rows: [[label, text, icon]], visual: 'medicine' })));
     } else if (rows.some(row => row[1].length > 28) || rows.reduce((sum, row) => sum + row[1].length, 0) > 95) {
-      slides.push({ title: `İlaç ${i + 1}`, rows: rows.slice(0, 3) });
-      slides.push({ title: `İlaç ${i + 1} • Kullanım`, rows: rows.slice(3) });
-    } else slides.push({ title: plan.diagnosis.length <= 38 ? plan.diagnosis : `İlaç ${i + 1}`, rows });
+      slides.push({ title: `İlaç ${i + 1}`, rows: rows.slice(0, 3), visual: 'medicine' });
+      slides.push({ title: `İlaç ${i + 1} • Kullanım`, rows: rows.slice(3), visual: 'medicine' });
+    } else slides.push({ title: plan.diagnosis.length <= 38 ? plan.diagnosis : `İlaç ${i + 1}`, rows, visual: 'medicine' });
   });
-  if (plan.noMedication || plan.advice) textPages(plan.advice || 'İlaç yazılmadı.').forEach(text => slides.push({ title: plan.noMedication ? 'İlaçsız tedavi' : 'Dikkat edeceklerim', text }));
-  slides.push({ title: 'Kontrol tarihi', text: plan.noFollowup ? 'Kontrol tarihi planlanmadı.' : new Date(`${plan.followupDate}T12:00:00`).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' }) });
+  if (plan.noMedication || plan.advice) textPages(plan.advice || 'İlaç yazılmadı.').forEach(text => slides.push({ title: plan.noMedication ? 'İlaçsız tedavi' : 'Dikkat edeceklerim', text, visual: 'advice' }));
+  const parts = plan.noFollowup ? undefined : followupParts(plan.followupDate);
+  slides.push({ title: 'Kontrol tarihi', visual: 'date', date: parts, text: parts ? `${parts.day} ${parts.month} ${parts.weekday}` : 'Kontrol tarihi planlanmadı.' });
   return slides;
 }
+
+function SlideArt({ slide }: { slide: Slide }) {
+  return <span className="art">{slide.visual === 'medicine' ? <MedicineVisual /> :
+    slide.visual === 'advice' ? <AdviceVisual /> :
+    slide.visual === 'date' ? <CalendarVisual {...(slide.date ?? {})} /> : <DiagnosisVisual />}</span>;
+}
+
 function SlideCard({ slide }: { slide: Slide }) {
-  return slide.rows ? <div className="compact-medication my-auto"><div className="diagnosis"><p>TEDAVİM</p><h2>{slide.title}</h2></div><dl>{slide.rows.map(([label, value, icon]) => <div key={label}><span className="med-icon" aria-hidden="true">{icon}</span><div className="min-w-0"><dt>{label}</dt><dd>{value}</dd></div></div>)}</dl></div> :
-    <div className="compact-card my-auto"><h2 className="mb-3 text-caption font-semibold text-brand-600">{slide.title}</h2><p className="compact-read-text">{slide.text}</p></div>;
+  return slide.rows ? <div className="compact-medication my-auto"><div className="diagnosis"><SlideArt slide={slide} /><div className="min-w-0"><p>Tedavim</p><h2>{slide.title}</h2></div></div><dl>{slide.rows.map(([label, value, icon]) => <div key={label}><span className="med-icon" aria-hidden="true"><MedRowIcon name={icon} /></span><div className="min-w-0"><dt>{label}</dt><dd>{value}</dd></div></div>)}</dl></div> :
+    <div className="compact-plan-slide my-auto"><SlideArt slide={slide} /><h2>{slide.title}</h2><p className="compact-read-text">{slide.text}</p></div>;
 }
 export function PlanCards({ plan }: { plan: Plan }) {
   return <div>{planSlides(plan).map((slide, index) => <section key={index} className="mb-4"><SlideCard slide={slide} /></section>)}</div>;

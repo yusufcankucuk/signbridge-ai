@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useFlow } from '../providers/FlowProvider';
 import { Frame, Choice, Empty, Pager, ReadText } from './CompactUI';
@@ -38,15 +38,18 @@ export function Questions() {
   const { state, setState } = useFlow(); const router = useRouter();
   const [kind, setKind] = useState<QuestionKind>('custom'); const [text, setText] = useState('');
   const [edit, setEdit] = useState(false);
+  // Soru gönderilince sayfa değişene kadar ekranı koru; uyarı kutusu bir an görünmesin.
+  const [leaving, setLeaving] = useState(false);
   const options: [QuestionKind, string, string][] = [['duration', 'Süre / Zaman', '◷'], ['intensity', 'Şiddet derecesi', '▥'], ['location', 'Yer / Bölge', '⌖'], ['medication', 'İlaç kullanımı', '⊕']];
   const send = () => {
-    if (!text.trim() || state.pending) return;
+    if (!text.trim() || state.pending || leaving) return;
+    setLeaving(true);
     setState(s => ({ ...s, pending: { id: crypto.randomUUID(), kind, text: text.trim() }, capture: 'answer', candidate: null }));
     router.push('/handoff/patient');
   };
-  const available = state.reviewed && !state.pending;
+  const available = leaving || (state.reviewed && !state.pending);
   return <Frame title={edit ? 'Soruyu kontrol edin' : 'Ne sormak istersiniz?'} role="doktor" footer={available && (edit ?
-    <><Button disabled={!text.trim()} onClick={send}>Hastaya sor</Button><button className="compact-link" onClick={() => setEdit(false)}>Geri</button></> :
+    <><Button disabled={!text.trim() || leaving} onClick={send}>Hastaya sor</Button><button className="compact-link" onClick={() => setEdit(false)}>Geri</button></> :
     <><button className="compact-link" onClick={() => { setKind('custom'); setText(''); setEdit(true); }}>Kendi sorumu yazacağım</button><Button href="/doctor/conversation" variant="outline">Görüşmeye dön</Button></>)}>
     {!available ? <Empty text="Önce görüşme ekranındaki adımı tamamlayın." /> :
       edit ? <div className="compact-form my-auto"><label>Sorunuz<textarea rows={4} maxLength={180} value={text} onChange={e => { setText(e.target.value); setKind('custom'); }} /></label></div> :
@@ -60,12 +63,16 @@ export function PatientResponse({ kind }: { kind: QuestionKind }) {
   const { state, setState } = useFlow(); const router = useRouter();
   const [selected, setSelected] = useState(''); const [detail, setDetail] = useState(''); const [groups, setGroups] = useState<string[]>([]);
   const [stage, setStage] = useState<'choice' | 'groups' | 'name'>('choice');
-  const pending = state.pending;
+  // Yanıt iletilince sayfa değişene kadar ekranı koru; uyarı kutusu bir an görünmesin.
+  const [leaving, setLeaving] = useState(false);
+  const lastPending = useRef(state.pending);
+  if (state.pending) lastPending.current = state.pending;
+  const pending = state.pending ?? (leaving ? lastPending.current : null);
   const ready = pending?.kind === kind;
   const titles = { duration: 'Ne zamandır?', intensity: 'Ne kadar şiddetli?', location: 'Ağrı neresinde?', medication: stage === 'groups' ? 'Hangi ilaçları kullanıyorsunuz?' : stage === 'name' ? 'İlacın adı ne?' : 'İlaç kullanıyor musunuz?', custom: 'Doktorun sorusu' };
   const answer = kind === 'medication' && selected === 'Evet' ? `Düzenli ilaç kullanıyorum: ${[...groups.filter(g => g !== 'Başka bir ilaç'), groups.includes('Başka bir ilaç') ? detail.trim() : ''].filter(Boolean).join(', ')}` : kind === 'medication' && selected === 'Hayır' ? 'Düzenli ilaç kullanmıyorum' : kind === 'custom' ? detail.trim() : selected;
   const valid = kind === 'medication' && selected === 'Evet' ? groups.length > 0 && (!groups.includes('Başka bir ilaç') || !!detail.trim()) : !!answer.trim();
-  const send = () => { if (!valid || !ready) return; setState(s => recordAnswer(s, answer, 'manual')); router.push('/handoff/doctor'); };
+  const send = () => { if (!valid || !ready || leaving) return; setLeaving(true); setState(s => recordAnswer(s, answer, 'manual')); router.push('/handoff/doctor'); };
   const next = () => {
     if (kind === 'medication' && selected === 'Evet') {
       if (stage === 'choice') { setStage('groups'); return; }
@@ -75,7 +82,7 @@ export function PatientResponse({ kind }: { kind: QuestionKind }) {
   };
   const canContinue = kind === 'medication' && selected === 'Evet' ? stage === 'choice' || (stage === 'groups' ? groups.length > 0 : !!detail.trim()) : valid;
   return <Frame title={titles[kind]} footer={ready && <>
-    <Button disabled={!canContinue} onClick={next}>{kind === 'medication' && selected === 'Evet' && (stage === 'choice' || (stage === 'groups' && groups.includes('Başka bir ilaç'))) ? 'Devam et' : 'Doktora ilet'}</Button>
+    <Button disabled={!canContinue || leaving} onClick={next}>{kind === 'medication' && selected === 'Evet' && (stage === 'choice' || (stage === 'groups' && groups.includes('Başka bir ilaç'))) ? 'Devam et' : 'Doktora ilet'}</Button>
     {stage !== 'choice' ? <button className="compact-link" onClick={() => setStage(stage === 'name' ? 'groups' : 'choice')}>Geri</button> :
       <button className="compact-link" onClick={() => { setState(s => ({ ...s, capture: 'answer', candidate: null })); router.push('/camera'); }}>İşaret diliyle yanıtla</button>}
   </>}>
@@ -86,7 +93,7 @@ export function PatientResponse({ kind }: { kind: QuestionKind }) {
       kind === 'location' ? <><div className="min-h-0 flex-1 flex items-center justify-center"><BodyMap selectedId={BODY_REGIONS.find(r => r.sentence === selected)?.id} onSelect={r => setSelected(r.sentence)} className="h-full max-h-[240px] w-[120px]" /></div><div className="compact-grid">{BODY_REGIONS.map(r => <Choice key={r.id} selected={selected === r.sentence} onClick={() => setSelected(r.sentence)}>{r.label}</Choice>)}</div></> :
       stage === 'choice' ? <div className="compact-center w-full"><div className="compact-grid w-full">{['Evet', 'Hayır'].map(v => <Choice key={v} selected={selected === v} onClick={() => setSelected(v)}>{v}</Choice>)}</div><button className="compact-link" aria-pressed={selected === 'Bilmiyorum'} onClick={() => setSelected('Bilmiyorum')}>{selected === 'Bilmiyorum' ? '✓ ' : ''}Bilmiyorum</button></div> :
       stage === 'name' ? <div className="compact-form my-auto"><label>İlacın adı<input maxLength={100} value={detail} onChange={e => setDetail(e.target.value)} /></label></div> :
-      <div className="my-auto"><div className="compact-grid">{MEDICATION_GROUPS.map(g => <Choice key={g.id} selected={groups.includes(g.label)} onClick={() => setGroups(current => current.includes(g.label) ? current.filter(v => v !== g.label) : [...current, g.label])}>{g.label}</Choice>)}</div><button className="compact-link mt-3 w-full" onClick={() => { setState(s => recordAnswer(s, 'İlaç kullanıyorum, adını bilmiyorum', 'manual')); router.push('/handoff/doctor'); }}>Adını bilmiyorum</button></div>}
+      <div className="my-auto"><div className="compact-grid">{MEDICATION_GROUPS.map(g => <Choice key={g.id} selected={groups.includes(g.label)} onClick={() => setGroups(current => current.includes(g.label) ? current.filter(v => v !== g.label) : [...current, g.label])}>{g.label}</Choice>)}</div><button className="compact-link mt-3 w-full" onClick={() => { if (leaving) return; setLeaving(true); setState(s => recordAnswer(s, 'İlaç kullanıyorum, adını bilmiyorum', 'manual')); router.push('/handoff/doctor'); }}>Adını bilmiyorum</button></div>}
   </Frame>;
 }
 

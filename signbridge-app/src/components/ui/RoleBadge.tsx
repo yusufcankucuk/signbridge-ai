@@ -27,12 +27,14 @@ const config = {
     doktor: {
         label: "Doktor",
         classes: "bg-doctor-50 text-doctor-600 border-doctor-200",
+        // Tedavi özetindeki stetoskopun küçük hâli (PlanVisuals > DiagnosisVisual).
         icon: (
-            <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 3v4m-2-2h4M6.75 8.25h10.5v4.5a5.25 5.25 0 11-10.5 0v-4.5z"
-            />
+            <g strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7.5 3.5v5a4.5 4.5 0 0 0 9 0v-5" />
+                <path d="M5.5 3.5h4M14.5 3.5h4" />
+                <path d="M12 13v2.5a4 4 0 0 0 4 4h.5" />
+                <circle cx="18.5" cy="19.5" r="2" />
+            </g>
         ),
     },
 } as const;
