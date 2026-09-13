@@ -46,11 +46,11 @@ interface ButtonAsLink extends BaseProps {
 type ButtonProps = ButtonAsButton | ButtonAsLink;
 
 const base =
-    "inline-flex items-center justify-center gap-2.5 rounded-lg font-bold " +
-    "transition-all duration-200 select-none " +
-    "active:scale-[0.98] " +
+    "inline-flex items-center justify-center gap-2.5 rounded-lg font-semibold " +
+    "tracking-[-0.01em] transition-all duration-200 select-none " +
+    "active:scale-[0.985] " +
     "focus-visible:outline-none focus-visible:ring focus-visible:ring-brand-300 focus-visible:ring-offset-2 " +
-    "disabled:pointer-events-none disabled:opacity-50";
+    "disabled:pointer-events-none disabled:opacity-45";
 
 const variants: Record<ButtonVariant, string> = {
     /* Hasta akışının birincil eylemi */
@@ -67,7 +67,7 @@ const variants: Record<ButtonVariant, string> = {
 
     /* Çerçeveli ikincil eylem */
     outline:
-        "border-2 border-line-strong bg-white text-ink-body hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700",
+        "border border-line-strong bg-white text-ink-body shadow-card hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700",
 
     /* En düşük vurgu — "geri", "atla" gibi eylemler */
     ghost: "bg-transparent text-ink-muted hover:bg-surface-subtle hover:text-ink",
@@ -77,9 +77,9 @@ const variants: Record<ButtonVariant, string> = {
         "bg-danger-500 text-white hover:bg-danger-600 active:bg-danger-700 focus-visible:ring-danger-100",
 };
 
-/* Yükseklikler dokunma alanı minimumlarına bağlıdır. */
+/* Yükseklikler dokunma alanı minimumlarına bağlıdır (52 / 56 / 64px). */
 const sizes: Record<ButtonSize, string> = {
-    md: "min-h-tap px-5 text-label",
+    md: "min-h-tap px-5 text-base",
     lg: "min-h-tap-lg px-6 text-base",
     xl: "min-h-tap-xl px-7 text-lead",
 };
@@ -133,7 +133,7 @@ export default function Button(props: ButtonProps) {
     const content = (
         <>
             {loading ? <Spinner /> : icon}
-            <span className="whitespace-normal break-words py-2 text-center leading-snug">{children}</span>
+            <span className="whitespace-normal break-words py-1.5 text-center leading-snug">{children}</span>
             {!loading && iconRight}
         </>
     );

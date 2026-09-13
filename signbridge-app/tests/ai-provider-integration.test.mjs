@@ -206,6 +206,46 @@ test('ulaşılamayan sağlayıcı kontrollü 503 üretir', async () => {
     }
 });
 
+test('AI servisinin bozuk cevabı kontrollü 502 üretir', async () => {
+    const upstream = await listen((_request, response) => {
+        response.writeHead(200, { 'content-type': 'application/json' });
+        response.end('{"invalidJson":');
+    });
+    const app = await startNext({ AI_PROVIDER: 'local', AI_LOCAL_URL: upstream.url });
+    try {
+        const response = await predict(app.baseUrl);
+        assert.equal(response.status, 502);
+        assert.deepEqual(await response.json(), {
+            error: 'AI sağlayıcısı geçerli JSON döndürmedi.',
+            code: 'AI_INVALID_RESPONSE'
+        });
+    } finally {
+        await stopNext(app.child);
+        await closeServer(upstream.server);
+    }
+});
+
+test('AI servisinin yetkisiz cevabı kontrollü 503 üretir', async () => {
+    const upstream = await listen((_request, response) => {
+        response.writeHead(401, { 'content-type': 'application/json' });
+        response.end(JSON.stringify({ error: 'sensitive-upstream-detail' }));
+    });
+    const app = await startNext({ AI_PROVIDER: 'local', AI_LOCAL_URL: upstream.url });
+    try {
+        const response = await predict(app.baseUrl);
+        assert.equal(response.status, 503);
+        const body = await response.json();
+        assert.deepEqual(body, {
+            error: 'AI servisi kimlik doğrulamasını kabul etmedi.',
+            code: 'AI_AUTHENTICATION_ERROR'
+        });
+        assert.equal(JSON.stringify(body).includes('sensitive-upstream-detail'), false);
+    } finally {
+        await stopNext(app.child);
+        await closeServer(upstream.server);
+    }
+});
+
 test('15 saniyeyi aşan sağlayıcı kontrollü timeout hatası üretir', { timeout: 20_000 }, async () => {
     const upstream = await listen((_request, _response) => {
         // İstek bilerek açık bırakılır; backend'in 15 saniyelik sınırı doğrulanır.

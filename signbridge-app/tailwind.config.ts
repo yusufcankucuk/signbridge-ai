@@ -116,49 +116,63 @@ const config: Config = {
                     "linear-gradient(135deg, #EAF6F3 0%, #E8F4F5 100%)",
             },
 
+            fontFamily: {
+                /* Tek aile: Inter (kendi sunucumuzdan) + sistem yedeği */
+                sans: [
+                    "InterVariable",
+                    "Segoe UI",
+                    "system-ui",
+                    "-apple-system",
+                    "Roboto",
+                    "Arial",
+                    "sans-serif",
+                ],
+            },
+
             fontSize: {
                 /**
-                 * Erişilebilirlik: gövde ve yönlendirme metni 15px'in altına inmez.
-                 * `fine` bunun tek istisnası — ekran altındaki tamamlayıcı
-                 * dipnotlar için (mahremiyet notu gibi). Talimat, hata mesajı,
-                 * etiket veya buton metninde ASLA kullanılmaz.
+                 * Tipografi ölçeği — globals.css içindeki --sb-text-* ile aynı.
+                 * Başlıklar iri ama kalın değil (500/600); gövde 17px, okunabilir
+                 * en küçük metin 15px. `fine` yalnızca ekran altındaki dipnot
+                 * içindir; talimat, hata, etiket veya buton metninde kullanılmaz.
                  */
-                fine: ["0.84375rem", { lineHeight: "1.2rem" }], // 13.5
+                fine: ["0.8125rem", { lineHeight: "1.15rem" }], // 13
                 caption: ["0.9375rem", { lineHeight: "1.4rem" }], // 15
-                label: ["1rem", { lineHeight: "1.5rem", fontWeight: "600" }], // 16
-                base: ["1.125rem", { lineHeight: "1.75rem" }], // 18 — gövde
-                lead: ["1.25rem", { lineHeight: "1.9rem" }], // 20
-                h3: ["1.375rem", { lineHeight: "1.85rem", fontWeight: "700" }], // 22
-                h2: ["1.75rem", { lineHeight: "2.2rem", fontWeight: "700" }], // 28
-                h1: ["2.125rem", { lineHeight: "2.5rem", fontWeight: "800" }], // 34
-                display: ["2.5rem", { lineHeight: "2.85rem", fontWeight: "800" }], // 40
+                label: ["0.9375rem", { lineHeight: "1.4rem", fontWeight: "500" }], // 15
+                base: ["1.0625rem", { lineHeight: "1.65rem" }], // 17 — gövde
+                lead: ["1.1875rem", { lineHeight: "1.75rem" }], // 19
+                h3: ["1.1875rem", { lineHeight: "1.5rem", fontWeight: "600" }], // 19
+                h2: ["1.375rem", { lineHeight: "1.7rem", fontWeight: "600" }], // 22
+                h1: ["1.625rem", { lineHeight: "2rem", fontWeight: "500" }], // 26
+                display: ["2.25rem", { lineHeight: "2.5rem", fontWeight: "600" }], // 36
             },
 
             spacing: {
-                /* Dokunma alanı minimumları */
-                tap: "3.5rem", // 56px — WCAG 2.5.5 üzeri
-                "tap-lg": "4rem", // 64px — birincil eylemler
-                "tap-xl": "4.5rem", // 72px — kamera/kayıt gibi kritik eylemler
+                /* Dokunma alanı minimumları — hepsi WCAG 2.5.5 hedefinin üstünde */
+                tap: "3.25rem", // 52px — standart buton
+                "tap-lg": "3.5rem", // 56px — ekranın birincil eylemi
+                "tap-xl": "4rem", // 64px — kamera/kayıt gibi kritik eylemler
             },
 
             borderRadius: {
-                sm: "0.625rem", // 10
+                sm: "0.75rem", // 12
                 DEFAULT: "0.875rem", // 14
                 md: "1rem", // 16
-                lg: "1.25rem", // 20
+                lg: "1.25rem", // 20 — kart ve buton varsayılanı
                 xl: "1.5rem", // 24
-                "2xl": "2rem", // 32 — logo / büyük kartlar
+                "2xl": "2rem", // 32
             },
 
             boxShadow: {
-                card: "0 1px 2px rgba(11,18,32,0.04), 0 4px 16px rgba(11,18,32,0.06)",
-                raised: "0 6px 20px rgba(11,18,32,0.10)",
-                brand: "0 4px 14px rgba(14,96,104,0.22)",
-                doctor: "0 4px 14px rgba(18,80,126,0.22)",
+                /* Gölge çok yumuşak: yükseklik hissi kenarlıktan gelir, gölgeden değil. */
+                card: "0 1px 2px rgba(11,18,32,0.04)",
+                raised: "0 1px 2px rgba(11,18,32,0.04), 0 6px 16px rgba(11,18,32,0.05)",
+                brand: "0 2px 10px rgba(14,96,104,0.18)",
+                doctor: "0 2px 10px rgba(18,80,126,0.18)",
             },
 
             ringWidth: {
-                DEFAULT: "4px", // odak halkası her zaman kalın
+                DEFAULT: "3px", // odak halkası her zaman görünür
             },
 
             maxWidth: {

@@ -66,6 +66,7 @@ Model, preprocessing veya etiket sözlüğü sürümlerinden biri uyuşmazsa bac
 |---|---:|---|
 | 15 saniye timeout | 503 | `AI_TIMEOUT` |
 | Ağ hatası veya servis kesintisi | 503 | `AI_UNAVAILABLE` |
+| AI upstream kimlik doğrulama reddi (`401/403`) | 503 | `AI_AUTHENTICATION_ERROR` |
 | Geçersiz JSON/sözleşme | 502 | `AI_INVALID_RESPONSE` |
 | Model/etiket/preprocessing sürüm uyuşmazlığı | 409 | `AI_VERSION_MISMATCH` |
 | Eksik veya hatalı provider ayarı | 503 | `AI_CONFIGURATION_ERROR` |
@@ -110,7 +111,7 @@ Entegrasyon testi gerçek HTTP soketleri üzerinden local ve ModelArts adaptörl
 
 - Next.js lint: başarılı
 - Next.js production build ve TypeScript kontrolü: başarılı
-- Provider HTTP entegrasyon testleri: 8/8 başarılı
+- Provider HTTP entegrasyon testleri: 10/10 başarılı
 - İstemci bundle secret taraması: 9 dosya, sızıntı yok
 - Cache kullanılmadan Docker web imajı build'i: başarılı
 - Cache kullanılmadan Docker FastAPI inference imajı build'i: başarılı

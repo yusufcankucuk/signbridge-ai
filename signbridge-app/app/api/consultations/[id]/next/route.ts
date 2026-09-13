@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase';
 import { SessionManager } from '@/lib/stateMachine';
+import { validateEmptyRequest } from '@/lib/apiValidation';
 
-export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+    const validation = await validateEmptyRequest(request);
+    if (!validation.ok) return NextResponse.json({ error: validation.error }, { status: validation.status });
     const supabase = getSupabase();
     const { id } = await params;
     const { data: session, error: sessionError } = await supabase

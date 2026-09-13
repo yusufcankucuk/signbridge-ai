@@ -2,16 +2,17 @@ import { NextResponse } from 'next/server';
 import { createAiService } from '@/lib/ai/service';
 import { isAiServiceError } from '@/lib/ai/errors';
 import { isLandmarkPredictionRequest } from '@/lib/prediction';
+import { readJsonObject } from '@/lib/apiValidation';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
-    let payload: unknown;
-    try {
-        payload = await request.json();
-    } catch {
-        return NextResponse.json({ error: 'Geçerli bir JSON gövdesi gönderilmelidir.' }, { status: 400 });
-    }
+    const parsed = await readJsonObject(request, {
+        maxBytes: 256 * 1024,
+        allowedFields: ['sessionId', 'preprocessingVersion', 'landmarks', 'mask'],
+    });
+    if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: parsed.status });
+    const payload = parsed.value;
 
     if (!isLandmarkPredictionRequest(payload)) {
         return NextResponse.json(

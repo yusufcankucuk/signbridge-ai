@@ -53,11 +53,11 @@ export default function Card({
     return (
         <div
             className={cn(
-                "rounded-lg border-2 shadow-card transition-all duration-200",
+                "rounded-lg border shadow-card transition-all duration-200",
                 tones[tone],
                 paddings[padding],
                 interactive &&
-                    "cursor-pointer hover:border-brand-300 hover:shadow-raised",
+                    "cursor-pointer hover:border-brand-300 hover:bg-brand-50",
                 selected && "border-brand-500 bg-brand-50 shadow-brand",
                 className
             )}

@@ -27,18 +27,20 @@ const config = {
     doktor: {
         label: "Doktor",
         classes: "bg-doctor-50 text-doctor-600 border-doctor-200",
+        // Tedavi özetindeki stetoskopun küçük hâli (PlanVisuals > DiagnosisVisual).
         icon: (
-            <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 3v4m-2-2h4M6.75 8.25h10.5v4.5a5.25 5.25 0 11-10.5 0v-4.5z"
-            />
+            <g strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7.5 3.5v5a4.5 4.5 0 0 0 9 0v-5" />
+                <path d="M5.5 3.5h4M14.5 3.5h4" />
+                <path d="M12 13v2.5a4 4 0 0 0 4 4h.5" />
+                <circle cx="18.5" cy="19.5" r="2" />
+            </g>
         ),
     },
 } as const;
 
 const sizes = {
-    sm: "gap-1.5 px-2.5 py-1 text-caption [&_svg]:h-4 [&_svg]:w-4",
+    sm: "gap-1.5 px-3 py-1.5 text-caption [&_svg]:h-4 [&_svg]:w-4",
     md: "gap-2 px-3 py-1.5 text-label [&_svg]:h-5 [&_svg]:w-5",
     lg: "gap-2.5 px-4 py-2 text-base [&_svg]:h-6 [&_svg]:w-6",
 };
@@ -53,7 +55,7 @@ export default function RoleBadge({
     return (
         <span
             className={cn(
-                "inline-flex items-center rounded-full border-2 font-bold",
+                "inline-flex items-center rounded-full border font-medium",
                 item.classes,
                 sizes[size],
                 className
@@ -63,7 +65,7 @@ export default function RoleBadge({
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="2"
+                strokeWidth="1.75"
                 aria-hidden="true"
                 className="shrink-0"
             >
