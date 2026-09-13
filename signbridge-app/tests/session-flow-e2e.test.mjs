@@ -92,6 +92,24 @@ async function startSupabaseTestServer() {
             return sendJson(response, 201, wantsSingle ? row : [row]);
         }
 
+        if (table === 'advance_consultation' && request.method === 'POST') {
+            const body = await requestBody(request);
+            const row = sessions.get(body.p_session_id);
+            if (!row || row.state !== body.p_expected_state) return sendJson(response, 200, false);
+            if (body.p_event_type) events.push({
+                id: randomUUID(), session_id: body.p_session_id,
+                type: body.p_event_type, payload: body.p_event_payload,
+            });
+            if (body.p_delete_events) {
+                for (let index = events.length - 1; index >= 0; index -= 1) {
+                    if (events[index].session_id === body.p_session_id) events.splice(index, 1);
+                }
+            }
+            if (body.p_next_state === 'ended') sessions.delete(body.p_session_id);
+            else row.state = body.p_next_state;
+            return sendJson(response, 200, true);
+        }
+
         if (table === 'consultation_sessions' && request.method === 'GET') {
             const row = sessions.get(filterValue(url, 'id'));
             if (wantsSingle) {
@@ -208,7 +226,8 @@ test('create → prediction → confirm → doctor response → next/end tam tur
     const ai = externalAiUrl ? undefined : await startAiTestServer();
     const app = await startNext({
         SUPABASE_URL: supabase.url,
-        SUPABASE_ANON_KEY: SECRET_CANARY,
+        SESSION_STORE: 'supabase',
+        SUPABASE_SERVICE_ROLE_KEY: SECRET_CANARY,
         AI_PROVIDER: 'local',
         AI_FALLBACK_PROVIDER: 'none',
         MODELARTS_ENABLED: 'false',
@@ -297,7 +316,7 @@ test('create → prediction → confirm → doctor response → next/end tam tur
         const ended = await post(app.baseUrl, `/api/consultations/${sessionId}/end`);
         assert.equal(ended.status, 200);
         assert.equal(ended.payload.nextState, 'ended');
-        assert.deepEqual(supabase.snapshot(sessionId), { state: 'ended', eventCount: 0 });
+        assert.deepEqual(supabase.snapshot(sessionId), { state: undefined, eventCount: 0 });
         evidence.push({ step: 'end', status: ended.status, state: ended.payload.nextState, eventsRemaining: 0 });
 
         const serverLogs = app.output.join('');
@@ -318,7 +337,8 @@ test('strict girdiler, boyut sınırı ve iki oturum izolasyonu korunur', async 
     const ai = await startAiTestServer();
     const app = await startNext({
         SUPABASE_URL: supabase.url,
-        SUPABASE_ANON_KEY: SECRET_CANARY,
+        SESSION_STORE: 'supabase',
+        SUPABASE_SERVICE_ROLE_KEY: SECRET_CANARY,
         AI_PROVIDER: 'local',
         AI_FALLBACK_PROVIDER: 'none',
         MODELARTS_ENABLED: 'false',
@@ -416,7 +436,7 @@ test('strict girdiler, boyut sınırı ve iki oturum izolasyonu korunur', async 
 
         const ended = await post(app.baseUrl, `/api/consultations/${firstId}/end`);
         assert.equal(ended.status, 200);
-        assert.deepEqual(supabase.snapshot(firstId), { state: 'ended', eventCount: 0 });
+        assert.deepEqual(supabase.snapshot(firstId), { state: undefined, eventCount: 0 });
         assert.deepEqual(supabase.snapshot(secondId), { state: 'patient_confirmation', eventCount: 1 });
 
         const firstAfterEnd = await post(
@@ -424,7 +444,7 @@ test('strict girdiler, boyut sınırı ve iki oturum izolasyonu korunur', async 
             `/api/consultations/${firstId}/confirm`,
             { confirmed: true },
         );
-        assert.equal(firstAfterEnd.status, 409);
+        assert.equal(firstAfterEnd.status, 404);
         assert.deepEqual(supabase.snapshot(secondId), { state: 'patient_confirmation', eventCount: 1 });
     } finally {
         await stopNext(app.child);

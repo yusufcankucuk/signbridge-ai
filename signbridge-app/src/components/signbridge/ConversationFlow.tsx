@@ -9,6 +9,7 @@ import ExpressionVisual from './ExpressionVisual';
 import { EXPRESSIONS } from '../../data/expressions';
 import { BODY_REGIONS, MEDICATION_GROUPS } from '../../data/regions';
 import { questionLabels, recordAnswer, type QuestionKind } from '../../lib/consultationFlow';
+import { preparePatientCapture } from '../../lib/sessionClient';
 
 export function Conversation() {
   const { state, setState } = useFlow(); const router = useRouter();
@@ -38,12 +39,16 @@ export function Questions() {
   const { state, setState } = useFlow(); const router = useRouter();
   const [kind, setKind] = useState<QuestionKind>('custom'); const [text, setText] = useState('');
   const [edit, setEdit] = useState(false);
+  const [error, setError] = useState('');
   // Soru gönderilince sayfa değişene kadar ekranı koru; uyarı kutusu bir an görünmesin.
   const [leaving, setLeaving] = useState(false);
   const options: [QuestionKind, string, string][] = [['duration', 'Süre / Zaman', '◷'], ['intensity', 'Şiddet derecesi', '▥'], ['location', 'Yer / Bölge', '⌖'], ['medication', 'İlaç kullanımı', '⊕']];
-  const send = () => {
+  const send = async () => {
     if (!text.trim() || state.pending || leaving) return;
     setLeaving(true);
+    setError('');
+    try { await preparePatientCapture(state.sessionId, text.trim()); }
+    catch { setLeaving(false); setError('Soru görüşmeye eklenemedi. Lütfen tekrar deneyin.'); return; }
     setState(s => ({ ...s, pending: { id: crypto.randomUUID(), kind, text: text.trim() }, capture: 'answer', candidate: null }));
     router.push('/handoff/patient');
   };
@@ -51,6 +56,7 @@ export function Questions() {
   return <Frame title={edit ? 'Soruyu kontrol edin' : 'Ne sormak istersiniz?'} role="doktor" footer={available && (edit ?
     <><Button disabled={!text.trim() || leaving} onClick={send}>Hastaya sor</Button><button className="compact-link" onClick={() => setEdit(false)}>Geri</button></> :
     <><button className="compact-link" onClick={() => { setKind('custom'); setText(''); setEdit(true); }}>Kendi sorumu yazacağım</button><Button href="/doctor/conversation" variant="outline">Görüşmeye dön</Button></>)}>
+    {error && <p className="compact-error" role="alert">{error}</p>}
     {!available ? <Empty text="Önce görüşme ekranındaki adımı tamamlayın." /> :
       edit ? <div className="compact-form my-auto"><label>Sorunuz<textarea rows={4} maxLength={180} value={text} onChange={e => { setText(e.target.value); setKind('custom'); }} /></label></div> :
       <div className="compact-menu my-auto">{options.map(([key, title, icon]) => <button key={key} onClick={() => { setKind(key); setText(questionLabels[key]); setEdit(true); }}>

@@ -53,8 +53,7 @@ async function startNext(environment) {
         env: {
             ...process.env,
             NODE_ENV: 'production',
-            SUPABASE_URL: 'http://127.0.0.1:54321',
-            SUPABASE_ANON_KEY: 'integration-test-key',
+            SESSION_STORE: 'memory',
             ...environment
         },
         stdio: ['ignore', 'pipe', 'pipe']

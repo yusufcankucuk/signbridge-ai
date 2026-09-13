@@ -2,9 +2,10 @@
 
 ## Sonuç
 
-Mevcut AUTSL PKL verisi ile Python kamera çıkarıcısı aynı temel 75 noktalı düzeni ve x/y koordinat yaklaşımını
-kullanır. Ancak çıkarıcı ayarları birebir aynı değildir. Bu nedenle kamera hattı **yapısal olarak uyumlu**, fakat
-eğitim poz üreticisiyle **çıkarim bakımından eşdeğerliği kanıtlanmamış** olarak işaretlenmiştir.
+Mevcut AUTSL PKL verisi, Python kamera çıkarıcısı ve 13 Eylül 2026'da eklenen tarayıcı MediaPipe Tasks hattı
+aynı temel 75 noktalı düzeni, 46 noktalı seçimi ve x/y koordinat yaklaşımını kullanır. Ancak çıkarıcı sürümleri ve
+ayarları birebir aynı değildir. Bu nedenle hat **yapısal ve sözleşmesel olarak uyumlu**, fakat eğitim poz
+üreticisiyle **dağılım bakımından eşdeğerliği kanıtlanmamış** olarak işaretlenmiştir.
 
 ## Kaynaklar
 
@@ -30,6 +31,7 @@ eğitim poz üreticisiyle **çıkarim bakımından eşdeğerliği kanıtlanmamı
 | Anatomik el | Holistic `left_hand_landmarks`/`right_hand_landmarks` | Aynı alanlar aynı sırada | Uyumlu; önizleme aynalanırsa ayrıca test gerekir |
 | Normalizasyon | OpenHands ham pozu sağlar | Omuz orta noktası/mesafesi | SignBridge model sözleşmesinin parçası |
 | Zaman örnekleme | Ham kare dizisi | Koordinat doğrusal, mask en yakın komşu ile 60 adım | SignBridge model sözleşmesinin parçası |
+| Tarayıcı hattı | Uygulanmaz | MediaPipe Tasks Holistic; aynı 75→46 seçimi, kalite kapısı, normalizasyon ve 60 adım | Otomatik sözleşme testleri geçti; gerçek kamera matrisi bekliyor |
 
 MediaPipe x ve y değerlerini görüntü genişliği/yüksekliğine göre normalize eder. Pose noktaları görüntü sınırının
 dışına çıktığında değerler 0–1 aralığını aşabilir; bu tek başına hata sayılmaz. Yüzün 468 noktası model girdisine
@@ -45,7 +47,9 @@ alınmadığı için mimik ve ağız bilgisi kullanılmaz.
 
 ## Mühendislik kararı
 
-`landmark46-v1` veya mevcut model sessizce değiştirilmemiştir. `model_complexity=2` geçişi düşük riskli bir
+`landmark46-v1` veya mevcut model sessizce değiştirilmemiştir. Tarayıcı önizlemesi CSS ile aynalanır; analiz
+karesine yatay çevirme uygulanmadığından anatomik sol/sağ blok sırası korunur. Ham video tarayıcı dışına çıkmaz;
+yalnız türetilmiş landmark isteği gönderilir. `model_complexity=2` geçişi düşük riskli bir
 ayar değişikliği gibi görünse de eğitim verisinin üretim ayarını etkilediği için yeni kamera karşılaştırması ve
 gerekirse yeni ön işleme/model sürümü gerektirir. İki katılımcılı kamera ölçümü tamamlanmadan Python hattı ile
-gelecekteki tarayıcı çıkarıcısı eşdeğer kabul edilmeyecektir.
+tarayıcı çıkarıcısı eğitim çıkarıcısıyla eşdeğer kabul edilmeyecektir.

@@ -43,8 +43,9 @@ services:
     image: signbridge/web:0.1.0
     environment:
       NODE_ENV: production
+      SESSION_STORE: ${SESSION_STORE:-memory}
       SUPABASE_URL: ${SUPABASE_URL:-}
-      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
       AI_PROVIDER: ${AI_PROVIDER:-local}
       AI_FALLBACK_PROVIDER: ${AI_FALLBACK_PROVIDER:-none}
       MODELARTS_ENABLED: ${MODELARTS_ENABLED:-false}

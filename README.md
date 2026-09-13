@@ -21,7 +21,7 @@ Model tıbbi tanı koymaz, kesintisiz işaret dili cümlesi çözmez ve profesyo
 
 ## Kolay başlangıç
 
-Komutları deponun ana klasöründe çalıştırın. Uygulamayı ilk kez deniyorsanız **Docker ile başlangıç** önerilir; web ve AI servisini tek komutla hazırlar.
+Komutları deponun ana klasöründe çalıştırın. Uygulamayı ilk kez deniyorsanız **Docker ile başlangıç** önerilir; web ve AI servisini tek komutla hazırlar. Yerel demo varsayılan olarak görüşmeleri yalnız sunucu belleğinde tutar; Supabase zorunlu değildir.
 
 Her iki yöntemde de aşağıdaki model çıktılarının mevcut olması gerekir:
 
@@ -41,7 +41,7 @@ Test-Path .\ai-training\outputs\runtime_config.json
 
 ### Seçenek 1 — Docker ile başlangıç
 
-Gerekenler: Docker Desktop ve çalışan bir Supabase projesi.
+Gerekenler: Docker Desktop ve kamerası olan bir bilgisayar.
 
 1. Ayar dosyasını oluşturun:
 
@@ -50,7 +50,7 @@ Gerekenler: Docker Desktop ve çalışan bir Supabase projesi.
    notepad .env
    ```
 
-2. `.env` içindeki `SUPABASE_URL` ve `SUPABASE_ANON_KEY` değerlerini Supabase projenizdeki gerçek değerlerle değiştirin.
+2. İlk yerel denemede `.env` içindeki `SESSION_STORE=memory` ayarını koruyun. Kalıcı Supabase oturumu gerekiyorsa `infrastructure/database/schema.sql` dosyasını kendi projenizde çalıştırın, `SESSION_STORE=supabase`, `SUPABASE_URL` ve yalnızca sunucuda kalacak `SUPABASE_SERVICE_ROLE_KEY` değerlerini girin. Anon anahtarı service-role anahtarı yerine kullanmayın.
 
 3. Sistemi oluşturup başlatın:
 
@@ -59,7 +59,7 @@ Gerekenler: Docker Desktop ve çalışan bir Supabase projesi.
    docker compose ps
    ```
 
-4. `web` ve `ai-inference` durumları `healthy` olduğunda [http://localhost:3000](http://localhost:3000) adresini açın. İlk AI model yüklemesi bilgisayara göre 1-3 dakika sürebilir.
+4. `web` ve `ai-inference` durumları `healthy` olduğunda [http://localhost:3000](http://localhost:3000) adresini açın. `Başla → Kamerayı aç` yolunu izleyip tarayıcı kamera iznini verin. İlk AI ve tarayıcı landmark modeli yüklemesi bilgisayara göre biraz sürebilir.
 
 5. İşiniz bittiğinde sistemi kapatın:
 
@@ -67,11 +67,11 @@ Gerekenler: Docker Desktop ve çalışan bir Supabase projesi.
    docker compose down
    ```
 
-Bu komut model veya veri dosyalarını silmez. Docker içinde model eğitimi ve ayrıntılı açıklamalar için [Docker kılavuzuna](docs/docker.md) bakın.
+Bu komut model veya veri dosyalarını silmez. Docker içinde model eğitimi ve ayrıntılı açıklamalar için [Docker kılavuzuna](signbridge-app/docs/docker.md) bakın.
 
 ### Seçenek 2 — Docker olmadan başlangıç
 
-Gerekenler: Python 3.9, Node.js 22, npm ve çalışan bir Supabase projesi. AI ve web servisleri iki ayrı PowerShell penceresinde açık tutulur.
+Gerekenler: Python 3.9, Node.js 22 ve npm. AI ve web servisleri iki ayrı PowerShell penceresinde açık tutulur.
 
 #### 1. PowerShell — AI servisi
 
@@ -96,11 +96,10 @@ Copy-Item .env.example .env.local
 notepad .env.local
 ```
 
-`.env.local` içinde şu üç değeri düzenleyin:
+Yerel bellek modu için `.env.local` içinde şu değerleri kullanın:
 
 ```dotenv
-SUPABASE_URL=https://GERCEK_PROJE_ADI.supabase.co
-SUPABASE_ANON_KEY=GERCEK_SUPABASE_ANON_KEY
+SESSION_STORE=memory
 AI_SERVICE_URL=http://127.0.0.1:8000
 ```
 
@@ -113,15 +112,18 @@ npm run dev
 
 [http://localhost:3000](http://localhost:3000) adresini açın. Servisleri kapatmak için iki PowerShell penceresinde de `Ctrl+C` tuşlarına basın.
 
+Kamera analizi tarayıcıda çalışır: ham görüntü SignBridge sunucusuna gönderilmez veya diske yazılmaz. Tarayıcı yalnız türetilmiş `60×46×2` landmark verisini AI servisine yollar. Önizleme kullanıcı kolaylığı için aynalanır; modele verilen anatomik sol/sağ el sırası değiştirilmez. Kamera erişimi üretimde HTTPS, yerelde ise `localhost` gerektirir.
+
 ### Çalıştığını kontrol etme
 
 Web sağlık kontrolü:
 
 ```powershell
 Invoke-RestMethod http://localhost:3000/api/health
+Invoke-RestMethod http://localhost:3000/api/ready
 ```
 
-Başarılı sonuçta `status` alanı `ok` olur. Sorun yaşarsanız Docker için `docker compose logs --tail 100 web ai-inference`, Docker olmadan çalıştırmada ise iki PowerShell penceresindeki hata mesajlarını kontrol edin.
+İlk kontrolde `status=ok`; hazır olma kontrolünde oturum deposu erişilebiliyorsa `status=ready` olur. Sorun yaşarsanız Docker için `docker compose logs --tail 100 web ai-inference`, Docker olmadan çalıştırmada ise iki PowerShell penceresindeki hata mesajlarını kontrol edin.
 
 AI hattının ayrıntıları [ai-training/README.md](ai-training/README.md), uygulama akışı [docs/api-and-state-machine.md](docs/api-and-state-machine.md), entegrasyon veri biçimi ise [docs/ai-contract.md](docs/ai-contract.md) dosyasındadır.
 

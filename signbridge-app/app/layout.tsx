@@ -7,6 +7,12 @@ import { Suspense } from "react";
 export const metadata: Metadata = {
     title: "SignBridge",
     description: "Sağlıkta engelsiz iletişim",
+    applicationName: "SignBridge",
+    manifest: "/manifest.webmanifest",
+    icons: {
+        icon: "/logo/signbridge-logo.png",
+        apple: "/logo/signbridge-logo.png",
+    },
 };
 
 export default function RootLayout({
@@ -17,9 +23,9 @@ export default function RootLayout({
     return (
         <html lang="tr">
             <body>
-                <FlowProvider>
-                    <Suspense fallback={null}>{children}</Suspense>
-                </FlowProvider>
+                <Suspense fallback={null}>
+                    <FlowProvider>{children}</FlowProvider>
+                </Suspense>
             </body>
         </html>
     );

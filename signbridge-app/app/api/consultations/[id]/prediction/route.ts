@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getSupabase } from '@/lib/supabase';
+import { getSessionStore } from '@/lib/sessionStore';
 import { createAiService } from '@/lib/ai/service';
 import { isAiServiceError } from '@/lib/ai/errors';
 import { isLandmarkPredictionRequest } from '@/lib/prediction';
@@ -7,7 +7,7 @@ import { SessionManager } from '@/lib/stateMachine';
 import { readJsonObject } from '@/lib/apiValidation';
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-    const supabase = getSupabase();
+    const store = getSessionStore();
     const { id } = await params;
     const parsed = await readJsonObject(request, {
         maxBytes: 256 * 1024,
@@ -26,13 +26,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         return NextResponse.json({ error: 'İstek gövdesindeki sessionId URL ile eşleşmiyor.' }, { status: 400 });
     }
 
-    const { data: session, error: sessionError } = await supabase
-        .from('consultation_sessions')
-        .select('state')
-        .eq('id', id)
-        .maybeSingle();
-
-    if (sessionError) {
+    let session;
+    try {
+        session = await store.get(id);
+    } catch {
         return NextResponse.json({ error: 'Oturum okunamadı.' }, { status: 500 });
     }
     if (!session) {
@@ -56,20 +53,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         );
     }
 
-    const { error: eventError } = await supabase
-        .from('interaction_events')
-        .insert([{ session_id: id, type: 'prediction', payload: result.prediction }]);
-    if (eventError) {
-        return NextResponse.json({ error: 'Tahmin kaydedilemedi.' }, { status: 500 });
-    }
-
-    const { error: stateError } = await supabase
-        .from('consultation_sessions')
-        .update({ state: 'patient_confirmation' })
-        .eq('id', id);
-    if (stateError) {
+    let transitioned = false;
+    try {
+        transitioned = await store.transition({
+            id,
+            expectedState: session.state,
+            nextState: 'patient_confirmation',
+            event: { type: 'prediction', payload: result.prediction },
+        });
+    } catch {
         return NextResponse.json({ error: 'Oturum durumu güncellenemedi.' }, { status: 500 });
     }
+    if (!transitioned) return NextResponse.json({ error: 'Oturum durumu değişti; yeniden deneyin.' }, { status: 409 });
 
     return NextResponse.json({
         success: true,
