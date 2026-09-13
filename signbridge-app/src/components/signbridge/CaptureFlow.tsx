@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useFlow } from '../providers/FlowProvider';
 import { Frame, Choice, Empty, Pager, ReadText, CameraIcon } from './CompactUI';
@@ -78,9 +78,8 @@ export function Confirm() {
   const { state, setState } = useFlow(); const router = useRouter();
   // Onaydan sonra sayfa değişene kadar ekranı olduğu gibi tut; boş uyarı görünmesin.
   const [leaving, setLeaving] = useState(false);
-  const lastCandidate = useRef(state.candidate);
-  if (state.candidate) lastCandidate.current = state.candidate;
-  const candidate = state.candidate ?? (leaving ? lastCandidate.current : null);
+  const [initialCandidate] = useState(state.candidate);
+  const candidate = state.candidate ?? (leaving ? initialCandidate : null);
   const expression = EXPRESSIONS.find(e => e.sentence === candidate?.text);
   const confirm = () => {
     if (!state.candidate || leaving) return;

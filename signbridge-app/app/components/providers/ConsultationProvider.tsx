@@ -56,30 +56,34 @@ export function ConsultationProvider({
     const [isLoaded, setIsLoaded] = useState(false);
 
     useEffect(() => {
-        const saved = localStorage.getItem(
-            "signbridge-consultation"
-        );
+        const timer = window.setTimeout(() => {
+            const saved = localStorage.getItem(
+                "signbridge-consultation"
+            );
 
-        if (saved) {
-            try {
-                const parsed = JSON.parse(saved);
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
 
-                setConsultation({
-                    ...initialState,
-                    ...parsed,
-                    treatment: {
-                        ...initialState.treatment,
-                        ...parsed.treatment,
-                    },
-                });
-            } catch {
-                localStorage.removeItem(
-                    "signbridge-consultation"
-                );
+                    setConsultation({
+                        ...initialState,
+                        ...parsed,
+                        treatment: {
+                            ...initialState.treatment,
+                            ...parsed.treatment,
+                        },
+                    });
+                } catch {
+                    localStorage.removeItem(
+                        "signbridge-consultation"
+                    );
+                }
             }
-        }
 
-        setIsLoaded(true);
+            setIsLoaded(true);
+        }, 0);
+
+        return () => window.clearTimeout(timer);
     }, []);
 
     useEffect(() => {

@@ -35,10 +35,22 @@ assert.equal(result.modelVersion, 'autsl20-bigru-v0.1.0');
 assert.equal(result.preprocessingVersion, 'landmark46-v1');
 assert.equal(result.vocabularyVersion, 'autsl20-v1');
 assert.equal(Array.isArray(result.alternatives), true);
+assert.equal(typeof result.decisionPolicyVersion, 'string');
+assert.ok(result.decisionPolicyVersion.length > 0);
+assert.equal(typeof result.requiresConfirmation, 'boolean');
+if (result.isLowConfidence) {
+    assert.equal(result.classId, null);
+    assert.ok(['low_score', 'ambiguous_prediction'].includes(result.rejectionReason));
+    assert.equal(result.requiresConfirmation, false);
+} else {
+    assert.equal(result.rejectionReason, null);
+    assert.equal(result.requiresConfirmation, true);
+}
 
 // Sağlık metni, sınıf veya ham landmark içeriği bilerek çıktıya yazılmaz.
 console.info('AI servis smoke testi başarılı.', {
     modelVersion: result.modelVersion,
     preprocessingVersion: result.preprocessingVersion,
-    vocabularyVersion: result.vocabularyVersion
+    vocabularyVersion: result.vocabularyVersion,
+    decisionPolicyVersion: result.decisionPolicyVersion
 });

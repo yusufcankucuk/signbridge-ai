@@ -8,19 +8,22 @@ export function FlowProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [storageWarning, setWarning] = useState(false);
   useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem(KEY);
-      if (raw) {
-        const value = JSON.parse(raw);
-        if (value.version === 1 && typeof value.expression === 'string' && Array.isArray(value.turns) && Array.isArray(value.plan?.medications) && Array.isArray(value.followups)) setState(value);
-      }
-    } catch { setWarning(true); }
-    setReady(true);
+    const timer = window.setTimeout(() => {
+      try {
+        const raw = sessionStorage.getItem(KEY);
+        if (raw) {
+          const value = JSON.parse(raw);
+          if (value.version === 1 && typeof value.expression === 'string' && Array.isArray(value.turns) && Array.isArray(value.plan?.medications) && Array.isArray(value.followups)) setState(value);
+        }
+      } catch { setWarning(true); }
+      setReady(true);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
   useEffect(() => {
     if (!ready) return;
     try { if (state.active) sessionStorage.setItem(KEY, JSON.stringify(state)); else sessionStorage.removeItem(KEY); }
-    catch { setWarning(true); }
+    catch { queueMicrotask(() => setWarning(true)); }
   }, [state, ready]);
   const clear = () => {
     try { sessionStorage.removeItem(KEY); localStorage.removeItem('signbridge-consultation'); localStorage.removeItem('signbridge-followup'); } catch { setWarning(true); }

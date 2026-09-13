@@ -53,8 +53,12 @@ export function useFollowup() {
     const [isLoaded, setIsLoaded] = useState(false);
 
     useEffect(() => {
-        setFollowup(read());
-        setIsLoaded(true);
+        const timer = window.setTimeout(() => {
+            setFollowup(read());
+            setIsLoaded(true);
+        }, 0);
+
+        return () => window.clearTimeout(timer);
     }, []);
 
     const askQuestion = (questionId: string) => {

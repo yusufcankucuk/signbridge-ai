@@ -13,7 +13,10 @@ const VALID_PREDICTION = {
     predictionMode: 'model',
     modelVersion: 'autsl20-bigru-v0.1.0',
     preprocessingVersion: 'landmark46-v1',
-    vocabularyVersion: 'autsl20-v1'
+    vocabularyVersion: 'autsl20-v1',
+    decisionPolicyVersion: 'score-threshold-v1',
+    rejectionReason: null,
+    requiresConfirmation: true
 };
 
 const LANDMARK_REQUEST = {

@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useFlow } from '../providers/FlowProvider';
 import { Frame, Choice, Empty, Pager, ReadText } from './CompactUI';
@@ -65,9 +65,8 @@ export function PatientResponse({ kind }: { kind: QuestionKind }) {
   const [stage, setStage] = useState<'choice' | 'groups' | 'name'>('choice');
   // Yanıt iletilince sayfa değişene kadar ekranı koru; uyarı kutusu bir an görünmesin.
   const [leaving, setLeaving] = useState(false);
-  const lastPending = useRef(state.pending);
-  if (state.pending) lastPending.current = state.pending;
-  const pending = state.pending ?? (leaving ? lastPending.current : null);
+  const [initialPending] = useState(state.pending);
+  const pending = state.pending ?? (leaving ? initialPending : null);
   const ready = pending?.kind === kind;
   const titles = { duration: 'Ne zamandır?', intensity: 'Ne kadar şiddetli?', location: 'Ağrı neresinde?', medication: stage === 'groups' ? 'Hangi ilaçları kullanıyorsunuz?' : stage === 'name' ? 'İlacın adı ne?' : 'İlaç kullanıyor musunuz?', custom: 'Doktorun sorusu' };
   const answer = kind === 'medication' && selected === 'Evet' ? `Düzenli ilaç kullanıyorum: ${[...groups.filter(g => g !== 'Başka bir ilaç'), groups.includes('Başka bir ilaç') ? detail.trim() : ''].filter(Boolean).join(', ')}` : kind === 'medication' && selected === 'Hayır' ? 'Düzenli ilaç kullanmıyorum' : kind === 'custom' ? detail.trim() : selected;

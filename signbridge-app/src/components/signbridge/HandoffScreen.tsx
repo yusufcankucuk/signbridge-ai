@@ -54,8 +54,6 @@ export default function HandoffScreen({
     useEffect(() => {
         if (autoSeconds <= 0) return;
 
-        setLeft(autoSeconds);
-
         const timer = setInterval(() => {
             setLeft((value) => {
                 if (value <= 1) {
