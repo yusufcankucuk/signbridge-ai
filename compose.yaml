@@ -11,6 +11,7 @@ services:
     environment:
       MODEL_PATH: /models/saved_model
       RUNTIME_CONFIG_PATH: /models/runtime_config.json
+      DECISION_POLICY_PATH: /app/configs/decision_policy.json
       TF_CPP_MIN_LOG_LEVEL: "2"
     volumes:
       - type: bind

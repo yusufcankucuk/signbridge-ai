@@ -154,6 +154,7 @@ def main() -> None:
     parser.add_argument("--learning-rate", type=float, default=0.001)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--no-augmentation", action="store_true")
+    parser.add_argument("--smoke", action="store_true", help="1 epoch, <=2 examples/class; NO test-set evaluation")
     args, _unknown = parser.parse_known_args()
 
     import pandas as pd
@@ -172,7 +173,15 @@ def main() -> None:
 
     x_train, y_train, _ = load_split(manifest_dir / "autsl20_train.csv", data_root)
     x_val, y_val, _ = load_split(manifest_dir / "autsl20_validation.csv", data_root)
-    x_test, y_test, _ = load_split(manifest_dir / "autsl20_test.csv", data_root)
+    if args.smoke:
+        def small(x, y):
+            indices = np.concatenate([np.flatnonzero(y == label)[:2] for label in np.unique(y)])
+            return x[indices], y[indices]
+        x_train, y_train = small(x_train, y_train)
+        x_val, y_val = small(x_val, y_val)
+        args.epochs = 1
+    else:
+        x_test, y_test, _ = load_split(manifest_dir / "autsl20_test.csv", data_root)
 
     model = build_model()
     model.compile(
@@ -199,6 +208,18 @@ def main() -> None:
         verbose=2,
     )
     model = tf.keras.models.load_model(str(best_model_path))
+    if args.smoke:
+        model.save(str(output_dir / "saved_model"))
+        reloaded = tf.keras.models.load_model(str(output_dir / "saved_model"))
+        before = model.predict(x_val[:1], verbose=0)
+        after = reloaded.predict(x_val[:1], verbose=0)
+        np.testing.assert_allclose(before, after, atol=1e-6)
+        write_json(output_dir / "smoke_result.json", {
+            "smokeOnly": True, "epochs": 1, "trainSamples": len(x_train), "validationSamples": len(x_val),
+            "testAccessed": False, "reloadParity": True, "tensorflow": tf.__version__,
+            "notABenchmark": True,
+        })
+        return
     val_probabilities = model.predict(x_val, verbose=0)
     test_probabilities = model.predict(x_test, verbose=0)
     test_predictions = test_probabilities.argmax(axis=1)

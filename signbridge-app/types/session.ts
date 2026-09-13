@@ -41,6 +41,9 @@ export interface PredictionPayload {
     modelVersion: string | null;
     preprocessingVersion: string;
     vocabularyVersion: string;
+    decisionPolicyVersion: string;
+    rejectionReason: 'low_score' | 'ambiguous_prediction' | null;
+    requiresConfirmation: boolean;
 }
 
 export interface ConfirmationPayload {

@@ -18,7 +18,7 @@ def _load_official_autsl_pickle(path: Path) -> tuple[np.ndarray, np.ndarray]:
     # paketinden indirilen ve kullanıcı tarafından güvenilir kabul edilen dosyalarda kullanılır.
     with path.open("rb") as handle:
         payload = pickle.load(handle)
-    if not isinstance(payload, dict) or set(payload) < {"keypoints", "confidences"}:
+    if not isinstance(payload, dict) or not {"keypoints", "confidences"}.issubset(payload):
         raise ValueError("PKL keypoints/confidences alanlarını içermiyor.")
     return np.asarray(payload["keypoints"]), np.asarray(payload["confidences"])
 

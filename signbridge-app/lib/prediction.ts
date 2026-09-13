@@ -1,6 +1,7 @@
 import type { PredictionPayload } from '@/types/session';
 
 const MODES = new Set(['model', 'mock', 'manual']);
+const REJECTION_REASONS = new Set(['low_score', 'ambiguous_prediction']);
 const PREDICTION_FIELDS = new Set([
     'classId',
     'displayText',
@@ -11,6 +12,9 @@ const PREDICTION_FIELDS = new Set([
     'modelVersion',
     'preprocessingVersion',
     'vocabularyVersion',
+    'decisionPolicyVersion',
+    'rejectionReason',
+    'requiresConfirmation',
 ]);
 const LANDMARK_REQUEST_FIELDS = new Set(['sessionId', 'preprocessingVersion', 'landmarks', 'mask']);
 
@@ -56,12 +60,21 @@ export function isPredictionPayload(value: unknown): value is PredictionPayload 
         typeof payload.preprocessingVersion !== 'string' ||
         payload.preprocessingVersion.length > 100 ||
         typeof payload.vocabularyVersion !== 'string' ||
-        payload.vocabularyVersion.length > 100
+        payload.vocabularyVersion.length > 100 ||
+        typeof payload.decisionPolicyVersion !== 'string' ||
+        payload.decisionPolicyVersion.trim().length === 0 ||
+        payload.decisionPolicyVersion.length > 100 ||
+        (payload.rejectionReason !== null &&
+            (typeof payload.rejectionReason !== 'string' || !REJECTION_REASONS.has(payload.rejectionReason))) ||
+        typeof payload.requiresConfirmation !== 'boolean'
     ) {
         return false;
     }
 
     if (payload.isLowConfidence && payload.classId !== null) return false;
+    if (payload.isLowConfidence && payload.rejectionReason === null) return false;
+    if (!payload.isLowConfidence && payload.rejectionReason !== null) return false;
+    if (payload.requiresConfirmation !== (payload.predictionMode === 'model' && !payload.isLowConfidence)) return false;
     if (payload.predictionMode === 'manual' && payload.confidence !== null) return false;
     if (payload.predictionMode === 'model' && payload.modelVersion === null) return false;
     return true;
