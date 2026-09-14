@@ -9,7 +9,7 @@ import ExpressionVisual from './ExpressionVisual';
 import { EXPRESSIONS } from '../../data/expressions';
 import { BODY_REGIONS, MEDICATION_GROUPS } from '../../data/regions';
 import { questionLabels, recordAnswer, type QuestionKind } from '../../lib/consultationFlow';
-import { preparePatientCapture } from '../../lib/sessionClient';
+import { preparePatientCapture, recordPatientAnswer } from '../../lib/sessionClient';
 
 export function Conversation() {
   const { state, setState } = useFlow(); const router = useRouter();
@@ -77,13 +77,24 @@ export function PatientResponse({ kind }: { kind: QuestionKind }) {
   const titles = { duration: 'Ne zamandır?', intensity: 'Ne kadar şiddetli?', location: 'Ağrı neresinde?', medication: stage === 'groups' ? 'Hangi ilaçları kullanıyorsunuz?' : stage === 'name' ? 'İlacın adı ne?' : 'İlaç kullanıyor musunuz?', custom: 'Doktorun sorusu' };
   const answer = kind === 'medication' && selected === 'Evet' ? `Düzenli ilaç kullanıyorum: ${[...groups.filter(g => g !== 'Başka bir ilaç'), groups.includes('Başka bir ilaç') ? detail.trim() : ''].filter(Boolean).join(', ')}` : kind === 'medication' && selected === 'Hayır' ? 'Düzenli ilaç kullanmıyorum' : kind === 'custom' ? detail.trim() : selected;
   const valid = kind === 'medication' && selected === 'Evet' ? groups.length > 0 && (!groups.includes('Başka bir ilaç') || !!detail.trim()) : !!answer.trim();
-  const send = () => { if (!valid || !ready || leaving) return; setLeaving(true); setState(s => recordAnswer(s, answer, 'manual')); router.push('/handoff/doctor'); };
+  const [error, setError] = useState('');
+  const send = async () => {
+    if (!valid || !ready || leaving) return;
+    setLeaving(true);
+    setError('');
+    // Yanıt önce sunucuya yazılır: aksi halde yalnız cihaz belleğinde kalır ve
+    // oturum hasta adımında takılıp doktorun sonraki sorusu reddedilir.
+    try { await recordPatientAnswer(state.sessionId, answer); }
+    catch { setLeaving(false); setError('Yanıt doktora iletilemedi. Lütfen tekrar deneyin.'); return; }
+    setState(s => recordAnswer(s, answer, 'manual'));
+    router.push('/handoff/doctor');
+  };
   const next = () => {
     if (kind === 'medication' && selected === 'Evet') {
       if (stage === 'choice') { setStage('groups'); return; }
       if (stage === 'groups' && groups.includes('Başka bir ilaç')) { setStage('name'); return; }
     }
-    send();
+    void send();
   };
   const canContinue = kind === 'medication' && selected === 'Evet' ? stage === 'choice' || (stage === 'groups' ? groups.length > 0 : !!detail.trim()) : valid;
   return <Frame title={titles[kind]} footer={ready && <>
@@ -91,6 +102,7 @@ export function PatientResponse({ kind }: { kind: QuestionKind }) {
     {stage !== 'choice' ? <button className="compact-link" onClick={() => setStage(stage === 'name' ? 'groups' : 'choice')}>Geri</button> :
       <button className="compact-link" onClick={() => { setState(s => ({ ...s, capture: 'answer', candidate: null })); router.push('/camera'); }}>İşaret diliyle yanıtla</button>}
   </>}>
+    {error && <p className="compact-error" role="alert">{error}</p>}
     {!pending ? <Empty text="Yanıt bekleyen soru yok." /> : !ready ? <Empty text="Diğer soruya devam edin." href={`/patient/${pending.kind}`} /> :
       kind === 'custom' ? <><div className="compact-card"><ReadText text={pending.text} /></div><div className="compact-form flex-1 justify-center"><label>Yanıtınız<textarea maxLength={500} rows={4} value={detail} onChange={e => setDetail(e.target.value)} /></label></div></> :
       kind === 'duration' ? <div className="my-auto"><div className="compact-grid">{['Bugün', 'Birkaç gün', '1 hafta', 'Daha uzun'].map(v => <Choice key={v} selected={selected === v} onClick={() => setSelected(v)}>{v}</Choice>)}</div><button className="compact-link mt-3 w-full" aria-pressed={selected === 'Hatırlamıyorum'} onClick={() => setSelected('Hatırlamıyorum')}>{selected === 'Hatırlamıyorum' ? '✓ ' : ''}Hatırlamıyorum</button></div> :

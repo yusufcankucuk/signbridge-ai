@@ -116,8 +116,12 @@ export function Camera() {
         setState(current => ({ ...current, candidate: { text: prediction.displayText, source: 'model', prediction } }));
         router.replace('/confirm');
       }
-    } catch (error) {
-      stopCamera(); setPhase('error'); setMessage(error instanceof Error ? error.message : 'Tahmin alınamadı.');
+    } catch {
+      // Hastaya teknik hata metni gösterilmez; kalite reddiyle aynı biçimde
+      // anlaşılır bir mesaj ve tekrar/manuel seçim yoluna yönlendirilir.
+      setState(current => ({ ...current, candidate: null }));
+      stopCamera();
+      router.replace('/fallback?reason=service_error');
     }
   };
 
@@ -235,7 +239,13 @@ export function Fallback() {
   const query = useSearchParams();
   const reason = query.get('reason');
   const requiresServerReset = reason === 'low_score' || reason === 'ambiguous_prediction';
-  const detail = reason?.includes('shoulder') ? 'İki omuz yeterince görünmedi.' : reason?.includes('hand') ? 'Eller yeterince görünmedi.' : reason === 'ambiguous_prediction' ? 'İki olası işaret birbirine çok yakındı.' : reason === 'too_few_frames' ? 'Kayıt çok kısa sürdü.' : 'Model güvenli bir öneri üretemedi.';
+  const detail = reason?.includes('shoulder') ? 'İki omuz yeterince görünmedi.'
+    : reason?.includes('hand') ? 'Eller yeterince görünmedi.'
+    : reason === 'ambiguous_prediction' ? 'İki olası işaret birbirine çok yakındı.'
+    : reason === 'too_few_frames' ? 'Kayıt çok kısa sürdü.'
+    : reason === 'invalid_or_non_finite_frame' ? 'Kayıt okunamadı.'
+    : reason === 'service_error' ? 'Şu an sonuç alınamadı.'
+    : 'Model güvenli bir öneri üretemedi.';
   const retry = async () => {
     if (!requiresServerReset) {
       setState(current => ({ ...current, candidate: null }));
