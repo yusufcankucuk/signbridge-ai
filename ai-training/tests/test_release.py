@@ -16,6 +16,7 @@ from src.service import app, state, PredictionRequest, predict
 from src.summarize_camera import merge_trials
 from src.benchmark_latency import distribution
 from src.validate_video import evaluate_raw, finalize_performance_verification, trial_matrix
+from src.calibrate_motion import select_motion_threshold
 
 
 RUNTIME = dict(modelVersion="autsl20-bigru-v0.1.0", preprocessingVersion="landmark46-v1",
@@ -113,6 +114,46 @@ def test_policy_must_match_bundle():
         validate_policy({**policy, "modelVersion": "wrong"}, RUNTIME)
     with pytest.raises(ValueError):
         validate_policy({**policy, "method": "score_only", "marginThreshold": .2}, RUNTIME)
+    with pytest.raises(ValueError):
+        validate_policy({**policy, "enabled": "false"}, RUNTIME)
+    with pytest.raises(ValueError):
+        validate_policy({**policy, "allowedClassIds": ["doktor", "doktor"]}, RUNTIME)
+
+
+def test_disabled_policy_and_class_allowlist_reject_safely():
+    landmarks = np.zeros((60, 46, 2), dtype=np.float32)
+    mask = np.ones((60, 46), dtype=np.uint8)
+    disabled = {**default_policy(RUNTIME), "enabled": False, "decisionPolicyVersion": "manual-only-v1"}
+    result = predict_landmarks(FixedModel(.99), landmarks, mask, RUNTIME, decision_policy=disabled)
+    assert result["classId"] is None
+    assert result["rejectionReason"] == "policy_disabled"
+    assert result["requiresConfirmation"] is False
+
+    unsupported = {
+        **default_policy(RUNTIME),
+        "allowedClassIds": ["hasta", "evet", "hayir", "ilac"],
+        "decisionPolicyVersion": "allowlist-v1",
+    }
+    result = predict_landmarks(FixedModel(.99), landmarks, mask, RUNTIME, decision_policy=unsupported)
+    assert result["classId"] is None
+    assert result["rejectionReason"] == "unsupported_class"
+
+
+def test_manual_only_service_starts_without_model(monkeypatch, tmp_path, payload):
+    from src.common import CONFIG_DIR
+
+    monkeypatch.setenv("MODEL_PATH", str(tmp_path / "missing-model"))
+    monkeypatch.setenv("RUNTIME_CONFIG_PATH", str(tmp_path / "missing-runtime.json"))
+    monkeypatch.setenv("ALLOW_MANUAL_ONLY", "true")
+    monkeypatch.setenv("DECISION_POLICY_PATH", str(CONFIG_DIR / "decision_policy.json"))
+    with TestClient(app) as manual_client:
+        health_response = manual_client.get("/health")
+        assert health_response.status_code == 200
+        assert health_response.json()["mode"] == "manual_only"
+        assert health_response.json()["modelLoaded"] is False
+        prediction = manual_client.post("/predict", json=payload)
+        assert prediction.status_code == 200
+        assert prediction.json()["rejectionReason"] == "policy_disabled"
 
 
 def test_explicit_missing_policy_fails_before_creating_package(tmp_path):
@@ -179,6 +220,17 @@ def test_candidate_selection_requires_ood_measurement():
     assert select_candidate(rows, minimum_accuracy=.9, minimum_coverage=.5) is None
 
 
+def test_candidate_table_applies_demo_class_allowlist_to_validation_and_ood():
+    probabilities = np.array([[.9, .05, .05], [.05, .9, .05]])
+    labels = np.array([0, 1])
+    ood = np.array([[.01, .01, .98]])
+    rows = candidate_table(
+        probabilities, labels, ood, thresholds=[.8], margins=[0], allowed_indices=[0, 1]
+    )
+    assert rows[0]["coverage"] == 1
+    assert rows[0]["ood_wrong_accept_rate"] == 0
+
+
 def test_calibration_metrics_are_finite():
     scores = np.array([[.8,.2],[.4,.6]])
     metrics, rows = calibration_metrics(scores, np.array([0,1]), bins=2)
@@ -228,6 +280,16 @@ def test_latency_distribution():
     assert result["n"] == 4
     assert result["p50Ms"] == 2.5
     assert result["maxMs"] == 4
+
+
+def test_motion_threshold_requires_both_release_gates():
+    passing = select_motion_threshold([.5] * 9 + [.001], [0, .001, .002])
+    assert passing["targetMet"] is True
+    assert passing["staticRejectRate"] == 1
+    assert passing["validPassRate"] == .9
+    failing = select_motion_threshold([.001] * 9 + [.5], [.01])
+    assert failing["targetMet"] is False
+    assert failing["cameraAiAllowed"] is False
 
 
 @pytest.mark.parametrize("path", ["../secret", "C:/secret", "/absolute"])

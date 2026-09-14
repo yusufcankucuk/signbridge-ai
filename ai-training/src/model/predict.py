@@ -44,7 +44,8 @@ def predict_landmarks(
         raise ValueError("Model skoru olasılık vektörü değil.")
     ordered = np.argsort(probabilities)[::-1]
     policy = default_policy(runtime) if decision_policy is None else validate_policy(decision_policy, runtime)
-    decision = decide(probabilities, policy)
+    winner_index = int(ordered[0])
+    decision = decide(probabilities, policy, str(labels[winner_index]["classId"]))
     winner = decision.winner_index
     low_confidence = not decision.accepted
     return {

@@ -1,7 +1,7 @@
 import type { PredictionPayload } from '@/types/session';
 
 const MODES = new Set(['model', 'mock', 'manual']);
-const REJECTION_REASONS = new Set(['low_score', 'ambiguous_prediction']);
+const REJECTION_REASONS = new Set(['low_score', 'ambiguous_prediction', 'unsupported_class', 'policy_disabled']);
 const PREDICTION_FIELDS = new Set([
     'classId',
     'displayText',

@@ -75,3 +75,23 @@ def test_non_finite_and_missing_shoulders_are_rejected():
     assert assess_quality(keypoints, confidence).reason == "low_shoulder_visibility"
     with np.testing.assert_raises(ValueError):
         preprocess_pose_sequence(keypoints, confidence)
+
+
+def test_static_hands_and_camera_jitter_are_rejected_by_motion_gate():
+    keypoints, confidence = _visible_sequence()
+    keypoints[:, 33:75, 0] = -0.25
+    static = assess_quality(keypoints, confidence, minimum_motion_score=0.12)
+    assert static.reason == "insufficient_motion"
+    assert static.motion_score == 0.0
+
+    offsets = np.where(np.arange(len(keypoints)) % 2, 0.002, -0.002).astype(np.float32)
+    jittered = keypoints + offsets[:, None, None]
+    jitter = assess_quality(jittered, confidence, minimum_motion_score=0.12)
+    assert jitter.reason == "insufficient_motion"
+
+
+def test_one_and_two_hand_motion_passes_motion_gate():
+    keypoints, confidence = _visible_sequence()
+    assert assess_quality(keypoints, confidence, minimum_motion_score=0.12).status == "approved"
+    confidence[:, 54:75] = 0.0
+    assert assess_quality(keypoints, confidence, minimum_motion_score=0.12).status == "approved"

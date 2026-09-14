@@ -5,6 +5,9 @@ export type SessionState =
     | 'patient_confirmation'
     | 'doctor_review'
     | 'patient_response'
+    | 'patient_question'
+    | 'patient_answer'
+    | 'patient_answer_confirmation'
     | 'doctor_response'
     | 'patient_review'
     | 'ended';
@@ -24,7 +27,10 @@ export type InteractionEventType =
     | 'confirmation'
     | 'doctor_question'
     | 'patient_answer'
+    | 'question_cancelled'
     | 'doctor_response';
+
+export type QuestionKind = 'duration' | 'intensity' | 'location' | 'medication' | 'custom';
 
 // 2. Etkileşim Olayları Veri Modeli (interaction_events)
 export interface InteractionEvent {
@@ -48,7 +54,12 @@ export interface PredictionPayload {
     preprocessingVersion: string;
     vocabularyVersion: string;
     decisionPolicyVersion: string;
-    rejectionReason: 'low_score' | 'ambiguous_prediction' | null;
+    rejectionReason:
+        | 'low_score'
+        | 'ambiguous_prediction'
+        | 'unsupported_class'
+        | 'policy_disabled'
+        | null;
     requiresConfirmation: boolean;
 }
 
