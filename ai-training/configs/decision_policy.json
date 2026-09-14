@@ -1,12 +1,14 @@
 {
   "schemaVersion": "1.0",
-  "decisionPolicyVersion": "score-threshold-v1",
+  "decisionPolicyVersion": "autsl20-safe-demo-v1",
+  "enabled": false,
+  "allowedClassIds": ["doktor", "hasta", "evet", "hayir", "ilac"],
   "method": "score_only",
   "confidenceThreshold": 0.8,
   "marginThreshold": 0.0,
   "modelVersion": "autsl20-bigru-v0.1.0",
   "preprocessingVersion": "landmark46-v1",
   "vocabularyVersion": "autsl20-v1",
-  "deploymentStatus": "active_legacy",
-  "reason": "The validation-selected 0.95 candidate reduced OOD false accepts but failed the <=20% frozen OOD holdout target; no automatic promotion was made."
+  "deploymentStatus": "manual_only",
+  "reason": "Frozen OOD holdout false accept rate was 31.63%, above the 20% safe-demo limit. Camera predictions remain disabled until all release gates pass."
 }

@@ -27,6 +27,9 @@ BEGIN
             type_name,
             'patient_response'
         );
+        EXECUTE format('ALTER TYPE %I.%I ADD VALUE IF NOT EXISTS %L', type_schema, type_name, 'patient_question');
+        EXECUTE format('ALTER TYPE %I.%I ADD VALUE IF NOT EXISTS %L', type_schema, type_name, 'patient_answer');
+        EXECUTE format('ALTER TYPE %I.%I ADD VALUE IF NOT EXISTS %L', type_schema, type_name, 'patient_answer_confirmation');
     ELSE
         ALTER TABLE public.consultation_sessions
             DROP CONSTRAINT IF EXISTS consultation_sessions_state_check;
@@ -34,6 +37,7 @@ BEGIN
             ADD CONSTRAINT consultation_sessions_state_check CHECK (
                 state IN (
                     'patient_capture', 'patient_confirmation', 'doctor_review', 'patient_response',
+                    'patient_question', 'patient_answer', 'patient_answer_confirmation',
                     'doctor_response', 'patient_review', 'ended'
                 )
             );
@@ -73,12 +77,18 @@ BEGIN
             type_name,
             'patient_answer'
         );
+        EXECUTE format(
+            'ALTER TYPE %I.%I ADD VALUE IF NOT EXISTS %L',
+            type_schema,
+            type_name,
+            'question_cancelled'
+        );
     ELSE
         ALTER TABLE public.interaction_events
             DROP CONSTRAINT IF EXISTS interaction_events_type_check;
         ALTER TABLE public.interaction_events
             ADD CONSTRAINT interaction_events_type_check CHECK (
-                type IN ('prediction', 'confirmation', 'doctor_question', 'patient_answer', 'doctor_response')
+                type IN ('prediction', 'confirmation', 'doctor_question', 'patient_answer', 'question_cancelled', 'doctor_response')
             );
     END IF;
 END

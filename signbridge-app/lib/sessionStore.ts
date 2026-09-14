@@ -88,7 +88,12 @@ const memoryStore: SessionStore = {
     },
     async transition({ id, expectedState, nextState, event, deleteEvents }) {
         const state = memoryState();
-        const session = await this.get(id);
+        const session = state.sessions.get(id);
+        if (session && Date.parse(session.expires_at) <= Date.now()) {
+            state.sessions.delete(id);
+            state.events.delete(id);
+            return false;
+        }
         if (!session || session.state !== expectedState) return false;
         if (event) {
             const events = state.events.get(id) ?? [];

@@ -84,6 +84,7 @@ def extract_video(video_path: Path) -> tuple[dict[str, np.ndarray | int], dict[s
         minimum_frames=config["minimumSequenceFrames"],
         minimum_shoulder_ratio=config["minimumShoulderFrameRatio"],
         minimum_hand_ratio=config["minimumHandFrameRatio"],
+        minimum_motion_score=config["minimumMotionScore"],
     )
     if quality.status == "rejected":
         raise ValueError(f"Video reddedildi: {quality.reason}")
@@ -98,6 +99,7 @@ def extract_video(video_path: Path) -> tuple[dict[str, np.ndarray | int], dict[s
         "qualityReason": quality.reason,
         "shoulderFrameRatio": quality.shoulder_frame_ratio,
         "handFrameRatio": quality.hand_frame_ratio,
+        "motionScore": quality.motion_score,
         "sourceFps": fps,
         "sourceFrames": len(keypoints),
         "preprocessingVersion": config["preprocessingVersion"],

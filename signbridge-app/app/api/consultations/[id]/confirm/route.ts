@@ -33,12 +33,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     catch { return NextResponse.json({ error: 'Oturum okunamadı.' }, { status: 500 }); }
     if (!session) return NextResponse.json({ error: 'Oturum bulunamadı.' }, { status: 404 });
     const manualFromCapture = session.state === 'patient_capture' && Boolean(manualSelection);
-    if (session.state !== 'patient_confirmation' && !manualFromCapture) {
+    const answerConfirmation = session.state === 'patient_answer_confirmation';
+    if (session.state !== 'patient_confirmation' && !answerConfirmation && !manualFromCapture) {
         return NextResponse.json({ error: 'Geçersiz durum geçişi.' }, { status: 409 });
     }
 
     const eventPayload = { confirmed: confirmation.confirmed, ...(manualSelection ? { manualSelection } : {}) };
-    const nextState = confirmation.confirmed || manualSelection ? 'doctor_review' : 'patient_capture';
+    const retryState = answerConfirmation ? 'patient_answer' : 'patient_capture';
+    const nextState = confirmation.confirmed || manualSelection ? 'doctor_review' : retryState;
     if (!manualFromCapture && !SessionManager.canTransition(session.state, nextState)) {
         return NextResponse.json({ error: 'Geçersiz durum geçişi.' }, { status: 409 });
     }

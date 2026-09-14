@@ -123,13 +123,24 @@ sürüm uyumunu, kamera gruplarını ve örnek JSON sözleşmesini denetler.
 
 ## 7. Karar politikası ve gecikme
 
-`configs/decision_policy.json` aktif, geriye uyumlu 0,80 skor kuralıdır. Validation/OOD çalışmasının ürettiği
-0,95 aday politika ayrı tutulur; OOD holdout hedefini geçemediği için otomatik etkinleştirilmez.
+`configs/decision_policy.json` güvenli `manual_only` politikasıdır. Validation/OOD çalışmasının ürettiği
+0,95 aday politika ayrı tutulur; dondurulmuş OOD yanlış kabul oranı `%31,63` ile `%20` sınırını geçtiği için
+kamera tahmini etkinleştirilmez.
 
 ```powershell
 python -m src.evaluate_release --data-root "$env:SIGNBRIDGE_DATA_ROOT" --output runs/my-policy --ood-per-class 10 --trusted-autsl-pickle
 python -m src.benchmark_latency --input '<validation-ornek.npz>' --output runs/my-latency.json
 ```
+
+Hareket eşiği için geliştirme kişisinin geçerli kayıtlarına ek olarak statik negatif kayıtları
+`--motion-label static` ile kaydedin. Sonra dosyaları tek CSV'de birleştirip eşiği bir kez dondurun:
+
+```powershell
+python -m src.calibrate_motion --input runs/motion-development.csv --output runs/motion-policy.json
+```
+
+Yalnız çıktıda `targetMet=true`, `staticRejectRate=1.0` ve `validPassRate>=0.90` ise bulunan
+`minimumMotionScore` web ortamına aktarılıp `CAMERA_MOTION_POLICY_ENABLED=true` yapılabilir.
 
 Serviste özel politika kullanmak için `DECISION_POLICY_PATH` verilir. Dosya bozuk veya model sürümüyle
 uyumsuzsa servis başlatılmaz; sessiz geri dönüş yapılmaz.

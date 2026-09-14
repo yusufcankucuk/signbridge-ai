@@ -13,6 +13,7 @@
   "minimumSequenceFrames": 8,
   "minimumShoulderFrameRatio": 0.6,
   "minimumHandFrameRatio": 0.5,
+  "minimumMotionScore": 0.12,
   "resampling": "linear_coordinates_nearest_mask",
   "modelFeaturesPerLandmark": ["x", "y", "mask"],
   "horizontalFlipAllowed": false
