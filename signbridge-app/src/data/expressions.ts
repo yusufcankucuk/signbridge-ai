@@ -135,6 +135,131 @@ export const EXPRESSIONS: Expression[] = [
             dots: [[23.3, 34.5, 3.8]],
         },
     },
+    {
+        id: "pain",
+        label: "Ağrı",
+        sentence: "Bir yerim ağrıyor",
+        region: "genel",
+        illustration: "/illustrations/pain.png",
+        art: {
+            strokes: ["M28 5 L15 26h9l-4 17 14-21h-9z"],
+        },
+    },
+    {
+        id: "asthma",
+        label: "Astım",
+        sentence: "Astımım var",
+        region: "govde",
+        illustration: "/illustrations/asthma.png",
+        art: {
+            strokes: [
+                "M17 17h10v21a4 4 0 0 1-4 4h-2a4 4 0 0 1-4-4z",
+                "M27 22h6",
+                "M33 12c3.5 0 3.5 4.5 7 4.5",
+                "M33 30c3.5 0 3.5 4.5 7 4.5",
+            ],
+        },
+    },
+    {
+        id: "rash",
+        label: "Döküntü / alerji",
+        sentence: "Cildimde döküntü var",
+        region: "genel",
+        illustration: "/illustrations/rash.png",
+        art: {
+            strokes: [
+                "M16 11h16a5 5 0 0 1 5 5v16a5 5 0 0 1-5 5H16a5 5 0 0 1-5-5V16a5 5 0 0 1 5-5z",
+            ],
+            dots: [
+                [19, 19, 2.1],
+                [27, 16.5, 2.1],
+                [32, 24, 2.1],
+                [22, 27.5, 2.1],
+                [29.5, 31, 2.1],
+            ],
+        },
+    },
+    {
+        id: "palpitations",
+        label: "Kalp çarpıntısı",
+        sentence: "Kalbim hızlı çarpıyor",
+        region: "govde",
+        illustration: "/illustrations/palpitations.png",
+        art: {
+            strokes: [
+                "M24 41S9 32 9 22.5A8.5 8.5 0 0 1 24 17a8.5 8.5 0 0 1 15 5.5C39 32 24 41 24 41z",
+                "M13 24.5h5l3-6.5 4 13 3-6.5h6",
+            ],
+        },
+    },
+    {
+        id: "heart-attack",
+        label: "Kalp krizi işareti",
+        sentence: "Göğsümde şiddetli ağrı var",
+        region: "govde",
+        illustration: "/illustrations/heart-attack.png",
+        art: {
+            strokes: [
+                "M24 41S9 32 9 22.5A8.5 8.5 0 0 1 24 17a8.5 8.5 0 0 1 15 5.5C39 32 24 41 24 41z",
+                "M26.5 19.5l-6 9.5h6l-4.5 9",
+            ],
+        },
+    },
+    {
+        id: "bleeding",
+        label: "Kanama",
+        sentence: "Kanamam var",
+        region: "genel",
+        illustration: "/illustrations/bleeding.png",
+        art: {
+            strokes: [
+                "M28 7c6.5 9 10 13.5 10 19a10 10 0 0 1-20 0c0-5.5 3.5-10 10-19z",
+                "M8 17l7 6",
+                "M8 27l7-4",
+            ],
+        },
+    },
+    {
+        id: "vomiting",
+        label: "Kusma",
+        sentence: "Kusuyorum",
+        region: "govde",
+        illustration: "/illustrations/vomiting.png",
+        art: {
+            strokes: [
+                "M28 34v-3c0-1.8.6-3.3 1.7-4.6 1.7-2 2.6-4.6 2.6-7.4C32.3 11.6 26.3 6 18.8 6 11.4 6 5.5 11.6 5.5 19c0 2.8.9 5 2.3 6.8 1 1.2 1.5 2.4 1.5 3.9V34",
+                "M16 21c1.9 1.7 3.4 1.7 5.1 0",
+                "M23 27c2.5 4 5.5 8 9 11",
+                "M32 38c2.5 0 4-1.5 4-4",
+            ],
+        },
+    },
+    {
+        id: "diabetes",
+        label: "Şeker hastalığı",
+        sentence: "Şeker hastasıyım",
+        region: "genel",
+        illustration: "/illustrations/diabetes.png",
+        art: {
+            strokes: [
+                "M16 6h16a3 3 0 0 1 3 3v30a3 3 0 0 1-3 3H16a3 3 0 0 1-3-3V9a3 3 0 0 1 3-3z",
+                "M18 12h12v8H18z",
+                "M19 27h4M25 27h4M19 34h4M25 34h4",
+            ],
+        },
+    },
+    {
+        id: "burn",
+        label: "Yanık",
+        sentence: "Yanığım var",
+        region: "genel",
+        illustration: "/illustrations/burn.png",
+        art: {
+            strokes: [
+                "M24 5c6.5 7.5 11 12 11 19.5a11 11 0 0 1-22 0c0-4.5 2-8 5.5-11 0 4.5 2 6.5 4 6.5 2.2 0 3.3-2.2 3.3-5.5 0-3.3-1-6.7-1.8-9.5z",
+            ],
+        },
+    },
 ];
 
 /** Kimlikten ifadeyi bulur; AI tahmini geldiğinde kullanılır. */
