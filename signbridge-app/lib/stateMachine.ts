@@ -5,7 +5,8 @@ const ALLOWED_TRANSITIONS: Record<SessionState, SessionState[]> = {
     'idle': ['patient_capture'],
     'patient_capture': ['patient_confirmation', 'ended'],
     'patient_confirmation': ['doctor_review', 'patient_capture', 'ended'], // Ret durumunda patient_capture'a döner
-    'doctor_review': ['doctor_response', 'ended'],
+    'doctor_review': ['patient_response', 'doctor_response', 'ended'],
+    'patient_response': ['doctor_review', 'ended'],
     'doctor_response': ['patient_review', 'ended'],
     'patient_review': ['patient_capture', 'ended'], // Yeni tura başlar veya biter
     'ended': [] // Terminal durum, hiçbir yere geçemez
