@@ -31,6 +31,7 @@ export interface SessionStore {
     readonly kind: 'memory' | 'supabase';
     create(): Promise<SessionRecord>;
     get(id: string): Promise<SessionRecord | null>;
+    getPendingQuestionId(id: string): Promise<string | null>;
     transition(input: TransitionInput): Promise<boolean>;
     health(): Promise<boolean>;
 }
@@ -75,6 +76,16 @@ const memoryStore: SessionStore = {
         }
         return { ...session };
     },
+    async getPendingQuestionId(id) {
+        const events = memoryState().events.get(id) ?? [];
+        for (let index = events.length - 1; index >= 0; index -= 1) {
+            const event = events[index];
+            if (event.type !== 'doctor_question') continue;
+            const questionId = (event.payload as { questionId?: unknown } | null)?.questionId;
+            return typeof questionId === 'string' ? questionId : null;
+        }
+        return null;
+    },
     async transition({ id, expectedState, nextState, event, deleteEvents }) {
         const state = memoryState();
         const session = await this.get(id);
@@ -114,6 +125,19 @@ const supabaseStore: SessionStore = {
             .maybeSingle();
         if (error) throw new Error('SESSION_READ_FAILED');
         return data as SessionRecord | null;
+    },
+    async getPendingQuestionId(id) {
+        const { data, error } = await getSupabase()
+            .from('interaction_events')
+            .select('payload')
+            .eq('session_id', id)
+            .eq('type', 'doctor_question')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+        if (error) throw new Error('PENDING_QUESTION_READ_FAILED');
+        const questionId = (data?.payload as { questionId?: unknown } | undefined)?.questionId;
+        return typeof questionId === 'string' ? questionId : null;
     },
     async transition({ id, expectedState, nextState, event, deleteEvents }) {
         const { data, error } = await getSupabase().rpc('advance_consultation', {

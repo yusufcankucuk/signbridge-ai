@@ -1,50 +1,37 @@
-// Sunucu oturumu ile istemci akışını eşleyen yardımcılar.
-// 409 "Geçersiz durum geçişi" hatası, oturumun zaten hedef durumda olduğu
-// anlamına gelebilir; bu durumda akışı kesmek yerine adımı atlıyoruz.
-const STATE_CONFLICT = 409;
+import type { QuestionKind, Source } from './consultationFlow';
 
-async function post(path: string, body?: unknown): Promise<Response> {
-  return fetch(path, {
-    method: 'POST',
+async function request(path: string, method: 'POST' | 'DELETE', body?: unknown): Promise<void> {
+  const response = await fetch(path, {
+    method,
     headers: body === undefined ? undefined : { 'content-type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-}
-
-async function postOrThrow(path: string, body?: unknown): Promise<void> {
-  const response = await post(path, body);
   if (!response.ok) throw new Error('Görüşme durumu güncellenemedi.');
 }
 
-/** İstek başarısızsa yalnız durum çakışmasını yutar, gerçek hataları yükseltir. */
-async function postTolerateConflict(path: string, body?: unknown): Promise<void> {
-  const response = await post(path, body);
-  if (response.ok || response.status === STATE_CONFLICT) return;
-  throw new Error('Görüşme durumu güncellenemedi.');
+const post = (path: string, body?: unknown) => request(path, 'POST', body);
+
+export async function askPatientQuestion(
+  sessionId: string,
+  question: { id: string; kind: QuestionKind; text: string },
+): Promise<void> {
+  const id = encodeURIComponent(sessionId);
+  await post(`/api/consultations/${id}/questions`, {
+    questionId: question.id,
+    kind: question.kind,
+    text: question.text,
+  });
 }
 
-export async function preparePatientCapture(sessionId: string, doctorText: string): Promise<void> {
+export async function submitPatientAnswer(
+  sessionId: string,
+  answer: { questionId: string; answer: string; source: Source },
+): Promise<void> {
   const id = encodeURIComponent(sessionId);
-  await postTolerateConflict(`/api/consultations/${id}/doctor-response`, {
-    transcript: doctorText,
-    source: 'text',
-    edited: false,
-  });
-  await postTolerateConflict(`/api/consultations/${id}/next`);
+  await post(`/api/consultations/${id}/answers`, answer);
 }
 
-/**
- * Hastanın seçenekle verdiği yanıtı sunucuya yazar ve oturumu doktora devreder.
- * Bu çağrı olmadan yanıt yalnız cihaz belleğinde kalır ve doktorun sonraki
- * sorusu geçersiz durum geçişiyle reddedilir.
- * `manualSelection` sunucuda 120 karakterle sınırlıdır; uzun yanıtlar kırpılır.
- */
-export async function recordPatientAnswer(sessionId: string, answer: string): Promise<void> {
-  const text = answer.trim();
-  if (!text) return;
+export async function cancelPatientQuestion(sessionId: string, questionId: string): Promise<void> {
   const id = encodeURIComponent(sessionId);
-  await postOrThrow(`/api/consultations/${id}/confirm`, {
-    confirmed: true,
-    manualSelection: text.slice(0, 120),
-  });
+  await request(`/api/consultations/${id}/questions`, 'DELETE', { questionId });
 }

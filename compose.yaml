@@ -114,6 +114,31 @@ services:
     init: true
     restart: "no"
 
+  ai-tests:
+    profiles:
+      - test
+    build:
+      context: ./ai-training
+      dockerfile: Dockerfile.test
+    image: signbridge/ai-tests:0.3.0
+    volumes:
+      - type: bind
+        source: ./ai-training
+        target: /workspace
+        read_only: true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=268435456
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 4g
+    cpus: 2.0
+    init: true
+    restart: "no"
+
 networks:
   frontend:
     driver: bridge

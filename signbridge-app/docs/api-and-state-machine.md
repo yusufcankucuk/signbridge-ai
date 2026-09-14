@@ -5,7 +5,7 @@ Bu belge, SignBridge projesinin "Tek Cihazlı MVP" sürümü için API ve Durum 
 ## 1. Mimari Özeti
 
 * **Altyapı:** Arka plan (backend) mimarisi olarak Next.js App Router kullanılmıştır.
-* **Veritabanı:** Veritabanı olarak Supabase bağlanmıştır (MVP aşamasında hızlı prototipleme yapılabilmesi için Row Level Security - RLS özellikleri kapalı tutulmuştur).
+* **Veritabanı:** Veritabanı olarak Supabase bağlanmıştır. Görüşme tablolarında RLS açıktır; istemci rollerinin doğrudan erişimi kaldırılmış, geçişler yalnız sunucu tarafındaki service-role üzerinden yapılmıştır.
 * **Güvenlik ve Mahremiyet Kuralı:** Görüşme bittiğinde hastaya ait tüm teşhis ve onay verileri (`interaction_events` tablosundaki kayıtlar) veritabanından tamamen silinerek mahremiyet sağlanır.
 
 ## 2. Durum Modeli (State Machine) Akışı
@@ -17,7 +17,8 @@ Oturumlar sırasında uygulama aşağıdaki kurallara göre belirli durumlar (st
 | `idle` | Görüşme başlamadan önceki bekleme anı. | `patient_capture` |
 | `patient_capture` | Hasta kamerada işaret diliyle derdini anlatıyor. | `patient_confirmation`, `ended` |
 | `patient_confirmation` | AI tahmini ekranda gösterilir, hasta onay/ret verir. | `doctor_review`, `patient_capture`, `ended` |
-| `doctor_review` | Cihaz doktora geçer, doktor hastanın şikayetini okur. | `doctor_response`, `ended` |
+| `doctor_review` | Cihaz doktora geçer; doktor soru sorabilir veya değerlendirmeyi tamamlayabilir. | `patient_response`, `doctor_response`, `ended` |
+| `patient_response` | Doktorun tek bir sorusu için hastanın yanıtı beklenir. | `doctor_review`, `ended` |
 | `doctor_response` | Doktor sesli/yazılı yanıtını sisteme girer. | `patient_review`, `ended` |
 | `patient_review` | Cihaz hastaya geri döner, doktorun yanıtı okunur. | `patient_capture`, `ended` |
 | `ended` | Görüşme tamamlanıp veriler temizlendi. | *(Geçiş yapılamaz)* |
@@ -45,6 +46,18 @@ Tüm API istekleri **POST** metodu ile yapılmalı ve oturum akışına uygun ol
 * **Adım 5:** `/api/consultations/[id]/end`
   * *Body:* (Boş)
   * *Açıklama:* Oturum sonlandırılır ve hastanın tüm hassas verileri temizlenir.
+
+Doktor değerlendirmesinden önce soru-cevap turu yapılacaksa `doctor_review` durumunda şu iki istek sırayla tekrarlanabilir:
+
+* **Soru:** `/api/consultations/[id]/questions`
+  * *Body (JSON):* `{ "questionId": "<uuid>", "kind": "duration", "text": "Ne kadar süredir var?" }`
+  * *Açıklama:* Soruyu kaydeder ve durumu `patient_response` yapar. Desteklenen türler `duration`, `intensity`, `location`, `medication` ve `custom` değerleridir.
+* **Yanıt:** `/api/consultations/[id]/answers`
+  * *Body (JSON):* `{ "questionId": "<aynı uuid>", "answer": "Birkaç gün", "source": "manual" }`
+  * *Açıklama:* Hasta yanıtını kaydeder ve durumu yeniden `doctor_review` yapar. Yanıt alınmadan yeni soru gönderilmesi `409` ile reddedilir.
+* **Soru iptali:** `DELETE /api/consultations/[id]/questions`
+  * *Body (JSON):* `{ "questionId": "<bekleyen soru uuid>" }`
+  * *Açıklama:* Bekleyen soruyu iptal eder ve durumu `doctor_review` yapar. Başka bir sorunun kimliğiyle yanıt veya iptal gönderilemez.
 
 Doktor yanıtından sonra görüşmeye devam edilecekse bitirme yerine:
 

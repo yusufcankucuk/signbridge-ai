@@ -104,6 +104,16 @@ Gerçek dosya adı manifestten seçilmelidir. Çıktı [../docs/ai-contract.md](
 
 ## 6. Testler
 
+Yerel Python sürümünden bağımsız, sabitlenmiş Python 3.9 ortamında tüm AI testlerini çalıştırmak için depo kökünde:
+
+```powershell
+docker compose --profile test run --rm --build ai-tests
+```
+
+Bu servis kaynak kodunu salt okunur bağlar, model çıktısı veya veri seti gerektirmeyen birim ve sözleşme testlerini çalıştırır ve test bitince konteyneri siler. Docker imajı sonraki çalıştırmalarda önbellekten yeniden kullanılır.
+
+Uyumlu bir yerel Python ortamı zaten varsa alternatif olarak:
+
 ```powershell
 pytest
 ```

@@ -9,21 +9,29 @@ import ExpressionVisual from './ExpressionVisual';
 import { EXPRESSIONS } from '../../data/expressions';
 import { BODY_REGIONS, MEDICATION_GROUPS } from '../../data/regions';
 import { questionLabels, recordAnswer, type QuestionKind } from '../../lib/consultationFlow';
-import { preparePatientCapture, recordPatientAnswer } from '../../lib/sessionClient';
+import { askPatientQuestion, cancelPatientQuestion, submitPatientAnswer } from '../../lib/sessionClient';
 
 export function Conversation() {
   const { state, setState } = useFlow(); const router = useRouter();
   const [editing, setEditing] = useState(false); const [text, setText] = useState('');
   const [history, setHistory] = useState(false); const [page, setPage] = useState(0);
+  const [cancelling, setCancelling] = useState(false); const [error, setError] = useState('');
   const turn = state.turns[Math.min(page, state.turns.length - 1)];
   const art = EXPRESSIONS.find(e => e.sentence === state.expression);
   return <Frame title={history ? 'Soru ve yanıtlar' : 'Görüşme'} role="doktor" footer={state.expression && <>
     {editing ? <><Button disabled={!text.trim()} onClick={() => { setState(s => ({ ...s, expression: text.trim(), reviewed: true, plan: { ...s.plan, approved: false }, understood: false })); setEditing(false); }}>Onayla</Button><button className="compact-link" onClick={() => setEditing(false)}>Vazgeç</button></> :
       history ? <><Pager index={page} total={state.turns.length} onChange={setPage} label="yanıt" /><button className="compact-link" onClick={() => setHistory(false)}>Görüşmeye dön</button></> :
-      state.pending ? <><Button href="/handoff/patient">Yanıtı bekle</Button><button className="compact-link" onClick={() => setState(s => ({ ...s, pending: null }))}>Soruyu iptal et</button></> :
+      state.pending ? <><Button href="/handoff/patient">Yanıtı bekle</Button><button className="compact-link" disabled={cancelling} onClick={async () => {
+        if (!state.pending || cancelling) return;
+        setCancelling(true); setError('');
+        try { await cancelPatientQuestion(state.sessionId, state.pending.id); }
+        catch { setCancelling(false); setError('Soru iptal edilemedi. Lütfen tekrar deneyin.'); return; }
+        setState(s => ({ ...s, pending: null })); setCancelling(false);
+      }}>Soruyu iptal et</button></> :
       !state.reviewed ? <><Button onClick={() => setState(s => ({ ...s, reviewed: true }))}>Onayla, devam et</Button><button className="compact-link" onClick={() => { setText(state.expression); setEditing(true); }}>Şikayeti düzenle</button></> :
       <><Button onClick={() => router.push('/doctor/questions')}>Soru sor</Button><Button variant="outline" onClick={() => router.push('/doctor/result')}>Tedaviyi yaz</Button></>}
   </>}>
+    {error && <p className="compact-error" role="alert">{error}</p>}
     {!state.expression ? <Empty text="Hasta henüz anlatımını onaylamadı." href="/camera" /> : editing ?
       <div className="compact-form my-auto"><label>Hastanın şikayeti<textarea rows={4} maxLength={500} value={text} onChange={e => setText(e.target.value)} /></label></div> :
       history ? turn ? <div className="compact-center items-stretch text-left"><div className="compact-card"><small>Doktor</small><ReadText text={turn.text} /></div><div className="compact-card bg-brand-50"><small>Hasta</small><ReadText text={turn.answer} /></div></div> : <div className="compact-center"><p>Henüz yanıt yok.</p></div> :
@@ -47,9 +55,10 @@ export function Questions() {
     if (!text.trim() || state.pending || leaving) return;
     setLeaving(true);
     setError('');
-    try { await preparePatientCapture(state.sessionId, text.trim()); }
+    const question = { id: crypto.randomUUID(), kind, text: text.trim() };
+    try { await askPatientQuestion(state.sessionId, question); }
     catch { setLeaving(false); setError('Soru görüşmeye eklenemedi. Lütfen tekrar deneyin.'); return; }
-    setState(s => ({ ...s, pending: { id: crypto.randomUUID(), kind, text: text.trim() }, capture: 'answer', candidate: null }));
+    setState(s => ({ ...s, pending: question, capture: 'answer', candidate: null }));
     router.push('/handoff/patient');
   };
   const available = leaving || (state.reviewed && !state.pending);
@@ -69,6 +78,7 @@ export function PatientResponse({ kind }: { kind: QuestionKind }) {
   const { state, setState } = useFlow(); const router = useRouter();
   const [selected, setSelected] = useState(''); const [detail, setDetail] = useState(''); const [groups, setGroups] = useState<string[]>([]);
   const [stage, setStage] = useState<'choice' | 'groups' | 'name'>('choice');
+  const [error, setError] = useState('');
   // Yanıt iletilince sayfa değişene kadar ekranı koru; uyarı kutusu bir an görünmesin.
   const [leaving, setLeaving] = useState(false);
   const [initialPending] = useState(state.pending);
@@ -77,16 +87,20 @@ export function PatientResponse({ kind }: { kind: QuestionKind }) {
   const titles = { duration: 'Ne zamandır?', intensity: 'Ne kadar şiddetli?', location: 'Ağrı neresinde?', medication: stage === 'groups' ? 'Hangi ilaçları kullanıyorsunuz?' : stage === 'name' ? 'İlacın adı ne?' : 'İlaç kullanıyor musunuz?', custom: 'Doktorun sorusu' };
   const answer = kind === 'medication' && selected === 'Evet' ? `Düzenli ilaç kullanıyorum: ${[...groups.filter(g => g !== 'Başka bir ilaç'), groups.includes('Başka bir ilaç') ? detail.trim() : ''].filter(Boolean).join(', ')}` : kind === 'medication' && selected === 'Hayır' ? 'Düzenli ilaç kullanmıyorum' : kind === 'custom' ? detail.trim() : selected;
   const valid = kind === 'medication' && selected === 'Evet' ? groups.length > 0 && (!groups.includes('Başka bir ilaç') || !!detail.trim()) : !!answer.trim();
-  const [error, setError] = useState('');
-  const send = async () => {
-    if (!valid || !ready || leaving) return;
-    setLeaving(true);
-    setError('');
-    // Yanıt önce sunucuya yazılır: aksi halde yalnız cihaz belleğinde kalır ve
-    // oturum hasta adımında takılıp doktorun sonraki sorusu reddedilir.
-    try { await recordPatientAnswer(state.sessionId, answer); }
-    catch { setLeaving(false); setError('Yanıt doktora iletilemedi. Lütfen tekrar deneyin.'); return; }
-    setState(s => recordAnswer(s, answer, 'manual'));
+  const send = async (answerOverride?: string) => {
+    const submittedAnswer = answerOverride ?? answer;
+    if (!submittedAnswer.trim() || !ready || !pending || leaving) return;
+    setLeaving(true); setError('');
+    try {
+      await submitPatientAnswer(state.sessionId, {
+        questionId: pending.id,
+        answer: submittedAnswer,
+        source: 'manual',
+      });
+    } catch {
+      setLeaving(false); setError('Yanıt doktora iletilemedi. Lütfen tekrar deneyin.'); return;
+    }
+    setState(s => recordAnswer(s, submittedAnswer, 'manual'));
     router.push('/handoff/doctor');
   };
   const next = () => {
@@ -110,7 +124,7 @@ export function PatientResponse({ kind }: { kind: QuestionKind }) {
       kind === 'location' ? <><div className="min-h-0 flex-1 flex items-center justify-center"><BodyMap selectedId={BODY_REGIONS.find(r => r.sentence === selected)?.id} onSelect={r => setSelected(r.sentence)} className="h-full max-h-[240px] w-[120px]" /></div><div className="compact-grid">{BODY_REGIONS.map(r => <Choice key={r.id} selected={selected === r.sentence} onClick={() => setSelected(r.sentence)}>{r.label}</Choice>)}</div></> :
       stage === 'choice' ? <div className="compact-center w-full"><div className="compact-grid w-full">{['Evet', 'Hayır'].map(v => <Choice key={v} selected={selected === v} onClick={() => setSelected(v)}>{v}</Choice>)}</div><button className="compact-link" aria-pressed={selected === 'Bilmiyorum'} onClick={() => setSelected('Bilmiyorum')}>{selected === 'Bilmiyorum' ? '✓ ' : ''}Bilmiyorum</button></div> :
       stage === 'name' ? <div className="compact-form my-auto"><label>İlacın adı<input maxLength={100} value={detail} onChange={e => setDetail(e.target.value)} /></label></div> :
-      <div className="my-auto"><div className="compact-grid">{MEDICATION_GROUPS.map(g => <Choice key={g.id} selected={groups.includes(g.label)} onClick={() => setGroups(current => current.includes(g.label) ? current.filter(v => v !== g.label) : [...current, g.label])}>{g.label}</Choice>)}</div><button className="compact-link mt-3 w-full" onClick={() => { if (leaving) return; setLeaving(true); setState(s => recordAnswer(s, 'İlaç kullanıyorum, adını bilmiyorum', 'manual')); router.push('/handoff/doctor'); }}>Adını bilmiyorum</button></div>}
+      <div className="my-auto"><div className="compact-grid">{MEDICATION_GROUPS.map(g => <Choice key={g.id} selected={groups.includes(g.label)} onClick={() => setGroups(current => current.includes(g.label) ? current.filter(v => v !== g.label) : [...current, g.label])}>{g.label}</Choice>)}</div><button className="compact-link mt-3 w-full" onClick={() => void send('İlaç kullanıyorum, adını bilmiyorum')}>Adını bilmiyorum</button></div>}
   </Frame>;
 }
 

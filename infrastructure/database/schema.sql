@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS consultation_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     state TEXT NOT NULL CHECK (
         state IN (
-            'patient_capture', 'patient_confirmation', 'doctor_review',
+            'patient_capture', 'patient_confirmation', 'doctor_review', 'patient_response',
             'doctor_response', 'patient_review', 'ended'
         )
     ),
@@ -33,7 +33,9 @@ CREATE INDEX IF NOT EXISTS consultation_sessions_expires_at_idx
 CREATE TABLE IF NOT EXISTS interaction_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     session_id UUID NOT NULL REFERENCES consultation_sessions(id) ON DELETE CASCADE,
-    type TEXT NOT NULL CHECK (type IN ('prediction', 'confirmation', 'doctor_response')),
+    type TEXT NOT NULL CHECK (
+        type IN ('prediction', 'confirmation', 'doctor_question', 'patient_answer', 'doctor_response')
+    ),
     payload JSONB NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
