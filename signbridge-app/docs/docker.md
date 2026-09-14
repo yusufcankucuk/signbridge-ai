@@ -8,7 +8,7 @@ Docker yapısı üç parçadan oluşur:
 
 AI imajları `tensorflow-cpu==2.15.1` ile uyumluluk için `linux/amd64` platformunda çalışır. Apple Silicon bilgisayarlarda Docker Desktop bu imajları emülasyonla çalıştırır; ilk build ve model yükleme daha uzun sürebilir.
 
-Supabase bu deponun parçası değildir. Web konteyneri, Huawei/Supabase üzerinde mevcut olan projeye ortam değişkenleriyle bağlanır.
+Yerel demo varsayılan olarak `SESSION_STORE=memory` ile çalışır; Supabase zorunlu değildir. Kalıcı oturum gerekiyorsa web konteyneri ayrı bir Supabase projesine yalnız sunucu ortam değişkenleriyle bağlanır.
 
 ## Ön koşullar
 
@@ -16,7 +16,7 @@ Supabase bu deponun parçası değildir. Web konteyneri, Huawei/Supabase üzerin
 2. `ai-training/outputs` içinde şu iki çıktı bulunmalıdır:
    - `saved_model/` dizini
    - `runtime_config.json`
-3. Supabase projesinde SignBridge tablolarını oluşturun.
+3. Yalnız kalıcı Supabase modu kullanacaksanız `infrastructure/database/schema.sql` dosyasını kendi Supabase projenizde çalıştırın.
 
 ## İlk çalıştırma
 
@@ -30,12 +30,13 @@ docker compose up --build -d
 docker compose ps
 ```
 
-`.env` içinde en az `SUPABASE_URL` ve `SUPABASE_ANON_KEY` gerçek değerlerle değiştirilmelidir. `.env` Git tarafından yok sayılır; anahtarları repoya göndermeyin.
+İlk denemede `.env` içindeki `SESSION_STORE=memory` ayarını koruyun. Kalıcı mod için `SESSION_STORE=supabase`, `SUPABASE_URL` ve `SUPABASE_SERVICE_ROLE_KEY` değerlerini girin. Service-role anahtarını `NEXT_PUBLIC_` önekiyle tanımlamayın; anon anahtarı onun yerine kullanmayın. `.env` Git tarafından yok sayılır, anahtarları repoya veya loglara göndermeyin.
 
 Servis kontrolleri:
 
 ```powershell
 Invoke-RestMethod http://localhost:3000/api/health
+Invoke-RestMethod http://localhost:3000/api/ready
 docker compose logs --tail 100 web ai-inference
 ```
 
@@ -45,7 +46,7 @@ CPU ile ilk model yükleme, bilgisayarın hızına göre yaklaşık 1-3 dakika s
 
 ## AI tahmin akışı
 
-Tarayıcı/backend, 60 kare × 46 nokta biçimindeki landmark isteğini `POST /api/ai/predict` adresine yollar. Web konteyneri isteği iç ağdaki `ai-inference:8000` servisine aktarır. AI konteynerinin `8000` portu doğrudan bilgisayara açılmaz.
+Tarayıcı, MediaPipe Holistic ile kameradan landmark çıkarır ve `60 kare × 46 nokta` biçimindeki türetilmiş veriyi görüşme tahmin adresine yollar. Ham video varsayılan olarak kaydedilmez veya sunucuya gönderilmez. Web konteyneri AI isteğini iç ağdaki `ai-inference:8000` servisine aktarır. AI konteynerinin `8000` portu doğrudan bilgisayara açılmaz.
 
 İstek alanları [ai-contract.md](ai-contract.md) dosyasında açıklanır. Geçersiz boyut, maske veya ön işleme sürümü hem web proxy'sinde hem AI servisinde reddedilir.
 

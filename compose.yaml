@@ -11,6 +11,7 @@ services:
     environment:
       MODEL_PATH: /models/saved_model
       RUNTIME_CONFIG_PATH: /models/runtime_config.json
+      DECISION_POLICY_PATH: /app/configs/decision_policy.json
       TF_CPP_MIN_LOG_LEVEL: "2"
     volumes:
       - type: bind
@@ -42,8 +43,9 @@ services:
     image: signbridge/web:0.1.0
     environment:
       NODE_ENV: production
+      SESSION_STORE: ${SESSION_STORE:-memory}
       SUPABASE_URL: ${SUPABASE_URL:-}
-      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
       AI_PROVIDER: ${AI_PROVIDER:-local}
       AI_FALLBACK_PROVIDER: ${AI_FALLBACK_PROVIDER:-none}
       MODELARTS_ENABLED: ${MODELARTS_ENABLED:-false}
@@ -109,6 +111,31 @@ services:
     pids_limit: 512
     mem_limit: 6g
     cpus: 4.0
+    init: true
+    restart: "no"
+
+  ai-tests:
+    profiles:
+      - test
+    build:
+      context: ./ai-training
+      dockerfile: Dockerfile.test
+    image: signbridge/ai-tests:0.3.0
+    volumes:
+      - type: bind
+        source: ./ai-training
+        target: /workspace
+        read_only: true
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=268435456
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 4g
+    cpus: 2.0
     init: true
     restart: "no"
 

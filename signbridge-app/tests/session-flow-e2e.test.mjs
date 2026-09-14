@@ -13,7 +13,10 @@ const VALID_PREDICTION = {
     predictionMode: 'model',
     modelVersion: 'autsl20-bigru-v0.1.0',
     preprocessingVersion: 'landmark46-v1',
-    vocabularyVersion: 'autsl20-v1'
+    vocabularyVersion: 'autsl20-v1',
+    decisionPolicyVersion: 'score-threshold-v1',
+    rejectionReason: null,
+    requiresConfirmation: true
 };
 
 const LANDMARK_REQUEST = {
@@ -23,6 +26,10 @@ const LANDMARK_REQUEST = {
     ),
     mask: Array.from({ length: 60 }, () => Array.from({ length: 46 }, () => 1))
 };
+
+const RAW_VIDEO_CANARY = 'RAW_VIDEO_CANARY_7f43c1';
+const HEALTH_TEXT_CANARY = 'HEALTH_TEXT_CANARY_1d8a52';
+const SECRET_CANARY = 'SECRET_CANARY_92f4d8';
 
 async function listen(handler) {
     const server = createServer(handler);
@@ -85,6 +92,24 @@ async function startSupabaseTestServer() {
             return sendJson(response, 201, wantsSingle ? row : [row]);
         }
 
+        if (table === 'advance_consultation' && request.method === 'POST') {
+            const body = await requestBody(request);
+            const row = sessions.get(body.p_session_id);
+            if (!row || row.state !== body.p_expected_state) return sendJson(response, 200, false);
+            if (body.p_event_type) events.push({
+                id: randomUUID(), session_id: body.p_session_id,
+                type: body.p_event_type, payload: body.p_event_payload,
+            });
+            if (body.p_delete_events) {
+                for (let index = events.length - 1; index >= 0; index -= 1) {
+                    if (events[index].session_id === body.p_session_id) events.splice(index, 1);
+                }
+            }
+            if (body.p_next_state === 'ended') sessions.delete(body.p_session_id);
+            else row.state = body.p_next_state;
+            return sendJson(response, 200, true);
+        }
+
         if (table === 'consultation_sessions' && request.method === 'GET') {
             const row = sessions.get(filterValue(url, 'id'));
             if (wantsSingle) {
@@ -111,6 +136,20 @@ async function startSupabaseTestServer() {
             return response.end();
         }
 
+        if (table === 'interaction_events' && request.method === 'GET') {
+            const sessionId = filterValue(url, 'session_id');
+            const type = filterValue(url, 'type');
+            const matching = events.filter((event) =>
+                event.session_id === sessionId && (!type || event.type === type),
+            );
+            const row = matching.at(-1);
+            if (wantsSingle) {
+                if (row) return sendJson(response, 200, { payload: row.payload });
+                return sendJson(response, 406, { code: 'PGRST116', message: 'No rows' });
+            }
+            return sendJson(response, 200, row ? [{ payload: row.payload }] : []);
+        }
+
         if (table === 'interaction_events' && request.method === 'DELETE') {
             const sessionId = filterValue(url, 'session_id');
             for (let index = events.length - 1; index >= 0; index -= 1) {
@@ -126,7 +165,15 @@ async function startSupabaseTestServer() {
     return {
         ...listener,
         snapshot(sessionId) {
-            return { state: sessions.get(sessionId)?.state, eventCount: events.length };
+            return {
+                state: sessions.get(sessionId)?.state,
+                eventCount: events.filter((event) => event.session_id === sessionId).length,
+            };
+        },
+        eventSnapshot(sessionId) {
+            return events
+                .filter((event) => event.session_id === sessionId)
+                .map((event) => ({ type: event.type, payload: event.payload }));
         }
     };
 }
@@ -162,7 +209,7 @@ async function startNext(environment) {
         if (child.exitCode !== null) throw new Error(`Next.js başlatılamadı:\n${output.join('')}`);
         try {
             const response = await fetch(`${baseUrl}/api/health`);
-            if (response.ok) return { child, baseUrl };
+            if (response.ok) return { child, baseUrl, output };
         } catch {
             // Next.js production sunucusu hazır olana kadar tekrar dene.
         }
@@ -198,10 +245,12 @@ test('create → prediction → confirm → doctor response → next/end tam tur
     const ai = externalAiUrl ? undefined : await startAiTestServer();
     const app = await startNext({
         SUPABASE_URL: supabase.url,
-        SUPABASE_ANON_KEY: 'e2e-test-key',
+        SESSION_STORE: 'supabase',
+        SUPABASE_SERVICE_ROLE_KEY: SECRET_CANARY,
         AI_PROVIDER: 'local',
         AI_FALLBACK_PROVIDER: 'none',
         MODELARTS_ENABLED: 'false',
+        MODELARTS_AUTH_TOKEN: SECRET_CANARY,
         AI_LOCAL_URL: externalAiUrl ?? ai.url
     });
     const evidence = [];
@@ -212,6 +261,13 @@ test('create → prediction → confirm → doctor response → next/end tam tur
         assert.equal(created.payload.state, 'patient_capture');
         const sessionId = created.payload.id;
         evidence.push({ step: 'create', status: created.status, state: created.payload.state });
+
+        const rawVideoRejected = await post(
+            app.baseUrl,
+            `/api/consultations/${sessionId}/prediction`,
+            { ...LANDMARK_REQUEST, rawVideo: RAW_VIDEO_CANARY },
+        );
+        assert.equal(rawVideoRejected.status, 400);
 
         const predicted = await post(
             app.baseUrl,
@@ -240,7 +296,7 @@ test('create → prediction → confirm → doctor response → next/end tam tur
         const doctorWithoutConfirmation = await post(
             app.baseUrl,
             `/api/consultations/${sessionId}/doctor-response`,
-            { transcript: 'Yanıt metni', source: 'text', edited: false },
+            { transcript: HEALTH_TEXT_CANARY, source: 'text', edited: false },
         );
         assert.equal(doctorWithoutConfirmation.status, 409);
         evidence.push({ step: 'doctor-before-confirm', status: doctorWithoutConfirmation.status });
@@ -257,7 +313,7 @@ test('create → prediction → confirm → doctor response → next/end tam tur
         const doctorResponse = await post(
             app.baseUrl,
             `/api/consultations/${sessionId}/doctor-response`,
-            { transcript: 'Yanıt metni', source: 'text', edited: false },
+            { transcript: HEALTH_TEXT_CANARY, source: 'text', edited: false },
         );
         assert.equal(doctorResponse.status, 200);
         assert.equal(doctorResponse.payload.nextState, 'patient_review');
@@ -279,13 +335,276 @@ test('create → prediction → confirm → doctor response → next/end tam tur
         const ended = await post(app.baseUrl, `/api/consultations/${sessionId}/end`);
         assert.equal(ended.status, 200);
         assert.equal(ended.payload.nextState, 'ended');
-        assert.deepEqual(supabase.snapshot(sessionId), { state: 'ended', eventCount: 0 });
+        assert.deepEqual(supabase.snapshot(sessionId), { state: undefined, eventCount: 0 });
         evidence.push({ step: 'end', status: ended.status, state: ended.payload.nextState, eventsRemaining: 0 });
+
+        const serverLogs = app.output.join('');
+        assert.equal(serverLogs.includes(RAW_VIDEO_CANARY), false);
+        assert.equal(serverLogs.includes(HEALTH_TEXT_CANARY), false);
+        assert.equal(serverLogs.includes(SECRET_CANARY), false);
 
         console.info(`E2E kanıtı (hassas içerik içermez): ${JSON.stringify(evidence)}`);
     } finally {
         await stopNext(app.child);
         await closeServer(supabase.server);
         if (ai) await closeServer(ai.server);
+    }
+});
+
+test('strict girdiler, boyut sınırı ve iki oturum izolasyonu korunur', async () => {
+    const supabase = await startSupabaseTestServer();
+    const ai = await startAiTestServer();
+    const app = await startNext({
+        SUPABASE_URL: supabase.url,
+        SESSION_STORE: 'supabase',
+        SUPABASE_SERVICE_ROLE_KEY: SECRET_CANARY,
+        AI_PROVIDER: 'local',
+        AI_FALLBACK_PROVIDER: 'none',
+        MODELARTS_ENABLED: 'false',
+        AI_LOCAL_URL: ai.url
+    });
+
+    try {
+        const wrongContentType = await fetch(`${app.baseUrl}/api/ai/predict`, {
+            method: 'POST',
+            headers: { 'content-type': 'text/plain' },
+            body: '{}'
+        });
+        assert.equal(wrongContentType.status, 415);
+
+        const malformedJson = await fetch(`${app.baseUrl}/api/ai/predict`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: '{'
+        });
+        assert.equal(malformedJson.status, 400);
+
+        const unexpectedCreateField = await post(app.baseUrl, '/api/consultations', { unexpected: true });
+        assert.equal(unexpectedCreateField.status, 400);
+
+        const first = await post(app.baseUrl, '/api/consultations');
+        const second = await post(app.baseUrl, '/api/consultations');
+        assert.equal(first.status, 201);
+        assert.equal(second.status, 201);
+        const firstId = first.payload.id;
+        const secondId = second.payload.id;
+
+        const unexpectedPredictionField = await post(
+            app.baseUrl,
+            `/api/consultations/${firstId}/prediction`,
+            { ...LANDMARK_REQUEST, rawVideo: RAW_VIDEO_CANARY },
+        );
+        assert.equal(unexpectedPredictionField.status, 400);
+        assert.deepEqual(supabase.snapshot(firstId), { state: 'patient_capture', eventCount: 0 });
+
+        const oversized = await post(app.baseUrl, '/api/ai/predict', {
+            ...LANDMARK_REQUEST,
+            padding: 'x'.repeat(270 * 1024),
+        });
+        assert.equal(oversized.status, 413);
+
+        const firstPrediction = await post(
+            app.baseUrl,
+            `/api/consultations/${firstId}/prediction`,
+            LANDMARK_REQUEST,
+        );
+        const secondPrediction = await post(
+            app.baseUrl,
+            `/api/consultations/${secondId}/prediction`,
+            LANDMARK_REQUEST,
+        );
+        assert.equal(firstPrediction.status, 200);
+        assert.equal(secondPrediction.status, 200);
+
+        const unexpectedConfirmField = await post(
+            app.baseUrl,
+            `/api/consultations/${firstId}/confirm`,
+            { confirmed: true, admin: true },
+        );
+        assert.equal(unexpectedConfirmField.status, 400);
+        assert.deepEqual(supabase.snapshot(firstId), { state: 'patient_confirmation', eventCount: 1 });
+
+        const invalidConfirmationType = await post(
+            app.baseUrl,
+            `/api/consultations/${firstId}/confirm`,
+            { confirmed: 'yes' },
+        );
+        assert.equal(invalidConfirmationType.status, 400);
+
+        const confirmed = await post(
+            app.baseUrl,
+            `/api/consultations/${firstId}/confirm`,
+            { confirmed: true },
+        );
+        assert.equal(confirmed.status, 200);
+
+        const unexpectedDoctorField = await post(
+            app.baseUrl,
+            `/api/consultations/${firstId}/doctor-response`,
+            { transcript: HEALTH_TEXT_CANARY, source: 'text', edited: false, unexpected: true },
+        );
+        assert.equal(unexpectedDoctorField.status, 400);
+
+        const oversizedDoctorResponse = await post(
+            app.baseUrl,
+            `/api/consultations/${firstId}/doctor-response`,
+            { transcript: 'x'.repeat(9 * 1024), source: 'text', edited: false },
+        );
+        assert.equal(oversizedDoctorResponse.status, 413);
+        assert.deepEqual(supabase.snapshot(firstId), { state: 'doctor_review', eventCount: 2 });
+
+        const ended = await post(app.baseUrl, `/api/consultations/${firstId}/end`);
+        assert.equal(ended.status, 200);
+        assert.deepEqual(supabase.snapshot(firstId), { state: undefined, eventCount: 0 });
+        assert.deepEqual(supabase.snapshot(secondId), { state: 'patient_confirmation', eventCount: 1 });
+
+        const firstAfterEnd = await post(
+            app.baseUrl,
+            `/api/consultations/${firstId}/confirm`,
+            { confirmed: true },
+        );
+        assert.equal(firstAfterEnd.status, 404);
+        assert.deepEqual(supabase.snapshot(secondId), { state: 'patient_confirmation', eventCount: 1 });
+    } finally {
+        await stopNext(app.child);
+        await closeServer(supabase.server);
+        await closeServer(ai.server);
+    }
+});
+
+test('iki hazır soru ve özel soru aynı oturumda sırayla tamamlanır', async () => {
+    const supabase = await startSupabaseTestServer();
+    const app = await startNext({
+        SUPABASE_URL: supabase.url,
+        SESSION_STORE: 'supabase',
+        SUPABASE_SERVICE_ROLE_KEY: SECRET_CANARY,
+        AI_PROVIDER: 'local',
+        AI_FALLBACK_PROVIDER: 'none',
+        MODELARTS_ENABLED: 'false',
+        AI_LOCAL_URL: 'http://127.0.0.1:1'
+    });
+    const evidence = [];
+
+    try {
+        const created = await post(app.baseUrl, '/api/consultations');
+        const other = await post(app.baseUrl, '/api/consultations');
+        assert.equal(created.status, 201);
+        assert.equal(other.status, 201);
+        const sessionId = created.payload.id;
+        const otherSessionId = other.payload.id;
+
+        const confirmed = await post(
+            app.baseUrl,
+            `/api/consultations/${sessionId}/confirm`,
+            { confirmed: true, manualSelection: 'Demo şikâyeti' },
+        );
+        assert.equal(confirmed.status, 200);
+        assert.equal(confirmed.payload.nextState, 'doctor_review');
+        evidence.push({ step: 'manual-confirm', status: confirmed.status, state: confirmed.payload.nextState });
+
+        const cancelledQuestionId = randomUUID();
+        const cancellable = await post(app.baseUrl, `/api/consultations/${sessionId}/questions`, {
+            questionId: cancelledQuestionId,
+            kind: 'location',
+            text: 'İptal edilecek demo sorusu',
+        });
+        assert.equal(cancellable.status, 200);
+        const wrongCancellation = await fetch(`${app.baseUrl}/api/consultations/${sessionId}/questions`, {
+            method: 'DELETE',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ questionId: randomUUID() }),
+        });
+        assert.equal(wrongCancellation.status, 409);
+        const cancelled = await fetch(`${app.baseUrl}/api/consultations/${sessionId}/questions`, {
+            method: 'DELETE',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ questionId: cancelledQuestionId }),
+        });
+        assert.equal(cancelled.status, 200);
+        evidence.push({ step: 'question-cancel', wrongQuestionStatus: wrongCancellation.status, status: cancelled.status });
+
+        const questions = [
+            { id: randomUUID(), kind: 'duration', text: 'Ne kadar süredir var?', answer: 'Birkaç gün' },
+            { id: randomUUID(), kind: 'intensity', text: 'Ağrınız ne kadar şiddetli?', answer: '3 / 5 — Orta' },
+            { id: randomUUID(), kind: 'custom', text: 'Ağrı dinlenince azalıyor mu?', answer: 'Evet, biraz azalıyor.' },
+        ];
+
+        for (const [index, question] of questions.entries()) {
+            const asked = await post(app.baseUrl, `/api/consultations/${sessionId}/questions`, {
+                questionId: question.id,
+                kind: question.kind,
+                text: question.text,
+            });
+            assert.equal(asked.status, 200);
+            assert.equal(asked.payload.nextState, 'patient_response');
+            assert.equal(asked.payload.questionId, question.id);
+
+            if (index === 0) {
+                const secondQuestionBeforeAnswer = await post(
+                    app.baseUrl,
+                    `/api/consultations/${sessionId}/questions`,
+                    { questionId: randomUUID(), kind: 'location', text: 'Ağrı neresinde?' },
+                );
+                assert.equal(secondQuestionBeforeAnswer.status, 409);
+                evidence.push({ step: 'question-before-answer-rejected', status: secondQuestionBeforeAnswer.status });
+
+                const mismatchedAnswer = await post(app.baseUrl, `/api/consultations/${sessionId}/answers`, {
+                    questionId: randomUUID(),
+                    answer: question.answer,
+                    source: 'manual',
+                });
+                assert.equal(mismatchedAnswer.status, 409);
+                evidence.push({ step: 'mismatched-answer-rejected', status: mismatchedAnswer.status });
+            }
+
+            const answered = await post(app.baseUrl, `/api/consultations/${sessionId}/answers`, {
+                questionId: question.id,
+                answer: question.answer,
+                source: 'manual',
+            });
+            assert.equal(answered.status, 200);
+            assert.equal(answered.payload.nextState, 'doctor_review');
+            evidence.push({
+                step: question.kind === 'custom' ? 'custom-question' : `ready-question-${index + 1}`,
+                askStatus: asked.status,
+                answerStatus: answered.status,
+                state: answered.payload.nextState,
+            });
+        }
+
+        assert.deepEqual(
+            supabase.eventSnapshot(sessionId).map((event) => event.type),
+            [
+                'confirmation',
+                'doctor_question',
+                'doctor_question', 'patient_answer',
+                'doctor_question', 'patient_answer',
+                'doctor_question', 'patient_answer',
+            ],
+        );
+        assert.deepEqual(supabase.snapshot(otherSessionId), { state: 'patient_capture', eventCount: 0 });
+
+        const doctorResponse = await post(
+            app.baseUrl,
+            `/api/consultations/${sessionId}/doctor-response`,
+            { transcript: 'Demo değerlendirmesi', source: 'text', edited: false },
+        );
+        assert.equal(doctorResponse.status, 200);
+        assert.equal(doctorResponse.payload.nextState, 'patient_review');
+
+        const ended = await post(app.baseUrl, `/api/consultations/${sessionId}/end`);
+        assert.equal(ended.status, 200);
+        assert.deepEqual(supabase.snapshot(sessionId), { state: undefined, eventCount: 0 });
+        assert.deepEqual(supabase.snapshot(otherSessionId), { state: 'patient_capture', eventCount: 0 });
+        evidence.push({ step: 'end-and-cleanup', status: ended.status, eventsRemaining: 0, otherSessionUnaffected: true });
+
+        const serverLogs = app.output.join('');
+        assert.equal(serverLogs.includes('Demo şikâyeti'), false);
+        assert.equal(serverLogs.includes('Demo değerlendirmesi'), false);
+        assert.equal(serverLogs.includes(SECRET_CANARY), false);
+        console.info(`Çoklu soru E2E kanıtı (hassas içerik içermez): ${JSON.stringify(evidence)}`);
+    } finally {
+        await stopNext(app.child);
+        await closeServer(supabase.server);
     }
 });

@@ -74,7 +74,7 @@ export default function Logo({
             {withWordmark ? (
                 <span
                     className={cn(
-                        "font-extrabold tracking-tight",
+                        "font-semibold tracking-tight",
                         wordmarkClassName ?? "text-h3"
                     )}
                 >

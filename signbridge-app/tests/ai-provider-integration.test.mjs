@@ -12,7 +12,10 @@ const VALID_PREDICTION = {
     predictionMode: 'model',
     modelVersion: 'autsl20-bigru-v0.1.0',
     preprocessingVersion: 'landmark46-v1',
-    vocabularyVersion: 'autsl20-v1'
+    vocabularyVersion: 'autsl20-v1',
+    decisionPolicyVersion: 'score-threshold-v1',
+    rejectionReason: null,
+    requiresConfirmation: true
 };
 
 const VALID_REQUEST = {
@@ -50,8 +53,7 @@ async function startNext(environment) {
         env: {
             ...process.env,
             NODE_ENV: 'production',
-            SUPABASE_URL: 'http://127.0.0.1:54321',
-            SUPABASE_ANON_KEY: 'integration-test-key',
+            SESSION_STORE: 'memory',
             ...environment
         },
         stdio: ['ignore', 'pipe', 'pipe']
@@ -203,6 +205,46 @@ test('ulaşılamayan sağlayıcı kontrollü 503 üretir', async () => {
         });
     } finally {
         await stopNext(app.child);
+    }
+});
+
+test('AI servisinin bozuk cevabı kontrollü 502 üretir', async () => {
+    const upstream = await listen((_request, response) => {
+        response.writeHead(200, { 'content-type': 'application/json' });
+        response.end('{"invalidJson":');
+    });
+    const app = await startNext({ AI_PROVIDER: 'local', AI_LOCAL_URL: upstream.url });
+    try {
+        const response = await predict(app.baseUrl);
+        assert.equal(response.status, 502);
+        assert.deepEqual(await response.json(), {
+            error: 'AI sağlayıcısı geçerli JSON döndürmedi.',
+            code: 'AI_INVALID_RESPONSE'
+        });
+    } finally {
+        await stopNext(app.child);
+        await closeServer(upstream.server);
+    }
+});
+
+test('AI servisinin yetkisiz cevabı kontrollü 503 üretir', async () => {
+    const upstream = await listen((_request, response) => {
+        response.writeHead(401, { 'content-type': 'application/json' });
+        response.end(JSON.stringify({ error: 'sensitive-upstream-detail' }));
+    });
+    const app = await startNext({ AI_PROVIDER: 'local', AI_LOCAL_URL: upstream.url });
+    try {
+        const response = await predict(app.baseUrl);
+        assert.equal(response.status, 503);
+        const body = await response.json();
+        assert.deepEqual(body, {
+            error: 'AI servisi kimlik doğrulamasını kabul etmedi.',
+            code: 'AI_AUTHENTICATION_ERROR'
+        });
+        assert.equal(JSON.stringify(body).includes('sensitive-upstream-detail'), false);
+    } finally {
+        await stopNext(app.child);
+        await closeServer(upstream.server);
     }
 });
 

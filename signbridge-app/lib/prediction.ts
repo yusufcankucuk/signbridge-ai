@@ -1,6 +1,22 @@
 import type { PredictionPayload } from '@/types/session';
 
 const MODES = new Set(['model', 'mock', 'manual']);
+const REJECTION_REASONS = new Set(['low_score', 'ambiguous_prediction']);
+const PREDICTION_FIELDS = new Set([
+    'classId',
+    'displayText',
+    'confidence',
+    'alternatives',
+    'isLowConfidence',
+    'predictionMode',
+    'modelVersion',
+    'preprocessingVersion',
+    'vocabularyVersion',
+    'decisionPolicyVersion',
+    'rejectionReason',
+    'requiresConfirmation',
+]);
+const LANDMARK_REQUEST_FIELDS = new Set(['sessionId', 'preprocessingVersion', 'landmarks', 'mask']);
 
 export interface LandmarkPredictionRequest {
     sessionId?: string;
@@ -16,6 +32,7 @@ function isNullableString(value: unknown): value is string | null {
 export function isPredictionPayload(value: unknown): value is PredictionPayload {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
     const payload = value as Record<string, unknown>;
+    if (Object.keys(payload).some((key) => !PREDICTION_FIELDS.has(key))) return false;
     const confidenceIsValid =
         payload.confidence === null ||
         (typeof payload.confidence === 'number' &&
@@ -25,25 +42,39 @@ export function isPredictionPayload(value: unknown): value is PredictionPayload 
     const alternativesAreValid =
         Array.isArray(payload.alternatives) &&
         payload.alternatives.length <= 3 &&
-        payload.alternatives.every((item) => typeof item === 'string');
+        payload.alternatives.every((item) => typeof item === 'string' && item.length <= 100);
 
     if (
         !isNullableString(payload.classId) ||
+        (typeof payload.classId === 'string' && payload.classId.length > 100) ||
         typeof payload.displayText !== 'string' ||
         payload.displayText.trim().length === 0 ||
+        payload.displayText.length > 500 ||
         !confidenceIsValid ||
         !alternativesAreValid ||
         typeof payload.isLowConfidence !== 'boolean' ||
         typeof payload.predictionMode !== 'string' ||
         !MODES.has(payload.predictionMode) ||
         !isNullableString(payload.modelVersion) ||
+        (typeof payload.modelVersion === 'string' && payload.modelVersion.length > 100) ||
         typeof payload.preprocessingVersion !== 'string' ||
-        typeof payload.vocabularyVersion !== 'string'
+        payload.preprocessingVersion.length > 100 ||
+        typeof payload.vocabularyVersion !== 'string' ||
+        payload.vocabularyVersion.length > 100 ||
+        typeof payload.decisionPolicyVersion !== 'string' ||
+        payload.decisionPolicyVersion.trim().length === 0 ||
+        payload.decisionPolicyVersion.length > 100 ||
+        (payload.rejectionReason !== null &&
+            (typeof payload.rejectionReason !== 'string' || !REJECTION_REASONS.has(payload.rejectionReason))) ||
+        typeof payload.requiresConfirmation !== 'boolean'
     ) {
         return false;
     }
 
     if (payload.isLowConfidence && payload.classId !== null) return false;
+    if (payload.isLowConfidence && payload.rejectionReason === null) return false;
+    if (!payload.isLowConfidence && payload.rejectionReason !== null) return false;
+    if (payload.requiresConfirmation !== (payload.predictionMode === 'model' && !payload.isLowConfidence)) return false;
     if (payload.predictionMode === 'manual' && payload.confidence !== null) return false;
     if (payload.predictionMode === 'model' && payload.modelVersion === null) return false;
     return true;
@@ -52,7 +83,11 @@ export function isPredictionPayload(value: unknown): value is PredictionPayload 
 export function isLandmarkPredictionRequest(value: unknown): value is LandmarkPredictionRequest {
     if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
     const request = value as Record<string, unknown>;
-    if (request.sessionId !== undefined && typeof request.sessionId !== 'string') return false;
+    if (Object.keys(request).some((key) => !LANDMARK_REQUEST_FIELDS.has(key))) return false;
+    if (
+        request.sessionId !== undefined &&
+        (typeof request.sessionId !== 'string' || request.sessionId.length === 0 || request.sessionId.length > 100)
+    ) return false;
     if (request.preprocessingVersion !== 'landmark46-v1') return false;
     if (!Array.isArray(request.landmarks) || request.landmarks.length !== 60) return false;
     if (!Array.isArray(request.mask) || request.mask.length !== 60) return false;

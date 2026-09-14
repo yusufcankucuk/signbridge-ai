@@ -1,9 +1,10 @@
-// Uygulamanın anlık olarak bulunabileceği 7 durum
+// Uygulamanın anlık olarak bulunabileceği durumlar
 export type SessionState =
     | 'idle'
     | 'patient_capture'
     | 'patient_confirmation'
     | 'doctor_review'
+    | 'patient_response'
     | 'doctor_response'
     | 'patient_review'
     | 'ended';
@@ -18,7 +19,12 @@ export interface ConsultationSession {
 }
 
 // Olay Tipleri
-export type InteractionEventType = 'prediction' | 'confirmation' | 'doctor_response';
+export type InteractionEventType =
+    | 'prediction'
+    | 'confirmation'
+    | 'doctor_question'
+    | 'patient_answer'
+    | 'doctor_response';
 
 // 2. Etkileşim Olayları Veri Modeli (interaction_events)
 export interface InteractionEvent {
@@ -41,6 +47,9 @@ export interface PredictionPayload {
     modelVersion: string | null;
     preprocessingVersion: string;
     vocabularyVersion: string;
+    decisionPolicyVersion: string;
+    rejectionReason: 'low_score' | 'ambiguous_prediction' | null;
+    requiresConfirmation: boolean;
 }
 
 export interface ConfirmationPayload {
@@ -52,4 +61,16 @@ export interface DoctorResponsePayload {
     transcript: string;
     source: 'speech' | 'text';
     edited: boolean;
+}
+
+export interface DoctorQuestionPayload {
+    questionId: string;
+    kind: 'duration' | 'intensity' | 'location' | 'medication' | 'custom';
+    text: string;
+}
+
+export interface PatientAnswerPayload {
+    questionId: string;
+    answer: string;
+    source: 'manual' | 'demo' | 'model';
 }

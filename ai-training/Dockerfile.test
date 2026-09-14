@@ -1,0 +1,37 @@
+# syntax=docker/dockerfile:1.7
+ARG PYTHON_VERSION=3.9.19
+
+FROM python:${PYTHON_VERSION}-slim-bookworm@sha256:69e712dbe4c4a166527cbf69374533125cfb6ee93a5e39031a0191c741d386d7 AS dependencies
+ENV VIRTUAL_ENV=/opt/venv \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1
+RUN python -m venv ${VIRTUAL_ENV}
+ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
+WORKDIR /build
+COPY requirements.txt requirements.validation.txt requirements.inference.txt ./
+RUN pip install --no-compile -r requirements.validation.txt
+
+FROM python:${PYTHON_VERSION}-slim-bookworm@sha256:69e712dbe4c4a166527cbf69374533125cfb6ee93a5e39031a0191c741d386d7 AS runtime
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libgomp1=12.2.0-14+deb12u1 \
+        libglib2.0-0=2.74.6-2+deb12u9 \
+        libgl1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10001 signbridge \
+    && useradd --uid 10001 --gid signbridge --no-create-home --shell /usr/sbin/nologin signbridge
+
+ENV VIRTUAL_ENV=/opt/venv \
+    PATH="/opt/venv/bin:${PATH}" \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    HOME=/tmp \
+    MPLCONFIGDIR=/tmp/matplotlib \
+    TF_CPP_MIN_LOG_LEVEL=2 \
+    PYTHONPATH=/workspace
+WORKDIR /workspace
+COPY --from=dependencies /opt/venv /opt/venv
+
+USER 10001:10001
+ENTRYPOINT ["pytest"]
+CMD ["-q", "-p", "no:cacheprovider"]

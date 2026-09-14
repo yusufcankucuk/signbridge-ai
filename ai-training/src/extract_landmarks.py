@@ -10,17 +10,13 @@ from src.common import preprocessing_config
 from src.data.preprocessing import assess_quality, preprocess_pose_sequence
 
 
-def extract_raw_pose(video_path: Path) -> tuple[np.ndarray, np.ndarray, float]:
+def extract_frames(frames) -> tuple[np.ndarray, np.ndarray]:
     try:
         import cv2
         import mediapipe as mp
     except ImportError as exc:
         raise RuntimeError("OpenCV ve MediaPipe kurulmalıdır: pip install -r requirements.txt") from exc
 
-    capture = cv2.VideoCapture(str(video_path))
-    if not capture.isOpened():
-        raise ValueError(f"Video açılamadı: {video_path}")
-    fps = float(capture.get(cv2.CAP_PROP_FPS) or 25.0)
     keypoint_frames: list[np.ndarray] = []
     confidence_frames: list[np.ndarray] = []
 
@@ -31,10 +27,7 @@ def extract_raw_pose(video_path: Path) -> tuple[np.ndarray, np.ndarray, float]:
         min_detection_confidence=0.5,
         min_tracking_confidence=0.5,
     ) as holistic:
-        while True:
-            ok, frame = capture.read()
-            if not ok:
-                break
+        for frame in frames:
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             result = holistic.process(rgb)
             points = np.zeros((75, 2), dtype=np.float32)
@@ -56,10 +49,29 @@ def extract_raw_pose(video_path: Path) -> tuple[np.ndarray, np.ndarray, float]:
             keypoint_frames.append(points)
             confidence_frames.append(confidence)
 
-    capture.release()
     if not keypoint_frames:
-        raise ValueError(f"Videoda okunabilir kare bulunamadı: {video_path}")
-    return np.stack(keypoint_frames), np.stack(confidence_frames), fps
+        raise ValueError("Okunabilir kare bulunamadı.")
+    return np.stack(keypoint_frames), np.stack(confidence_frames)
+
+
+def extract_raw_pose(video_path: Path) -> tuple[np.ndarray, np.ndarray, float]:
+    import cv2
+
+    capture = cv2.VideoCapture(str(video_path))
+    try:
+        if not capture.isOpened():
+            raise ValueError(f"Video açılamadı: {video_path}")
+        fps = float(capture.get(cv2.CAP_PROP_FPS) or 25.0)
+        def frames():
+            while True:
+                ok, frame = capture.read()
+                if not ok:
+                    break
+                yield frame
+        points, confidences = extract_frames(frames())
+        return points, confidences, fps
+    finally:
+        capture.release()
 
 
 def extract_video(video_path: Path) -> tuple[dict[str, np.ndarray | int], dict[str, object]]:

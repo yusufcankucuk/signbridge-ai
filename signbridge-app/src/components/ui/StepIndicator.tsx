@@ -45,19 +45,19 @@ export default function StepIndicator({
                         <span
                             key={step}
                             className={cn(
-                                "h-2.5 rounded-full transition-all duration-200",
+                                "h-2 rounded-full transition-all duration-200",
                                 active
-                                    ? cn("w-7", activeDot)
+                                    ? cn("w-6", activeDot)
                                     : done
-                                      ? "w-2.5 bg-brand-300"
-                                      : "w-2.5 bg-line-strong"
+                                      ? "w-2 bg-brand-300"
+                                      : "w-2 bg-line-strong"
                             )}
                         />
                     );
                 })}
             </div>
 
-            <span className={cn("text-caption font-bold", activeText)}>
+            <span className={cn("text-caption font-semibold", activeText)}>
                 {current} / {total}
                 {label && (
                     <span className="ml-1.5 font-normal text-ink-muted">

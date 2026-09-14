@@ -37,7 +37,7 @@ Aktif ekranlar `CompactUI.tsx` ve `app/compact.css` kullanır. Gövde kaydırıl
 Yazdırma belgesi ekranda uzun bir liste halinde gösterilmez; sadece yazdırmada açılır. Ekranda kısa bir “Özetiniz hazır” sayfası bulunur.
 
 1. `/` → yeni görüşme veya mevcut görüşmeye devam.
-2. `/camera` → `/recognition` → Bitir → doğrudan `/confirm`. Arada ifade seçim ekranı yoktur. AI bağlanana kadar `src/lib/recognitionPreview.ts` bağlama uygun sabit test sonucu döndürür; gerçek çıkarım yapmaz. Elle seçim `/manual-select` alternatifinde kalır.
+2. `/camera` ekranı tarayıcı kamerasını açar, MediaPipe ile landmark çıkarır ve gerçek AI servisine gönderir. Kabul edilen öneri `/confirm` ekranına geçer; düşük güven, belirsiz sonuç veya kalite hatası kullanıcıya yeniden deneme/elle seçim seçenekleri sunar. Elle seçim `/manual-select` alternatifinde kalır.
 3. Sonuç bulunamadığında `/fallback`; alternatif anlatım `/manual-select`; kamera yardım durumu `/camera-help`.
 4. Hasta onayı → `/handoff/doctor` → `/doctor/conversation`. Doktor şikayeti onaylar/düzenler.
 5. `/doctor/questions` → hazır veya serbest soru → `/handoff/patient` → `/patient/{duration,intensity,location,medication,custom}`.

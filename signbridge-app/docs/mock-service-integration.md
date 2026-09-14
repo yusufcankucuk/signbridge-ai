@@ -1,5 +1,7 @@
 # IIG-32 — Mock AI ve Konuşma-Yazı Backend Entegrasyonu
 
+> **Tarihsel kayıt:** Bu belge IIG-32 teslimindeki mock servis aşamasını anlatır. Güncel uygulama gerçek tarayıcı kamerasını ve MediaPipe landmark çıkarımını kullanır; oturumlar varsayılan olarak sunucu belleğinde tutulur. Güncel akış için `../../docs/browser-camera-ai.md` ve kök `README.md` dosyalarına bakın. Aşağıdaki eski kapsam ve örnekler yeni kurulum talimatı olarak kullanılmamalıdır.
+
 ## Amaç ve kapsam
 
 Bu çalışma, gerçek Huawei ModelArts ve gerçek bir konuşma-yazı servisi hazır olmadan SignBridge'in backend sözleşmelerini çalıştırmak için yapılmıştır.
@@ -59,14 +61,15 @@ AI_PROVIDER=mock
 SPEECH_PROVIDER=mock
 ```
 
-Mevcut consultation API'leri Supabase kullandığı için Supabase değişkenleri de gereklidir:
+Güncel yerel demo için Supabase zorunlu değildir. Bu tarihsel entegrasyonun kalıcı Supabase modu kullanılacaksa yalnız sunucu tarafındaki değişkenler gerekir:
 
 ```dotenv
-NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR_ANON_KEY
+SESSION_STORE=supabase
+SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=YOUR_SERVER_ONLY_SERVICE_ROLE_KEY
 ```
 
-Gerçek anahtarlar repoya veya loglara eklenmemelidir.
+Service-role anahtarı `NEXT_PUBLIC_` önekiyle tanımlanmamalı, tarayıcıya gönderilmemeli ve repoya ya da loglara eklenmemelidir. Anon anahtarı service-role yerine kullanmayın.
 
 ## API sözleşmeleri
 
@@ -191,7 +194,7 @@ Production build aşağıdaki komutla doğrulanmıştır:
 npm run build
 ```
 
-Supabase ortam değişkenleri boşsa mevcut Supabase istemcisi build sırasında hata verir. Build doğrulamasında geçerli Supabase değerleri bulunmalıdır.
+Güncel uygulama `SESSION_STORE=memory` ile Supabase olmadan build ve yerel demo çalıştırabilir.
 
 ## Frontend ekibine devir notu
 

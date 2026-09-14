@@ -1,18 +1,20 @@
 export type QuestionKind = 'duration' | 'intensity' | 'location' | 'medication' | 'custom';
-export type Source = 'manual' | 'demo';
+import type { PredictionPayload } from '../../types/session';
+
+export type Source = 'manual' | 'demo' | 'model';
 export interface Question { id: string; kind: QuestionKind; text: string }
 export interface Turn extends Question { answer: string; source: Source }
 export interface Medication { id: string; name: string; dose: string; frequency: string; meal: string; duration: string }
 export interface Plan { diagnosis: string; explanation: string; medications: Medication[]; noMedication: boolean; advice: string; followupDate: string; noFollowup: boolean; approved: boolean }
 export interface FlowState {
-  version: 1; active: boolean; expression: string; reviewed: boolean; turns: Turn[];
+  version: 2; active: boolean; sessionId: string; expression: string; reviewed: boolean; turns: Turn[];
   pending: Question | null; capture: 'complaint' | 'answer' | 'followup';
-  candidate: { text: string; source: Source } | null;
+  candidate: { text: string; source: Source; prediction?: PredictionPayload } | null;
   plan: Plan; followups: { question: string; answer: string }[];
   patientQuestion: string; patientAnswer: string; understood: boolean;
 }
 export const emptyPlan = (): Plan => ({ diagnosis: '', explanation: '', medications: [], noMedication: false, advice: '', followupDate: '', noFollowup: false, approved: false });
-export const emptyFlow = (): FlowState => ({ version: 1, active: false, expression: '', reviewed: false, turns: [], pending: null, capture: 'complaint', candidate: null, plan: emptyPlan(), followups: [], patientQuestion: '', patientAnswer: '', understood: false });
+export const emptyFlow = (): FlowState => ({ version: 2, active: false, sessionId: '', expression: '', reviewed: false, turns: [], pending: null, capture: 'complaint', candidate: null, plan: emptyPlan(), followups: [], patientQuestion: '', patientAnswer: '', understood: false });
 export const questionLabels: Record<QuestionKind, string> = { duration: 'Ne kadar süredir var?', intensity: 'Ağrınız 1–5 arasında ne kadar şiddetli?', location: 'Ağrı neresinde?', medication: 'Düzenli ilaç kullanıyor musunuz?', custom: 'Sorunuzu yazın' };
 export function planErrors(plan: Plan): string[] {
   const errors: string[] = [];

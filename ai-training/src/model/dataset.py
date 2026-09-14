@@ -9,6 +9,10 @@ import numpy as np
 def sequence_to_features(landmarks: np.ndarray, mask: np.ndarray) -> np.ndarray:
     if landmarks.shape != (60, 46, 2) or mask.shape != (60, 46):
         raise ValueError(f"Beklenen (60,46,2)/(60,46), gelen {landmarks.shape}/{mask.shape}")
+    if not np.isfinite(landmarks).all() or not np.isfinite(mask).all():
+        raise ValueError("Girdi sonlu olmalıdır.")
+    if not np.isin(mask, [0, 1]).all() or not mask.any():
+        raise ValueError("Mask yalnızca 0/1 içermeli ve tamamen boş olmamalıdır.")
     mask_float = mask.astype(np.float32)
     coordinates = landmarks.astype(np.float32) * mask_float[..., None]
     return np.concatenate([coordinates, mask_float[..., None]], axis=-1).reshape(60, 138)

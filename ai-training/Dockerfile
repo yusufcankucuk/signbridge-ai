@@ -25,7 +25,8 @@ ENV VIRTUAL_ENV=/opt/venv \
     HOME=/tmp \
     TF_CPP_MIN_LOG_LEVEL=2 \
     MODEL_PATH=/models/saved_model \
-    RUNTIME_CONFIG_PATH=/models/runtime_config.json
+    RUNTIME_CONFIG_PATH=/models/runtime_config.json \
+    DECISION_POLICY_PATH=/app/configs/decision_policy.json
 WORKDIR /app
 COPY --from=dependencies /opt/venv /opt/venv
 COPY --chown=signbridge:signbridge configs ./configs
