@@ -4,7 +4,8 @@
 
 - Model Release manifesti, çevrim içi/çevrimdışı kurucu ve SHA-256 ön kontrolü eklendi.
 - `manual_only`, deneysel `team_camera` ve yayınlanmış `camera_ai` çalışma biçimleri ayrıldı.
-- Ekip kamera politikası beş sınıf ve `0,95` skor eşiğiyle sürümlendi.
+- Ekip kamera politikası modelin 20 sınıfının tamamı ve `0,95` skor eşiğiyle sürümlendi
+  (`autsl20-team-camera-v2`); fiziksel kabul ölçümü beş klinik sınıf üzerinden yapılmaya devam eder.
 - Kamera ekranına deneysel kullanım ve hasta onayı uyarısı eklendi.
 - Doktor ekranındaki “Son yanıt” geçmiş sayfasından ayrıldı ve daima son turu gösterir.
 - Hasta özetine onaylanan şikâyet ile bütün doktor soru/hasta yanıt turları eklendi.

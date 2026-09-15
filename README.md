@@ -26,7 +26,7 @@ Komutları deponun ana klasöründe çalıştırın. Uygulamayı ilk kez deniyor
 Üç çalışma biçimi vardır:
 
 - **`manual_only`:** Model dosyası gerekmez. Kamera kapalıdır; kullanıcı listeden seçime yönlendirilir.
-- **`team_camera`:** Doğrulanmış model paketiyle yalnız ekip içi teknik testtir. Beş demo sınıfı ve `0,95` eşik kullanılır; sonuç deneysel bir öneridir ve hasta onayı zorunludur.
+- **`team_camera`:** Doğrulanmış model paketiyle yalnız ekip içi teknik testtir. Modelin 20 sınıfının tamamı ve `0,95` eşik kullanılır; sonuç deneysel bir öneridir ve hasta onayı zorunludur.
 - **`camera_ai`:** Ancak fiziksel kamera doğruluğu, kapsama, statik hareket, gecikme ve OOD yayın kapılarının tamamı geçtikten sonra kullanılacak final modudur. Bu karar henüz verilmemiştir.
 
 Kamera modları için aşağıdaki model çıktıları gerekir:
@@ -185,9 +185,11 @@ tahminini deneyebilirsiniz. Bu, ekip içi **deneysel** bir teknik testtir; yayı
 1. [http://localhost:3000](http://localhost:3000) adresini açın ve hasta akışını başlatın.
 2. Şikâyeti kamerayla anlatmayı deneyin; tarayıcı kamera izni isteyecektir (yalnız `localhost`
    veya HTTPS üzerinde çalışır, ham görüntü sunucuya gönderilmez).
-3. Ekranda **"Deneysel kamera tahmini — tıbbi tanı değildir"** uyarısını göreceksiniz. Model şu beş
-   sınıftan birini önerir: `doktor`, `hasta`, `evet`, `hayır`, `ilaç`. Statik veya çok küçük hareket
-   model çağrısı yapılmadan reddedilir.
+3. Ekranda **"Deneysel kamera tahmini — tıbbi tanı değildir"** uyarısını göreceksiniz. Model,
+   eğitildiği 20 sınıfın tamamından birini önerebilir: `doktor`, `eczane`, `evet`, `göstermek`,
+   `hasta`, `hastane`, `hayır`, `içmek`, `iğne`, `ilaç`, `iyi`, `kaza`, `kötü`, `nerede`, `şeker`,
+   `tehlike`, `tuvalet`, `yara bandı`, `yardım`, `yorgun`. Statik veya çok küçük hareket model
+   çağrısı yapılmadan reddedilir.
 4. Tahmini onaylayın ya da reddedin; her sonuç bir **öneridir**, hasta onaylamadan doktora iletilmez.
    "Tekrar dene" ve "Seçerek anlat" (manuel listeden seçim) seçenekleri her zaman açıktır ve kamera
    güven vermediğinde bu yola geçmekten çekinmeyin.
@@ -195,6 +197,13 @@ tahminini deneyebilirsiniz. Bu, ekip içi **deneysel** bir teknik testtir; yayı
    açılacağı bekleyen soruya göre otomatik belirlenir.
 6. Farklı ışık, mesafe ve hız koşullarında (normal, düşük ışık, uzak, yavaş, hızlı) denemek gerçek
    modelin ne zaman güvenli önerdiğini, ne zaman reddettiğini görmenizi sağlar.
+
+Sınıflar eşit güvenilirlikte değildir. Test setindeki F1 skorlarına göre 12 sınıf (`doktor`,
+`eczane`, `göstermek`, `hasta`, `hastane`, `hayır`, `kaza`, `nerede`, `tuvalet`, `yara bandı`,
+`yardım`, `yorgun`) `0,93` ve üzerinde; `evet`, `iyi` ve `tehlike` `0,84`–`0,87` aralığında;
+`kötü` (`0,71`), `ilaç` (`0,68`), `içmek` (`0,65`), `iğne` (`0,50`) ve `şeker` (`0,35`) ise belirgin
+biçimde zayıftır. Zayıf sınıflarda `0,95` eşiğinin sık sık reddetmesi beklenen davranıştır, kurulum
+hatası değildir. Ayrıntılı sayılar `ai-training/outputs/classification_report.csv` dosyasındadır.
 
 Bu, resmî kabul ölçümü değildir; yalnız modeli günlük kullanımda tanımak içindir. Katılımcı başına
 25 geliştirme/holdout + 10 statik denemenin **kayıt altına alınan** resmî sürümü ve CSV biçimi için

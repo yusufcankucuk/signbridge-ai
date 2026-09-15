@@ -137,7 +137,7 @@ sürüm uyumunu, kamera gruplarını ve örnek JSON sözleşmesini denetler.
 ## 7. Karar politikası ve gecikme
 
 `configs/decision_policy.json` güvenli `manual_only` politikasıdır. `configs/decision_policy.team-camera.json`
-ise doğrulanmış modeli yalnız ekip içi teknik denemede, beş sınıf ve `0,95` eşikle açar. Bu politika
+ise doğrulanmış modeli yalnız ekip içi teknik denemede, 20 sınıfın tamamı ve `0,95` eşikle açar. Bu politika
 `experimental=true` taşır ve servis durumunda `team_camera` olarak görünür. Dondurulmuş OOD yanlış kabul oranı
 `%31,63` ile `%20` sınırını geçtiği için bu mod yayınlanmış güvenli kamera AI olarak sunulmaz.
 
