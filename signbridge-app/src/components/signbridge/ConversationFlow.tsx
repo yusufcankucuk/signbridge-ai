@@ -99,8 +99,14 @@ export function PatientResponse({ kind }: { kind: QuestionKind }) {
     void send(answer);
   };
   const canContinue = kind === 'medication' && selected === 'Evet' ? stage === 'choice' || (stage === 'groups' ? groups.length > 0 : !!detail.trim()) : valid;
+  // Buton pasifken hastanın ne yapması gerektiği yazıyla da söylenir; tanı/ilaç adımlarındaki uyarılarla tutarlı olsun.
+  const hint = kind === 'custom' ? 'Devam etmek için yanıtınızı yazın.' :
+    stage === 'name' ? 'Devam etmek için ilacın adını yazın.' :
+    stage === 'groups' ? 'Devam etmek için en az bir ilaç grubu seçin.' :
+    'Devam etmek için bir seçenek seçin.';
   return <Frame title={titles[kind]} footer={ready && <>
     <Button disabled={!canContinue || leaving} onClick={next}>{kind === 'medication' && selected === 'Evet' && (stage === 'choice' || (stage === 'groups' && groups.includes('Başka bir ilaç'))) ? 'Devam et' : 'Doktora ilet'}</Button>
+    {!canContinue && !leaving && <p className="text-center text-caption text-ink-muted">{hint}</p>}
     {stage !== 'choice' ? <button className="compact-link" onClick={() => setStage(stage === 'name' ? 'groups' : 'choice')}>Geri</button> :
       <button className="compact-link" onClick={() => { setState(s => ({ ...s, capture: 'answer', candidate: null })); router.push('/camera'); }}>İşaret diliyle yanıtla</button>}
   </>}>
