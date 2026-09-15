@@ -20,13 +20,18 @@
 
 - Model arşivi gerçek ZIP üzerinden temiz dizine kuruldu ve iç dosya hash'leri doğrulandı.
 - Yanlış arşiv hash'i kurulum başlamadan reddedildi.
+- [`model-autsl20-v0.1.0`](https://github.com/yusufcankucuk/signbridge-ai/releases/tag/model-autsl20-v0.1.0)
+  GitHub ön sürümü yayımlandı; ZIP ve ayrı SHA-256 varlığı yüklendi.
+- Kurucu yerel arşiv verilmeden, yayımlanan Release URL'sinden temiz bir dizine indirip kurdu.
+- Docker'da doğrulanmış modelle `team_camera`, boş model diziniyle `manual_only` sağlık senaryoları geçti.
+- Gerçek Chromium tarayıcıda manuel şikâyet, soru-yanıt, geçmiş tarih reddi, tedavi kaydı, genişletilmiş
+  hasta özeti, yenileme sonrası geri yükleme ve oturum temizleme akışı tamamlandı.
 - AI birim/sözleşme testleri, frontend/landmark testleri, API sağlayıcı testleri, çoklu soru ve
   tedavi planı uçtan uca testleri geçti.
 - TypeScript tip kontrolü, lint ve istemci bundle gizli anahtar taraması geçti.
 
 ## İnsan/harici işlem bekleyen kapılar
 
-- GitHub `model-autsl20-v0.1.0` Release varlığının yayınlanması.
 - İki farklı katılımcıyla 25 geliştirme + 25 holdout ve 10+10 statik kamera denemesi.
 - Dondurulmuş OOD kontrolü ve p95 gecikme ölçümü.
 - Üç ekip üyesinin temiz klon testi; en az iki farklı işletim sistemi.
