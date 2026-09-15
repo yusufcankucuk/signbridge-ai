@@ -28,7 +28,8 @@ export type InteractionEventType =
     | 'doctor_question'
     | 'patient_answer'
     | 'question_cancelled'
-    | 'doctor_response';
+    | 'doctor_response'
+    | 'treatment_plan';
 
 export type QuestionKind = 'duration' | 'intensity' | 'location' | 'medication' | 'custom';
 
@@ -84,4 +85,22 @@ export interface PatientAnswerPayload {
     questionId: string;
     answer: string;
     source: 'manual' | 'demo' | 'model';
+}
+
+export interface TreatmentPlanPayload {
+    diagnosis: string;
+    explanation: string;
+    medications: Array<{
+        id: string;
+        name: string;
+        dose: string;
+        frequency: string;
+        meal: string;
+        duration: string;
+    }>;
+    noMedication: boolean;
+    advice: string;
+    followupDate: string;
+    noFollowup: boolean;
+    approved: true;
 }

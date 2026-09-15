@@ -16,7 +16,13 @@ export interface FlowState {
 export const emptyPlan = (): Plan => ({ diagnosis: '', explanation: '', medications: [], noMedication: false, advice: '', followupDate: '', noFollowup: false, approved: false });
 export const emptyFlow = (): FlowState => ({ version: 2, active: false, sessionId: '', expression: '', reviewed: false, turns: [], pending: null, capture: 'complaint', candidate: null, plan: emptyPlan(), followups: [], patientQuestion: '', patientAnswer: '', understood: false });
 export const questionLabels: Record<QuestionKind, string> = { duration: 'Ne kadar süredir var?', intensity: 'Ağrınız 1–5 arasında ne kadar şiddetli?', location: 'Ağrı neresinde?', medication: 'Düzenli ilaç kullanıyor musunuz?', custom: 'Sorunuzu yazın' };
-export function planErrors(plan: Plan): string[] {
+export function localDateValue(date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+export function planErrors(plan: Plan, today = localDateValue()): string[] {
   const errors: string[] = [];
   if (!plan.diagnosis.trim()) errors.push('Tanı veya değerlendirme bilgisini yazın.');
   if (!plan.explanation.trim()) errors.push('Hasta için sade açıklama yazın.');
@@ -24,6 +30,7 @@ export function planErrors(plan: Plan): string[] {
   if (!plan.noMedication && plan.medications.some(m => ![m.name, m.dose, m.frequency, m.meal, m.duration].every(v => v.trim()))) errors.push('Her ilacın adını, dozunu, sıklığını, kullanımını ve süresini tamamlayın.');
   if (plan.noMedication && !plan.advice.trim()) errors.push('İlaçsız tedavi açıklamasını yazın.');
   if (!plan.noFollowup && !/^\d{4}-\d{2}-\d{2}$/.test(plan.followupDate)) errors.push('Kontrol tarihi girin veya planlanmadığını belirtin.');
+  else if (!plan.noFollowup && plan.followupDate < today) errors.push('Kontrol tarihi bugünden önce olamaz.');
   return errors;
 }
 export function recordAnswer(state: FlowState, answer: string, source: Source): FlowState {

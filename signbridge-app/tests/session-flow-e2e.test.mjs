@@ -99,6 +99,7 @@ async function startSupabaseTestServer() {
             if (body.p_event_type) events.push({
                 id: randomUUID(), session_id: body.p_session_id,
                 type: body.p_event_type, payload: body.p_event_payload,
+                created_at: new Date().toISOString(),
             });
             if (body.p_delete_events) {
                 for (let index = events.length - 1; index >= 0; index -= 1) {
@@ -113,7 +114,7 @@ async function startSupabaseTestServer() {
         if (table === 'consultation_sessions' && request.method === 'GET') {
             const row = sessions.get(filterValue(url, 'id'));
             if (wantsSingle) {
-                if (row) return sendJson(response, 200, { state: row.state });
+                if (row) return sendJson(response, 200, row);
                 return sendJson(response, 406, { code: 'PGRST116', message: 'No rows' });
             }
             return sendJson(response, 200, row ? [{ state: row.state }] : []);
@@ -147,7 +148,10 @@ async function startSupabaseTestServer() {
                 if (row) return sendJson(response, 200, { payload: row.payload });
                 return sendJson(response, 406, { code: 'PGRST116', message: 'No rows' });
             }
-            return sendJson(response, 200, row ? [{ payload: row.payload }] : []);
+            if (url.searchParams.get('limit') === '1') {
+                return sendJson(response, 200, row ? [{ payload: row.payload }] : []);
+            }
+            return sendJson(response, 200, matching);
         }
 
         if (table === 'interaction_events' && request.method === 'DELETE') {
@@ -441,6 +445,12 @@ test('aynı oturumda iki hazır, bir özel soru ve manuel/kamera yanıtları tam
         );
         assert.equal(confirmedCameraAnswer.status, 200);
         assert.equal(confirmedCameraAnswer.payload.nextState, 'doctor_review');
+        const snapshotResponse = await fetch(`${app.baseUrl}/api/consultations/${sessionId}`);
+        assert.equal(snapshotResponse.status, 200);
+        const snapshot = await snapshotResponse.json();
+        assert.equal(snapshot.turns.length, 3);
+        assert.equal(snapshot.turns.at(-1).source, 'model');
+        assert.equal(snapshot.turns.at(-1).answer, VALID_PREDICTION.displayText);
         assert.deepEqual(supabase.snapshot(sessionId), { state: 'doctor_review', eventCount: 8 });
     } finally {
         await stopNext(app.child);
@@ -475,6 +485,52 @@ test('bellek deposunda yeni soru ve manuel hasta yanıtı aynı geçişleri kull
         assert.deepEqual(competing.map((result) => result.status).sort(), [200, 409]);
         assert.equal((await post(app.baseUrl, `/api/consultations/${sessionId}/question/cancel`)).payload.nextState, 'doctor_review');
         assert.equal((await post(app.baseUrl, `/api/consultations/${sessionId}/end`)).status, 200);
+    } finally {
+        await stopNext(app.child);
+    }
+});
+
+test('tedavi planı doğrulanır, sunucuda saklanır ve güvenli oturum özeti okunur', async () => {
+    const app = await startNext({ SESSION_STORE: 'memory', AI_PROVIDER: 'mock' });
+    try {
+        const created = await post(app.baseUrl, '/api/consultations');
+        const sessionId = created.payload.id;
+        assert.equal((await post(app.baseUrl, `/api/consultations/${sessionId}/confirm`, {
+            confirmed: true, manualSelection: 'Başım ağrıyor',
+        })).status, 200);
+        assert.equal((await post(app.baseUrl, `/api/consultations/${sessionId}/question`, {
+            questionId: 'snapshot-question', kind: 'duration', text: 'Ne kadar süredir var?',
+        })).status, 200);
+        assert.equal((await post(app.baseUrl, `/api/consultations/${sessionId}/next`)).status, 200);
+        assert.equal((await post(app.baseUrl, `/api/consultations/${sessionId}/patient-answer`, {
+            questionId: 'snapshot-question', answer: 'İki gündür', source: 'manual',
+        })).status, 200);
+
+        const invalidPlan = await post(app.baseUrl, `/api/consultations/${sessionId}/plan`, {
+            diagnosis: 'Demo değerlendirmesi', explanation: 'Demo açıklaması', medications: [],
+            noMedication: true, advice: 'Dinlenin', followupDate: '2000-01-01', noFollowup: false,
+        });
+        assert.equal(invalidPlan.status, 400);
+
+        const savedPlan = await post(app.baseUrl, `/api/consultations/${sessionId}/plan`, {
+            diagnosis: 'Demo değerlendirmesi', explanation: 'Demo açıklaması', medications: [],
+            noMedication: true, advice: 'Dinlenin', followupDate: '', noFollowup: true,
+        });
+        assert.equal(savedPlan.status, 200);
+        assert.equal(savedPlan.payload.nextState, 'patient_review');
+
+        const snapshotResponse = await fetch(`${app.baseUrl}/api/consultations/${sessionId}`);
+        assert.equal(snapshotResponse.status, 200);
+        const snapshot = await snapshotResponse.json();
+        assert.equal(snapshot.expression, 'Başım ağrıyor');
+        assert.equal(snapshot.state, 'patient_review');
+        assert.equal(snapshot.turns.length, 1);
+        assert.equal(snapshot.turns[0].answer, 'İki gündür');
+        assert.equal(snapshot.plan.approved, true);
+        assert.equal(snapshot.plan.diagnosis, 'Demo değerlendirmesi');
+
+        assert.equal((await post(app.baseUrl, `/api/consultations/${sessionId}/end`)).status, 200);
+        assert.equal((await fetch(`${app.baseUrl}/api/consultations/${sessionId}`)).status, 404);
     } finally {
         await stopNext(app.child);
     }

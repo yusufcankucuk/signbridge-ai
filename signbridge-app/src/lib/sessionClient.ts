@@ -1,4 +1,4 @@
-import type { Question, QuestionKind, Source } from './consultationFlow';
+import type { Plan, Question, QuestionKind, Source } from './consultationFlow';
 
 async function request(path: string, method: 'POST' | 'DELETE', body?: unknown): Promise<void> {
   const response = await fetch(path, {
@@ -64,4 +64,16 @@ export async function cancelPatientQuestion(sessionId: string, questionId: strin
 
 export async function cancelDoctorQuestion(sessionId: string): Promise<void> {
   await post(`/api/consultations/${encodeURIComponent(sessionId)}/question/cancel`);
+}
+
+export async function submitTreatmentPlan(sessionId: string, plan: Plan): Promise<void> {
+  await post(`/api/consultations/${encodeURIComponent(sessionId)}/plan`, {
+    diagnosis: plan.diagnosis,
+    explanation: plan.explanation,
+    medications: plan.noMedication ? [] : plan.medications,
+    noMedication: plan.noMedication,
+    advice: plan.advice,
+    followupDate: plan.noFollowup ? '' : plan.followupDate,
+    noFollowup: plan.noFollowup,
+  });
 }

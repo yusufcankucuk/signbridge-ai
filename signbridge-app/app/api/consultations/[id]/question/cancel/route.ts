@@ -15,12 +15,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (session.state !== 'patient_question' && session.state !== 'patient_answer') {
         return NextResponse.json({ error: 'Bu durumda soru iptal edilemez.' }, { status: 409 });
     }
+    let questionId;
+    try { questionId = await store.getPendingQuestionId(id); }
+    catch { return NextResponse.json({ error: 'Bekleyen soru okunamadı.' }, { status: 500 }); }
+    if (!questionId) return NextResponse.json({ error: 'İptal edilecek soru bulunamadı.' }, { status: 409 });
     try {
         const ok = await store.transition({
             id,
             expectedState: session.state,
             nextState: 'doctor_review',
-            event: { type: 'question_cancelled', payload: {} },
+            event: { type: 'question_cancelled', payload: { questionId } },
         });
         if (!ok) return NextResponse.json({ error: 'Oturum durumu değişti; yeniden deneyin.' }, { status: 409 });
     } catch {

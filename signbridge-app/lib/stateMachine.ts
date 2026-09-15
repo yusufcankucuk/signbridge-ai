@@ -5,7 +5,7 @@ const ALLOWED_TRANSITIONS: Record<SessionState, SessionState[]> = {
     'idle': ['patient_capture'],
     'patient_capture': ['patient_confirmation', 'ended'],
     'patient_confirmation': ['doctor_review', 'patient_capture', 'ended'], // Ret durumunda patient_capture'a döner
-    'doctor_review': ['patient_question', 'patient_response', 'doctor_response', 'ended'],
+    'doctor_review': ['patient_question', 'patient_response', 'doctor_response', 'patient_review', 'ended'],
     'patient_response': ['doctor_review', 'ended'],
     'patient_question': ['patient_answer', 'doctor_review', 'ended'],
     'patient_answer': ['patient_answer_confirmation', 'doctor_review', 'ended'],
