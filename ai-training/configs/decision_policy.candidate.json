@@ -1,6 +1,8 @@
 {
   "schemaVersion": "1.0",
   "decisionPolicyVersion": "autsl20-score-only-candidate-v1",
+  "enabled": false,
+  "allowedClassIds": ["doktor", "hasta", "evet", "hayir", "ilac"],
   "method": "score_only",
   "confidenceThreshold": 0.95,
   "marginThreshold": 0.0,

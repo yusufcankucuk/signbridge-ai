@@ -26,6 +26,8 @@ def default_policy(runtime: dict[str, Any]) -> dict[str, Any]:
     return {
         "schemaVersion": "1.0",
         "decisionPolicyVersion": "score-threshold-v1",
+        "enabled": True,
+        "allowedClassIds": None,
         "method": "score_only",
         "confidenceThreshold": float(runtime["confidenceThreshold"]),
         "marginThreshold": 0.0,
@@ -53,6 +55,17 @@ def validate_policy(policy: dict[str, Any], runtime: dict[str, Any]) -> dict[str
         raise ValueError("Desteklenmeyen karar politikası şeması veya yöntemi.")
     if not isinstance(policy["decisionPolicyVersion"], str) or not policy["decisionPolicyVersion"].strip():
         raise ValueError("Karar politikası sürümü geçersiz.")
+    enabled = policy.get("enabled", True)
+    if not isinstance(enabled, bool):
+        raise ValueError("Karar politikası enabled alanı boolean olmalıdır.")
+    allowed = policy.get("allowedClassIds")
+    if allowed is not None and (
+        not isinstance(allowed, list)
+        or not allowed
+        or any(not isinstance(item, str) or not item.strip() for item in allowed)
+        or len(set(allowed)) != len(allowed)
+    ):
+        raise ValueError("Karar politikası allowedClassIds alanı geçersiz.")
     for field in ("modelVersion", "preprocessingVersion", "vocabularyVersion"):
         if policy[field] != runtime[field]:
             raise ValueError(f"Karar politikası {field} ile model paketi uyumsuz.")
@@ -64,7 +77,13 @@ def validate_policy(policy: dict[str, Any], runtime: dict[str, Any]) -> dict[str
         raise ValueError("Karar politikası skor farkı eşiği geçersiz.")
     if policy["method"] == "score_only" and margin != 0:
         raise ValueError("score_only politikası marginThreshold=0 kullanmalıdır.")
-    return dict(policy, confidenceThreshold=confidence, marginThreshold=margin)
+    return dict(
+        policy,
+        enabled=enabled,
+        allowedClassIds=allowed,
+        confidenceThreshold=confidence,
+        marginThreshold=margin,
+    )
 
 
 def load_policy(path: Path | None, runtime: dict[str, Any]) -> dict[str, Any]:
@@ -75,7 +94,11 @@ def load_policy(path: Path | None, runtime: dict[str, Any]) -> dict[str, Any]:
     return validate_policy(load_json(path), runtime)
 
 
-def decide(probabilities: np.ndarray, policy: dict[str, Any]) -> Decision:
+def decide(
+    probabilities: np.ndarray,
+    policy: dict[str, Any],
+    winner_class_id: str | None = None,
+) -> Decision:
     scores = np.asarray(probabilities, dtype=np.float64)
     if scores.ndim != 1 or len(scores) < 2 or not np.isfinite(scores).all():
         raise ValueError("Karar politikası için geçersiz skor vektörü.")
@@ -83,6 +106,11 @@ def decide(probabilities: np.ndarray, policy: dict[str, Any]) -> Decision:
     winner = int(ordered[0])
     confidence = float(scores[winner])
     margin = confidence - float(scores[int(ordered[1])])
+    if not policy.get("enabled", True):
+        return Decision(False, winner, confidence, margin, "policy_disabled")
+    allowed = policy.get("allowedClassIds")
+    if allowed is not None and winner_class_id is not None and winner_class_id not in allowed:
+        return Decision(False, winner, confidence, margin, "unsupported_class")
     if confidence < float(policy["confidenceThreshold"]):
         return Decision(False, winner, confidence, margin, "low_score")
     if policy["method"] == "score_and_margin" and margin < float(policy["marginThreshold"]):

@@ -25,6 +25,7 @@ OOD_HOLDOUT_IDS = [26, 27, 28, 29, 30, 31, 32, 33, 34, 35]
 THRESHOLDS = [0.70, 0.75, 0.80, 0.85, 0.90, 0.95]
 MARGINS = [0.0, 0.50, 0.70, 0.85]
 SELECTION_SEED = 20260911
+DEMO_CLASS_IDS = ["doktor", "hasta", "evet", "hayir", "ilac"]
 
 
 def _score_and_margin(probabilities: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -87,17 +88,21 @@ def candidate_table(
     ood_probabilities: np.ndarray,
     thresholds=THRESHOLDS,
     margins=MARGINS,
+    allowed_indices: list[int] | None = None,
 ) -> list[dict[str, object]]:
     predictions, _, _ = _score_and_margin(probabilities)
+    allowed = np.ones(len(predictions), dtype=bool) if allowed_indices is None else np.isin(predictions, allowed_indices)
+    ood_predictions = _score_and_margin(ood_probabilities)[0] if len(ood_probabilities) else np.zeros(0, int)
+    ood_allowed = np.ones(len(ood_predictions), dtype=bool) if allowed_indices is None else np.isin(ood_predictions, allowed_indices)
     candidates: list[dict[str, object]] = []
     seen_outcomes: set[bytes] = set()
     for threshold in thresholds:
         for margin in margins:
             method = "score_only" if margin == 0 else "score_and_margin"
-            accepted = _accepted(probabilities, threshold, margin)
+            accepted = _accepted(probabilities, threshold, margin) & allowed
             count = int(accepted.sum())
             correct = int(((predictions == labels) & accepted).sum())
-            ood_accepted = _accepted(ood_probabilities, threshold, margin) if len(ood_probabilities) else np.zeros(0, bool)
+            ood_accepted = (_accepted(ood_probabilities, threshold, margin) & ood_allowed) if len(ood_probabilities) else np.zeros(0, bool)
             outcome = accepted.tobytes() + b"|" + ood_accepted.tobytes()
             if outcome in seen_outcomes:
                 continue
@@ -254,15 +259,16 @@ def _hash_path(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _class_metrics(probabilities, labels, candidates, class_names):
+def _class_metrics(probabilities, labels, candidates, class_names, allowed_indices=None):
     predictions, _, _ = _score_and_margin(probabilities)
+    allowed = np.ones(len(predictions), dtype=bool) if allowed_indices is None else np.isin(predictions, allowed_indices)
     rows = []
     for candidate in candidates:
         accepted = _accepted(
             probabilities,
             float(candidate["confidence_threshold"]),
             float(candidate["margin_threshold"]),
-        )
+        ) & allowed
         for index, name in enumerate(class_names):
             member = labels == index
             class_accepted = accepted & member
@@ -285,15 +291,21 @@ def _class_metrics(probabilities, labels, candidates, class_names):
     return rows
 
 
-def _holdout_comparison(scores: np.ndarray, selected: dict[str, object] | None):
+def _holdout_comparison(
+    scores: np.ndarray,
+    selected: dict[str, object] | None,
+    allowed_indices: list[int] | None = None,
+):
     policies = [
         {"name": "current", "method": "score_only", "confidence_threshold": 0.8, "margin_threshold": 0.0}
     ]
     if selected:
         policies.append({"name": "candidate", **selected})
     result = []
+    predictions = _score_and_margin(scores)[0] if len(scores) else np.zeros(0, int)
+    allowed = np.ones(len(predictions), dtype=bool) if allowed_indices is None else np.isin(predictions, allowed_indices)
     for policy in policies:
-        accepted = _accepted(scores, float(policy["confidence_threshold"]), float(policy["margin_threshold"]))
+        accepted = _accepted(scores, float(policy["confidence_threshold"]), float(policy["margin_threshold"])) & allowed
         result.append(
             {
                 "name": policy["name"],
@@ -353,7 +365,11 @@ def main() -> None:
 
     development_rows, development_scores = _score_ood(model, args.data_root, development_selection, vocabulary)
     write_csv(args.output / "ood_development_results.csv", development_rows)
-    candidates = candidate_table(scores, y, development_scores)
+    demo_indices = [index for index, row in enumerate(labels) if row["classId"] in DEMO_CLASS_IDS]
+    demo_members = np.isin(y, demo_indices)
+    candidates = candidate_table(
+        scores[demo_members], y[demo_members], development_scores, allowed_indices=demo_indices
+    )
     write_csv(args.output / "decision_candidates.csv", candidates)
     selected = select_candidate(candidates)
 
@@ -362,6 +378,8 @@ def main() -> None:
         policy = {
             "schemaVersion": "1.0",
             "decisionPolicyVersion": f"autsl20-{selected['method'].replace('_', '-')}-candidate-v1",
+            "enabled": False,
+            "allowedClassIds": DEMO_CLASS_IDS,
             "method": selected["method"],
             "confidenceThreshold": selected["confidence_threshold"],
             "marginThreshold": selected["margin_threshold"],
@@ -376,18 +394,6 @@ def main() -> None:
             "selectedOn": "AUTSL-20 validation plus fixed OOD development list; test not used",
             "frozenAtUtc": datetime.now(timezone.utc).isoformat(),
         }
-    write_json(
-        args.output / "decision_selection.json",
-        {
-            "targetMet": selected is not None,
-            "selectedCandidate": selected,
-            "activePolicyChanged": False,
-            "reason": "Candidate is written for review; this evaluator never overwrites the active policy.",
-        },
-    )
-    if policy:
-        write_json(args.output / "decision_policy.candidate.json", policy)
-
     calibration, reliability = calibration_metrics(scores, y)
     write_json(args.output / "calibration_metrics.json", calibration)
     write_csv(args.output / "reliability_diagram.csv", reliability)
@@ -422,13 +428,38 @@ def main() -> None:
     write_json(args.output / "weak_class_confusions.json", weak)
     write_csv(
         args.output / "candidate_class_metrics.csv",
-        _class_metrics(scores, y, candidates, [row["classId"] for row in labels]),
+        _class_metrics(scores, y, candidates, [row["classId"] for row in labels], demo_indices),
     )
 
     holdout_rows, holdout_scores = _score_ood(model, args.data_root, holdout_selection, vocabulary)
     write_csv(args.output / "ood_holdout_results.csv", holdout_rows)
-    holdout_comparison = _holdout_comparison(holdout_scores, selected)
+    holdout_comparison = _holdout_comparison(holdout_scores, selected, demo_indices)
     write_json(args.output / "ood_holdout_comparison.json", holdout_comparison)
+    candidate_holdout = next((row for row in holdout_comparison if row["name"] == "candidate"), None)
+    release_target_met = bool(
+        selected
+        and candidate_holdout
+        and candidate_holdout["wrongAcceptRate"] is not None
+        and float(candidate_holdout["wrongAcceptRate"]) <= 0.20
+    )
+    if policy:
+        policy["enabled"] = release_target_met
+        policy["deploymentStatus"] = "camera_ai_ready" if release_target_met else "manual_only"
+        policy["frozenHoldoutResult"] = candidate_holdout
+        write_json(args.output / "decision_policy.candidate.json", policy)
+    write_json(
+        args.output / "decision_selection.json",
+        {
+            "targetMet": release_target_met,
+            "selectedCandidate": selected,
+            "activePolicyChanged": False,
+            "reason": (
+                "All validation, coverage and frozen OOD gates passed; candidate still requires explicit promotion."
+                if release_target_met
+                else "At least one validation, coverage or frozen OOD gate failed; manual-only mode is required."
+            ),
+        },
+    )
 
     write_json(
         args.output / "provenance.json",

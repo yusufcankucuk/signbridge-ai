@@ -3,13 +3,16 @@
 @tailwind utilities;
 
 @media print {
-    body { background: white !important; }
+    html, body { background: white !important; height: auto !important; overflow: visible !important; }
     body * { visibility: hidden; }
     #print-document, #print-document * { visibility: visible; }
-    #print-document { position: absolute; inset: 0; width: 100%; padding: 5mm; color: #111; background: white; }
+    #print-document { position: absolute; inset: 0; width: 100%; max-width: none; padding: 4mm; color: #111; background: white; font-size: 10.5pt; line-height: 1.4; overflow: visible; overflow-wrap: anywhere; }
     body, body > div, .sb-shell-viewport, #icerik, .sb-screen-body { height: auto !important; max-height: none !important; overflow: visible !important; display: block !important; width: 100% !important; max-width: none !important; padding: 0 !important; margin: 0 !important; border: 0 !important; box-shadow: none !important; }
-    #print-document section { break-inside: avoid; box-shadow: none; }
-    .print-actions, .skip-link, header { display: none !important; }
+    #print-document h1 { font-size: 18pt; margin-bottom: 3mm; }
+    #print-document h2 { font-size: 13pt; margin: 5mm 0 2mm; break-after: avoid; }
+    #print-document section, #print-document article, #print-document dl, #print-document .compact-card { break-inside: avoid; page-break-inside: avoid; box-shadow: none !important; }
+    #print-document p { orphans: 3; widows: 3; }
+    button, nav, video, .print-actions, .skip-link, header, footer { display: none !important; }
     @page { size: A4; margin: 10mm; }
 }
 

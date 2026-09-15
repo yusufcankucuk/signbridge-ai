@@ -9,6 +9,7 @@ import Logo from '../layout/Logo';
 import ExpressionVisual from './ExpressionVisual';
 import { EXPRESSIONS } from '../../data/expressions';
 import { recordAnswer } from '../../lib/consultationFlow';
+import { submitPatientAnswer } from '../../lib/sessionClient';
 import { assessPoseQuality, preprocessPoseSequence, type RawPoseFrame } from '../../lib/landmarkPreprocessing';
 import { getHolisticLandmarker, resultToRawFrame } from '../../lib/browserVision';
 import { isPredictionPayload } from '../../../lib/prediction';
@@ -52,9 +53,11 @@ export function Camera() {
   const framesRef = useRef<RawPoseFrame[]>([]);
   const startedAtRef = useRef(0);
   const finishingRef = useRef(false);
+  const motionThresholdRef = useRef(0.12);
   const [phase, setPhase] = useState<'idle' | 'opening' | 'ready' | 'recording' | 'processing' | 'error'>('idle');
   const [message, setMessage] = useState('Kamera henüz açılmadı.');
   const [seconds, setSeconds] = useState(0);
+  const [cameraWarning, setCameraWarning] = useState('');
   const alternative = state.capture === 'answer' ? `/patient/${state.pending?.kind || 'custom'}` : state.capture === 'followup' ? '/patient/question' : '/manual-select';
 
   const stopCamera = () => {
@@ -70,6 +73,21 @@ export function Camera() {
     if (!navigator.mediaDevices?.getUserMedia) { setPhase('error'); setMessage('Bu tarayıcı kamera erişimini desteklemiyor.'); return; }
     setPhase('opening'); setMessage('Kamera ve işaret algılama modeli hazırlanıyor…');
     try {
+      const statusResponse = await fetch('/api/ai/status', { cache: 'no-store' });
+      const status = await statusResponse.json() as {
+        cameraAiEnabled?: unknown;
+        minimumMotionScore?: unknown;
+        experimental?: unknown;
+        warning?: unknown;
+      };
+      if (!statusResponse.ok || status.cameraAiEnabled !== true) {
+        router.replace('/fallback?reason=policy_disabled');
+        return;
+      }
+      if (typeof status.minimumMotionScore === 'number' && Number.isFinite(status.minimumMotionScore) && status.minimumMotionScore >= 0) {
+        motionThresholdRef.current = status.minimumMotionScore;
+      }
+      setCameraWarning(status.experimental === true && typeof status.warning === 'string' ? status.warning : '');
       const [stream, landmarker] = await Promise.all([
         navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 960 }, height: { ideal: 720 } }, audio: false }),
         getHolisticLandmarker(),
@@ -92,7 +110,7 @@ export function Camera() {
     timerRef.current = null;
     setPhase('processing'); setMessage('Landmark verileri hazırlanıyor ve model çalıştırılıyor…');
     const frames = framesRef.current;
-    const quality = assessPoseQuality(frames);
+    const quality = assessPoseQuality(frames, 0.1, 8, 0.6, 0.5, motionThresholdRef.current);
     if (quality.status !== 'approved') {
       setState(current => ({ ...current, candidate: null }));
       stopCamera();
@@ -111,7 +129,7 @@ export function Camera() {
       stopCamera();
       if (prediction.isLowConfidence || !prediction.classId) {
         setState(current => ({ ...current, candidate: null }));
-        router.replace(`/fallback?reason=${encodeURIComponent(prediction.rejectionReason ?? 'low_score')}`);
+        router.replace(`/fallback?reason=${encodeURIComponent(prediction.rejectionReason ?? 'low_score')}&advanced=1`);
       } else {
         setState(current => ({ ...current, candidate: { text: prediction.displayText, source: 'model', prediction } }));
         router.replace('/confirm');
@@ -152,6 +170,7 @@ export function Camera() {
     {footer}
   </>}>
     {state.capture === 'answer' && <p className="text-center font-semibold">{state.pending?.text}</p>}
+    {cameraWarning && <p className="compact-card border-warning-100 bg-warning-50 text-center text-caption" role="note">{cameraWarning}</p>}
     <div className="compact-camera"><video ref={videoRef} playsInline muted aria-label="Canlı kamera önizlemesi" />{phase === 'idle' || phase === 'opening' || phase === 'error' ? <CameraIcon /> : null}<span role="status">{message}</span>{phase === 'recording' && <strong className="compact-camera-timer">{seconds.toFixed(1)} sn</strong>}</div>
     <p className="text-center text-caption text-ink-muted">Elleriniz ve iki omzunuz görünsün. Önerilen kayıt süresi 2–4 saniyedir.</p>
   </Frame>;
@@ -177,16 +196,21 @@ export function Confirm() {
   const candidate = state.candidate ?? (leaving ? initialCandidate : null);
   const expression = EXPRESSIONS.find(e => e.sentence === candidate?.text);
   const [error, setError] = useState('');
+  const manualPath = state.capture === 'answer' && state.pending ? `/patient/${state.pending.kind}` : state.capture === 'followup' ? '/patient/question' : '/manual-select';
   const confirm = async () => {
     if (!state.candidate || leaving) return;
     setLeaving(true);
     setError('');
     try {
-      const body = state.candidate.source === 'manual' ? { confirmed: true, manualSelection: state.candidate.text } : { confirmed: true };
-      const response = await fetch(`/api/consultations/${encodeURIComponent(state.sessionId)}/confirm`, {
-        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
-      });
-      if (!response.ok) throw new Error('Onay sunucuya iletilemedi.');
+      if (state.capture === 'answer' && state.candidate.source === 'manual' && state.pending) {
+        await submitPatientAnswer(state.sessionId, state.pending.id, state.candidate.text);
+      } else {
+        const body = state.candidate.source === 'manual' ? { confirmed: true, manualSelection: state.candidate.text } : { confirmed: true };
+        const response = await fetch(`/api/consultations/${encodeURIComponent(state.sessionId)}/confirm`, {
+          method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+        });
+        if (!response.ok) throw new Error('Onay sunucuya iletilemedi.');
+      }
     } catch (cause) {
       setLeaving(false); setError(cause instanceof Error ? cause.message : 'Onay iletilemedi.'); return;
     }
@@ -212,7 +236,7 @@ export function Confirm() {
   };
   return <Frame title="Doğru anladım mı?" footer={candidate && <>
     <Button onClick={confirm}>Doğru, doktora ilet</Button>
-    <div className="grid grid-cols-2"><button type="button" onClick={retry} className="compact-link">Tekrar anlat</button><Link href="/manual-select" className="compact-link">Değiştir</Link></div>
+    <div className="grid grid-cols-2"><button type="button" onClick={retry} className="compact-link">Tekrar anlat</button><Link href={manualPath} className="compact-link">Değiştir</Link></div>
   </>}>
     {!candidate ? <Empty text="Henüz bir anlatım yok." href="/camera" /> : <>
       {expression ? <><div className="compact-illustration"><div><ExpressionVisual expression={expression} /></div></div><p className="compact-sentence">{expression.sentence}</p></> : <div className="compact-center"><ReadText text={candidate.text} /></div>}
@@ -238,14 +262,9 @@ export function Fallback() {
   const { state, setState } = useFlow(); const router = useRouter();
   const query = useSearchParams();
   const reason = query.get('reason');
-  const requiresServerReset = reason === 'low_score' || reason === 'ambiguous_prediction';
-  const detail = reason?.includes('shoulder') ? 'İki omuz yeterince görünmedi.'
-    : reason?.includes('hand') ? 'Eller yeterince görünmedi.'
-    : reason === 'ambiguous_prediction' ? 'İki olası işaret birbirine çok yakındı.'
-    : reason === 'too_few_frames' ? 'Kayıt çok kısa sürdü.'
-    : reason === 'invalid_or_non_finite_frame' ? 'Kayıt okunamadı.'
-    : reason === 'service_error' ? 'Şu an sonuç alınamadı.'
-    : 'Model güvenli bir öneri üretemedi.';
+  const requiresServerReset = query.get('advanced') === '1';
+  const manualPath = state.capture === 'answer' && state.pending ? `/patient/${state.pending.kind}` : state.capture === 'followup' ? '/patient/question' : '/manual-select';
+  const detail = reason?.includes('shoulder') ? 'İki omuz yeterince görünmedi.' : reason?.includes('hand') ? 'Eller yeterince görünmedi.' : reason?.includes('insufficient_motion') ? 'Yeterli hareket algılanmadı. İşareti yeniden yapın veya listeden seçin.' : reason === 'ambiguous_prediction' ? 'İki olası işaret birbirine çok yakındı.' : reason === 'unsupported_class' ? 'Bu işaret güvenli demo kapsamının dışında.' : reason === 'policy_disabled' ? 'Kamera tahmini güvenlik politikası nedeniyle kapalı.' : reason === 'service_error' ? 'Kamera hizmetine şu an ulaşılamıyor. Listeden seçim yaparak devam edebilirsiniz.' : reason === 'invalid_or_non_finite_frame' ? 'Kamera görüntüsü güvenli biçimde işlenemedi.' : reason === 'too_few_frames' ? 'Kayıt çok kısa sürdü.' : 'Model güvenli bir öneri üretemedi.';
   const retry = async () => {
     if (!requiresServerReset) {
       setState(current => ({ ...current, candidate: null }));
@@ -258,9 +277,9 @@ export function Fallback() {
       });
       if (!response.ok) throw new Error();
       setState(current => ({ ...current, candidate: null })); router.push('/camera');
-    } catch { router.push('/manual-select'); }
+    } catch { router.push(manualPath); }
   };
-  return <Frame title="Anlaşılamadı" footer={<><Button onClick={retry}>Tekrar anlat</Button><Button href="/manual-select" variant="outline">Seçerek anlat</Button></>}>
-    <div className="compact-center"><div className="text-6xl font-light text-brand-600" aria-hidden="true">?</div><p>{detail}</p><p className="text-caption text-ink-muted">Tekrar deneyin veya listeden seçin.</p></div>
+  return <Frame title="Anlaşılamadı" footer={<><Button onClick={retry}>Tekrar anlat</Button><Button href={manualPath} variant="outline">Seçerek anlat</Button></>}>
+    <div className="compact-center"><div className="text-6xl font-light text-brand-600" aria-hidden="true">?</div>{state.capture === 'answer' && state.pending && <div className="compact-card w-full"><p className="text-caption text-ink-muted">Doktorun sorusu</p><ReadText text={state.pending.text} /></div>}<p>{detail}</p><p className="text-caption text-ink-muted">Tekrar deneyin veya listeden seçin.</p></div>
   </Frame>;
 }

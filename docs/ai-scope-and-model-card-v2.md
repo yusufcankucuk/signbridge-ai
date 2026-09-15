@@ -68,7 +68,8 @@ ayrı bir ekip kabul testidir.
 - Kalite/yapı hataları karar politikasından önce HTTP hata yanıtıyla durdurulur.
 - Hasta onayı, tekrar deneme ve manuel seçim MVP'nin zorunlu güvenlik katmanlarıdır.
 - Model tıbbi tanı koymaz, acil servis veya profesyonel tercüman yerine geçmez.
-- Beş sınıflı kamera demosu modelin beş sınıfa yeniden eğitildiği anlamına gelmez; 20 çıktı korunur.
+- Ekip kamera demosu modelin 20 çıktısının tamamını kullanır; fiziksel kabul ölçümü ise yalnız beş
+  klinik sınıf (doktor, hasta, evet, hayır, ilaç) üzerinden yapılır, kalan 15 sınıf ölçülmemiş sayılır.
 
 ## Doğrulama durumu
 

@@ -12,11 +12,12 @@ export interface SessionRecord {
     expires_at: string;
 }
 
-interface StoredEvent {
+export interface StoredEvent {
     id: string;
     sessionId: string;
     type: InteractionEventType;
     payload: unknown;
+    createdAt: string;
 }
 
 export interface TransitionInput {
@@ -31,6 +32,7 @@ export interface SessionStore {
     readonly kind: 'memory' | 'supabase';
     create(): Promise<SessionRecord>;
     get(id: string): Promise<SessionRecord | null>;
+    getEvents(id: string): Promise<StoredEvent[]>;
     getPendingQuestionId(id: string): Promise<string | null>;
     transition(input: TransitionInput): Promise<boolean>;
     health(): Promise<boolean>;
@@ -76,6 +78,9 @@ const memoryStore: SessionStore = {
         }
         return { ...session };
     },
+    async getEvents(id) {
+        return (memoryState().events.get(id) ?? []).map((event) => ({ ...event }));
+    },
     async getPendingQuestionId(id) {
         const events = memoryState().events.get(id) ?? [];
         for (let index = events.length - 1; index >= 0; index -= 1) {
@@ -88,11 +93,16 @@ const memoryStore: SessionStore = {
     },
     async transition({ id, expectedState, nextState, event, deleteEvents }) {
         const state = memoryState();
-        const session = await this.get(id);
+        const session = state.sessions.get(id);
+        if (session && Date.parse(session.expires_at) <= Date.now()) {
+            state.sessions.delete(id);
+            state.events.delete(id);
+            return false;
+        }
         if (!session || session.state !== expectedState) return false;
         if (event) {
             const events = state.events.get(id) ?? [];
-            events.push({ id: randomUUID(), sessionId: id, ...event });
+            events.push({ id: randomUUID(), sessionId: id, createdAt: new Date().toISOString(), ...event });
             state.events.set(id, events);
         }
         if (deleteEvents) state.events.delete(id);
@@ -122,9 +132,25 @@ const supabaseStore: SessionStore = {
             .from('consultation_sessions')
             .select('id,state,created_at,expires_at')
             .eq('id', id)
+            .gt('expires_at', new Date().toISOString())
             .maybeSingle();
         if (error) throw new Error('SESSION_READ_FAILED');
         return data as SessionRecord | null;
+    },
+    async getEvents(id) {
+        const { data, error } = await getSupabase()
+            .from('interaction_events')
+            .select('id,session_id,type,payload,created_at')
+            .eq('session_id', id)
+            .order('created_at', { ascending: true });
+        if (error) throw new Error('SESSION_EVENTS_READ_FAILED');
+        return (data ?? []).map((event) => ({
+            id: String(event.id),
+            sessionId: String(event.session_id),
+            type: event.type as InteractionEventType,
+            payload: event.payload,
+            createdAt: String(event.created_at),
+        }));
     },
     async getPendingQuestionId(id) {
         const { data, error } = await getSupabase()

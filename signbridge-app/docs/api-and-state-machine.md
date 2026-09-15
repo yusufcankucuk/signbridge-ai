@@ -17,8 +17,11 @@ Oturumlar sırasında uygulama aşağıdaki kurallara göre belirli durumlar (st
 | `idle` | Görüşme başlamadan önceki bekleme anı. | `patient_capture` |
 | `patient_capture` | Hasta kamerada işaret diliyle derdini anlatıyor. | `patient_confirmation`, `ended` |
 | `patient_confirmation` | AI tahmini ekranda gösterilir, hasta onay/ret verir. | `doctor_review`, `patient_capture`, `ended` |
-| `doctor_review` | Cihaz doktora geçer; doktor soru sorabilir veya değerlendirmeyi tamamlayabilir. | `patient_response`, `doctor_response`, `ended` |
-| `patient_response` | Doktorun tek bir sorusu için hastanın yanıtı beklenir. | `doctor_review`, `ended` |
+| `doctor_review` | Cihaz doktora geçer, doktor şikayeti okur veya yeni soru sorar. | `patient_question`, `patient_response` *(uyumluluk)*, `doctor_response`, `ended` |
+| `patient_question` | Doktor sorusu kaydedildi; cihaz hastaya devredilir. | `patient_answer`, `doctor_review`, `ended` |
+| `patient_answer` | Hasta doktorun sorusunu manuel veya kamerayla yanıtlar. | `patient_answer_confirmation`, `doctor_review`, `ended` |
+| `patient_answer_confirmation` | Kamerayla verilen hasta yanıtı onaylanır veya yeniden denenir. | `doctor_review`, `patient_answer`, `ended` |
+| `patient_response` | Eski `/questions` ve `/answers` istemcileri için korunan uyumluluk durumu. | `doctor_review`, `ended` |
 | `doctor_response` | Doktor sesli/yazılı yanıtını sisteme girer. | `patient_review`, `ended` |
 | `patient_review` | Cihaz hastaya geri döner, doktorun yanıtı okunur. | `patient_capture`, `ended` |
 | `ended` | Görüşme tamamlanıp veriler temizlendi. | *(Geçiş yapılamaz)* |
@@ -64,6 +67,16 @@ Doktor yanıtından sonra görüşmeye devam edilecekse bitirme yerine:
 * **Yeni tur:** `/api/consultations/[id]/next`
   * *Body:* (Boş)
   * *Açıklama:* Yalnız `patient_review` durumundan `patient_capture` durumuna geçerek yeni iletişim turunu başlatır.
+
+Doktorun aynı görüşmede sınırsız sayıda soru sorabilmesi için her turda aşağıdaki yol kullanılır:
+
+1. `POST /api/consultations/[id]/question` — `{ "questionId": "uuid", "kind": "duration", "text": "Ne zamandır devam ediyor?" }`
+2. `POST /api/consultations/[id]/next` — cihaz hastaya verilir ve durum `patient_answer` olur.
+3. Manuel yanıt için `POST /api/consultations/[id]/patient-answer` — `{ "questionId": "uuid", "answer": "İki gündür", "source": "manual" }`.
+4. Kamera yanıtı için mevcut `prediction` ve ardından `confirm` uçları kullanılır. Ara durum `patient_answer_confirmation`, başarılı son durum `doctor_review` olur.
+5. Bekleyen soru iptal edilirse `POST /api/consultations/[id]/question/cancel` kullanılır.
+
+Sunucu başarılı yanıt vermeden arayüzde bekleyen soru veya tamamlanmış yanıt eklenmez. Yanlış durum, yinelenen yanıt ve eşzamanlı iki gönderimden kaybeden istek `409` döndürür. Supabase kurulumu için `infrastructure/database/migrations/20260914_question_answer_states.sql` bir kez uygulanmalıdır.
 
 Tekrarlanabilir tam tur testi `npm run test:e2e-session` komutuyla çalıştırılır. Ayrıntılı kanıt ve gerçek local FastAPI doğrulaması `docs/session-flow-e2e.md` belgesindedir.
 
