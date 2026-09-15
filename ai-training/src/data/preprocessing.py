@@ -14,6 +14,34 @@ class QualityResult:
     reason: str
     shoulder_frame_ratio: float
     hand_frame_ratio: float
+    motion_score: float
+
+
+def calculate_motion_score(
+    keypoints: np.ndarray,
+    confidences: np.ndarray,
+    *,
+    minimum_confidence: float = 0.1,
+) -> float:
+    """Return median normalized hand-landmark path length for the more active hand."""
+    try:
+        normalized, _, mask = normalize_selected_landmarks(
+            keypoints, confidences, minimum_confidence=minimum_confidence
+        )
+    except (ValueError, IndexError):
+        return 0.0
+
+    def hand_median_path(start: int, end: int) -> float:
+        paths: list[float] = []
+        for point in range(start, end):
+            visible_pairs = (mask[:-1, point] == 1) & (mask[1:, point] == 1)
+            if not visible_pairs.any():
+                continue
+            deltas = np.linalg.norm(np.diff(normalized[:, point, :], axis=0), axis=1)
+            paths.append(float(deltas[visible_pairs].sum()))
+        return float(np.median(paths)) if paths else 0.0
+
+    return max(hand_median_path(4, 25), hand_median_path(25, 46))
 
 
 def assess_quality(
@@ -24,15 +52,16 @@ def assess_quality(
     minimum_frames: int = 8,
     minimum_shoulder_ratio: float = 0.6,
     minimum_hand_ratio: float = 0.5,
+    minimum_motion_score: float = 0.0,
 ) -> QualityResult:
     if keypoints.ndim != 3 or keypoints.shape[1:] != (75, 2):
-        return QualityResult("rejected", f"keypoints_shape={keypoints.shape}", 0.0, 0.0)
+        return QualityResult("rejected", f"keypoints_shape={keypoints.shape}", 0.0, 0.0, 0.0)
     if confidences.shape != keypoints.shape[:2]:
-        return QualityResult("rejected", f"confidences_shape={confidences.shape}", 0.0, 0.0)
+        return QualityResult("rejected", f"confidences_shape={confidences.shape}", 0.0, 0.0, 0.0)
     if len(keypoints) < minimum_frames:
-        return QualityResult("rejected", "too_few_frames", 0.0, 0.0)
+        return QualityResult("rejected", "too_few_frames", 0.0, 0.0, 0.0)
     if not np.isfinite(keypoints).all() or not np.isfinite(confidences).all():
-        return QualityResult("rejected", "non_finite_value", 0.0, 0.0)
+        return QualityResult("rejected", "non_finite_value", 0.0, 0.0, 0.0)
 
     visible = confidences >= minimum_confidence
     shoulder_valid = visible[:, 11] & visible[:, 12]
@@ -41,15 +70,20 @@ def assess_quality(
     hand_valid = left_hand_valid | right_hand_valid
     shoulder_ratio = float(shoulder_valid.mean())
     hand_ratio = float(hand_valid.mean())
+    motion_score = calculate_motion_score(
+        keypoints, confidences, minimum_confidence=minimum_confidence
+    )
 
     reasons: list[str] = []
     if shoulder_ratio < minimum_shoulder_ratio:
         reasons.append("low_shoulder_visibility")
     if hand_ratio < minimum_hand_ratio:
         reasons.append("low_hand_visibility")
+    if shoulder_ratio >= minimum_shoulder_ratio and hand_ratio >= minimum_hand_ratio and motion_score < minimum_motion_score:
+        reasons.append("insufficient_motion")
     if reasons:
-        return QualityResult("needs_review", "+".join(reasons), shoulder_ratio, hand_ratio)
-    return QualityResult("approved", "ok", shoulder_ratio, hand_ratio)
+        return QualityResult("needs_review", "+".join(reasons), shoulder_ratio, hand_ratio, motion_score)
+    return QualityResult("approved", "ok", shoulder_ratio, hand_ratio, motion_score)
 
 
 def normalize_selected_landmarks(

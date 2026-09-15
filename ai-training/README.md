@@ -34,6 +34,19 @@ AUTSL PKL dosyaları yalnızca resmî/güvenilen indirmeden kullanılmalıdır. 
 
 ## 2. Kurulum
 
+Yalnız çıkarım/kamera testi yapacak ekip üyesi, depo kökünde eğitilmiş sürümlü paketi kurar:
+
+```powershell
+node scripts/install-model.mjs
+node scripts/check-model-assets.mjs
+```
+
+Bu işlem modeli yeniden eğitmez. GitHub Release arşivinin ve içindeki SavedModel dosyalarının SHA-256
+değerlerini doğrular. Ham AUTSL/MEB verileri pakete veya Git deposuna eklenmez. İnternet olmayan bilgisayarda
+aynı arşiv `node scripts/install-model.mjs --archive <zip-yolu>` ile kurulabilir.
+
+Veri hazırlama veya eğitim geliştirmesi yapacak kişi aşağıdaki Python ortamını ayrıca kurar.
+
 Windows PowerShell:
 
 ```powershell
@@ -123,13 +136,25 @@ sürüm uyumunu, kamera gruplarını ve örnek JSON sözleşmesini denetler.
 
 ## 7. Karar politikası ve gecikme
 
-`configs/decision_policy.json` aktif, geriye uyumlu 0,80 skor kuralıdır. Validation/OOD çalışmasının ürettiği
-0,95 aday politika ayrı tutulur; OOD holdout hedefini geçemediği için otomatik etkinleştirilmez.
+`configs/decision_policy.json` güvenli `manual_only` politikasıdır. `configs/decision_policy.team-camera.json`
+ise doğrulanmış modeli yalnız ekip içi teknik denemede, 20 sınıfın tamamı ve `0,95` eşikle açar. Bu politika
+`experimental=true` taşır ve servis durumunda `team_camera` olarak görünür. Dondurulmuş OOD yanlış kabul oranı
+`%31,63` ile `%20` sınırını geçtiği için bu mod yayınlanmış güvenli kamera AI olarak sunulmaz.
 
 ```powershell
 python -m src.evaluate_release --data-root "$env:SIGNBRIDGE_DATA_ROOT" --output runs/my-policy --ood-per-class 10 --trusted-autsl-pickle
 python -m src.benchmark_latency --input '<validation-ornek.npz>' --output runs/my-latency.json
 ```
+
+Hareket eşiği için geliştirme kişisinin geçerli kayıtlarına ek olarak statik negatif kayıtları
+`--motion-label static` ile kaydedin. Sonra dosyaları tek CSV'de birleştirip eşiği bir kez dondurun:
+
+```powershell
+python -m src.calibrate_motion --input runs/motion-development.csv --output runs/motion-policy.json
+```
+
+Yalnız çıktıda `targetMet=true`, `staticRejectRate=1.0` ve `validPassRate>=0.90` ise bulunan
+`minimumMotionScore` web ortamına aktarılıp `CAMERA_MOTION_POLICY_ENABLED=true` yapılabilir.
 
 Serviste özel politika kullanmak için `DECISION_POLICY_PATH` verilir. Dosya bozuk veya model sürümüyle
 uyumsuzsa servis başlatılmaz; sessiz geri dönüş yapılmaz.

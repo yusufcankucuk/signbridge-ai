@@ -12,14 +12,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     try { session = await store.get(id); }
     catch { return NextResponse.json({ error: 'Oturum okunamadı.' }, { status: 500 }); }
     if (!session) return NextResponse.json({ error: 'Oturum bulunamadı.' }, { status: 404 });
-    if (!SessionManager.canTransition(session.state, 'patient_capture')) {
+    const nextState = session.state === 'patient_question' ? 'patient_answer' : 'patient_capture';
+    if (!SessionManager.canTransition(session.state, nextState)) {
         return NextResponse.json({ error: 'Geçersiz durum geçişi.' }, { status: 409 });
     }
 
     try {
-        const ok = await store.transition({ id, expectedState: session.state, nextState: 'patient_capture' });
+        const ok = await store.transition({ id, expectedState: session.state, nextState });
         if (!ok) return NextResponse.json({ error: 'Oturum durumu değişti; yeniden deneyin.' }, { status: 409 });
     } catch { return NextResponse.json({ error: 'Yeni iletişim turu başlatılamadı.' }, { status: 500 }); }
 
-    return NextResponse.json({ success: true, nextState: 'patient_capture' });
+    return NextResponse.json({ success: true, nextState });
 }
