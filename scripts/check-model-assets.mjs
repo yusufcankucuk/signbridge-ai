@@ -1,22 +1,14 @@
-import { createHash } from 'node:crypto';
-import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { validateModelAssets } from './model-assets-lib.mjs';
 
 const args = new Set(process.argv.slice(2));
 const modelArg = process.argv.slice(2).find((value) => value.startsWith('--model-dir='));
-const modelRoot = resolve(modelArg ? modelArg.slice('--model-dir='.length) : 'ai-training/outputs');
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const modelRoot = resolve(repoRoot, modelArg ? modelArg.slice('--model-dir='.length) : 'ai-training/outputs');
 const allowManualOnly = args.has('--allow-manual-only');
-const manifestPath = resolve('ai-training/configs/model-assets.json');
-
-function hashFile(path) {
-  return new Promise((resolveHash, reject) => {
-    const hash = createHash('sha256');
-    const stream = createReadStream(path);
-    stream.on('data', (chunk) => hash.update(chunk));
-    stream.on('error', reject);
-    stream.on('end', () => resolveHash(hash.digest('hex')));
-  });
-}
+const manifestPath = resolve(repoRoot, 'ai-training/configs/model-assets.json');
 
 if (!existsSync(manifestPath)) {
   console.error(`Model doğrulama manifesti bulunamadı: ${manifestPath}`);
@@ -24,18 +16,9 @@ if (!existsSync(manifestPath)) {
 }
 
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-const failures = [];
-for (const [relative, expected] of Object.entries(manifest.files ?? {})) {
-  const file = resolve(modelRoot, relative);
-  if (!existsSync(file) || !statSync(file).isFile()) {
-    failures.push(`EKSİK  ${relative}`);
-    continue;
-  }
-  const actual = await hashFile(file);
-  if (actual.toLowerCase() !== String(expected).toLowerCase()) failures.push(`HASH   ${relative}`);
-}
+const failures = await validateModelAssets(modelRoot, manifest);
 
-const policyPath = resolve(String(manifest.decisionPolicy ?? ''));
+const policyPath = resolve(repoRoot, String(manifest.decisionPolicy ?? ''));
 if (!existsSync(policyPath)) failures.push(`EKSİK  ${manifest.decisionPolicy}`);
 
 if (failures.length) {

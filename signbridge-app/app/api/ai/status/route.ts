@@ -13,6 +13,8 @@ export async function GET() {
         return NextResponse.json({
             status: 'ok', mode: motionPolicyEnabled ? 'mock' : 'manual_only',
             cameraAiEnabled: motionPolicyEnabled, minimumMotionScore,
+            experimental: motionPolicyEnabled,
+            warning: motionPolicyEnabled ? 'Deneysel kamera tahmini; tıbbi tanı değildir ve hasta onayı zorunludur.' : null,
         });
     }
     if (provider !== 'local') {
@@ -28,15 +30,30 @@ export async function GET() {
             signal: AbortSignal.timeout(3_000),
         });
         if (!response.ok) throw new Error('AI health failed');
-        const body = await response.json() as { mode?: unknown; cameraAiEnabled?: unknown };
+        const body = await response.json() as {
+            mode?: unknown;
+            cameraAiEnabled?: unknown;
+            modelVersion?: unknown;
+            decisionPolicyVersion?: unknown;
+            experimental?: unknown;
+            warning?: unknown;
+        };
         const cameraAiEnabled = body.cameraAiEnabled !== false && motionPolicyEnabled;
         return NextResponse.json({
             status: 'ok',
             mode: cameraAiEnabled && typeof body.mode === 'string' ? body.mode : 'manual_only',
             cameraAiEnabled,
             minimumMotionScore,
+            modelVersion: typeof body.modelVersion === 'string' ? body.modelVersion : null,
+            decisionPolicyVersion: typeof body.decisionPolicyVersion === 'string' ? body.decisionPolicyVersion : null,
+            experimental: cameraAiEnabled && body.experimental === true,
+            warning: cameraAiEnabled && typeof body.warning === 'string' ? body.warning : null,
         });
     } catch {
-        return NextResponse.json({ status: 'unavailable', mode: 'manual_only', cameraAiEnabled: false, minimumMotionScore });
+        return NextResponse.json({
+            status: 'unavailable', mode: 'manual_only', cameraAiEnabled: false,
+            minimumMotionScore, modelVersion: null, decisionPolicyVersion: null,
+            experimental: false, warning: null,
+        });
     }
 }

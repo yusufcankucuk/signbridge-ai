@@ -57,6 +57,7 @@ export function Camera() {
   const [phase, setPhase] = useState<'idle' | 'opening' | 'ready' | 'recording' | 'processing' | 'error'>('idle');
   const [message, setMessage] = useState('Kamera henüz açılmadı.');
   const [seconds, setSeconds] = useState(0);
+  const [cameraWarning, setCameraWarning] = useState('');
   const alternative = state.capture === 'answer' ? `/patient/${state.pending?.kind || 'custom'}` : state.capture === 'followup' ? '/patient/question' : '/manual-select';
 
   const stopCamera = () => {
@@ -73,7 +74,12 @@ export function Camera() {
     setPhase('opening'); setMessage('Kamera ve işaret algılama modeli hazırlanıyor…');
     try {
       const statusResponse = await fetch('/api/ai/status', { cache: 'no-store' });
-      const status = await statusResponse.json() as { cameraAiEnabled?: unknown; minimumMotionScore?: unknown };
+      const status = await statusResponse.json() as {
+        cameraAiEnabled?: unknown;
+        minimumMotionScore?: unknown;
+        experimental?: unknown;
+        warning?: unknown;
+      };
       if (!statusResponse.ok || status.cameraAiEnabled !== true) {
         router.replace('/fallback?reason=policy_disabled');
         return;
@@ -81,6 +87,7 @@ export function Camera() {
       if (typeof status.minimumMotionScore === 'number' && Number.isFinite(status.minimumMotionScore) && status.minimumMotionScore >= 0) {
         motionThresholdRef.current = status.minimumMotionScore;
       }
+      setCameraWarning(status.experimental === true && typeof status.warning === 'string' ? status.warning : '');
       const [stream, landmarker] = await Promise.all([
         navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 960 }, height: { ideal: 720 } }, audio: false }),
         getHolisticLandmarker(),
@@ -163,6 +170,7 @@ export function Camera() {
     {footer}
   </>}>
     {state.capture === 'answer' && <p className="text-center font-semibold">{state.pending?.text}</p>}
+    {cameraWarning && <p className="compact-card border-warning-100 bg-warning-50 text-center text-caption" role="note">{cameraWarning}</p>}
     <div className="compact-camera"><video ref={videoRef} playsInline muted aria-label="Canlı kamera önizlemesi" />{phase === 'idle' || phase === 'opening' || phase === 'error' ? <CameraIcon /> : null}<span role="status">{message}</span>{phase === 'recording' && <strong className="compact-camera-timer">{seconds.toFixed(1)} sn</strong>}</div>
     <p className="text-center text-caption text-ink-muted">Elleriniz ve iki omzunuz görünsün. Önerilen kayıt süresi 2–4 saniyedir.</p>
   </Frame>;
@@ -188,6 +196,7 @@ export function Confirm() {
   const candidate = state.candidate ?? (leaving ? initialCandidate : null);
   const expression = EXPRESSIONS.find(e => e.sentence === candidate?.text);
   const [error, setError] = useState('');
+  const manualPath = state.capture === 'answer' && state.pending ? `/patient/${state.pending.kind}` : state.capture === 'followup' ? '/patient/question' : '/manual-select';
   const confirm = async () => {
     if (!state.candidate || leaving) return;
     setLeaving(true);
@@ -227,7 +236,7 @@ export function Confirm() {
   };
   return <Frame title="Doğru anladım mı?" footer={candidate && <>
     <Button onClick={confirm}>Doğru, doktora ilet</Button>
-    <div className="grid grid-cols-2"><button type="button" onClick={retry} className="compact-link">Tekrar anlat</button><Link href="/manual-select" className="compact-link">Değiştir</Link></div>
+    <div className="grid grid-cols-2"><button type="button" onClick={retry} className="compact-link">Tekrar anlat</button><Link href={manualPath} className="compact-link">Değiştir</Link></div>
   </>}>
     {!candidate ? <Empty text="Henüz bir anlatım yok." href="/camera" /> : <>
       {expression ? <><div className="compact-illustration"><div><ExpressionVisual expression={expression} /></div></div><p className="compact-sentence">{expression.sentence}</p></> : <div className="compact-center"><ReadText text={candidate.text} /></div>}
@@ -254,6 +263,7 @@ export function Fallback() {
   const query = useSearchParams();
   const reason = query.get('reason');
   const requiresServerReset = query.get('advanced') === '1';
+  const manualPath = state.capture === 'answer' && state.pending ? `/patient/${state.pending.kind}` : state.capture === 'followup' ? '/patient/question' : '/manual-select';
   const detail = reason?.includes('shoulder') ? 'İki omuz yeterince görünmedi.' : reason?.includes('hand') ? 'Eller yeterince görünmedi.' : reason?.includes('insufficient_motion') ? 'Yeterli hareket algılanmadı. İşareti yeniden yapın veya listeden seçin.' : reason === 'ambiguous_prediction' ? 'İki olası işaret birbirine çok yakındı.' : reason === 'unsupported_class' ? 'Bu işaret güvenli demo kapsamının dışında.' : reason === 'policy_disabled' ? 'Kamera tahmini güvenlik politikası nedeniyle kapalı.' : reason === 'service_error' ? 'Kamera hizmetine şu an ulaşılamıyor. Listeden seçim yaparak devam edebilirsiniz.' : reason === 'invalid_or_non_finite_frame' ? 'Kamera görüntüsü güvenli biçimde işlenemedi.' : reason === 'too_few_frames' ? 'Kayıt çok kısa sürdü.' : 'Model güvenli bir öneri üretemedi.';
   const retry = async () => {
     if (!requiresServerReset) {
@@ -267,9 +277,9 @@ export function Fallback() {
       });
       if (!response.ok) throw new Error();
       setState(current => ({ ...current, candidate: null })); router.push('/camera');
-    } catch { router.push('/manual-select'); }
+    } catch { router.push(manualPath); }
   };
-  return <Frame title="Anlaşılamadı" footer={<><Button onClick={retry}>Tekrar anlat</Button><Button href="/manual-select" variant="outline">Seçerek anlat</Button></>}>
-    <div className="compact-center"><div className="text-6xl font-light text-brand-600" aria-hidden="true">?</div><p>{detail}</p><p className="text-caption text-ink-muted">Tekrar deneyin veya listeden seçin.</p></div>
+  return <Frame title="Anlaşılamadı" footer={<><Button onClick={retry}>Tekrar anlat</Button><Button href={manualPath} variant="outline">Seçerek anlat</Button></>}>
+    <div className="compact-center"><div className="text-6xl font-light text-brand-600" aria-hidden="true">?</div>{state.capture === 'answer' && state.pending && <div className="compact-card w-full"><p className="text-caption text-ink-muted">Doktorun sorusu</p><ReadText text={state.pending.text} /></div>}<p>{detail}</p><p className="text-caption text-ink-muted">Tekrar deneyin veya listeden seçin.</p></div>
   </Frame>;
 }

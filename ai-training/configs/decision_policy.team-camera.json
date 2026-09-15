@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1.0",
+  "decisionPolicyVersion": "autsl20-team-camera-v1",
+  "enabled": true,
+  "allowedClassIds": ["doktor", "hasta", "evet", "hayir", "ilac"],
+  "method": "score_only",
+  "confidenceThreshold": 0.95,
+  "marginThreshold": 0.0,
+  "modelVersion": "autsl20-bigru-v0.1.0",
+  "preprocessingVersion": "landmark46-v1",
+  "vocabularyVersion": "autsl20-v1",
+  "deploymentStatus": "experimental_team_demo",
+  "experimental": true,
+  "warning": "Deneysel kamera tahmini; tıbbi tanı değildir ve hasta onayı zorunludur."
+}

@@ -1,7 +1,8 @@
 # SignBridge Docker kullanım kılavuzu
 
-Docker yapısı üç parçadan oluşur:
+Docker yapısı dört parçadan oluşur:
 
+- `model-setup`: GitHub Release modelini indirip iki aşamalı SHA-256 kontrolüyle kuran tek seferlik iş.
 - `web`: Next.js uygulaması; yalnızca `3000` portundan bilgisayara açılır.
 - `ai-inference`: Eğitilmiş modeli yükleyen FastAPI servisi; yalnızca Docker iç ağından erişilir.
 - `ai-training`: Veri hazırlama ve model eğitimi için isteğe bağlı tek seferlik iş.
@@ -13,7 +14,7 @@ Yerel demo varsayılan olarak `SESSION_STORE=memory` ile çalışır; Supabase z
 ## Ön koşullar
 
 1. Docker Desktop'ı açın ve Linux containers modunun çalıştığından emin olun.
-2. Tam AI modu kullanılacaksa `ai-training/outputs` içinde `saved_model/` ve `runtime_config.json` bulunmalıdır. Manuel güvenli demo model olmadan açılır.
+2. Kamera teknik testi kullanılacaksa model aşağıdaki kurulum işiyle kurulmalıdır. Manuel güvenli demo model olmadan açılır.
 3. Yalnız kalıcı Supabase modu kullanacaksanız `infrastructure/database/schema.sql` dosyasını kendi Supabase projenizde çalıştırın.
 
 ## İlk çalıştırma
@@ -24,17 +25,26 @@ PowerShell'de depo kökünde:
 Copy-Item .env.docker.example .env
 notepad .env
 docker compose config
+docker compose --profile setup run --rm model-setup
 docker compose up --build -d
 docker compose ps
 ```
 
-Tam AI modundan önce platformdan bağımsız dosya ve SHA-256 kontrolünü çalıştırın:
+`model-setup` şu sırayı uygular: Release arşivini geçici alana indirir, arşivin SHA-256 değerini doğrular,
+modeli açar, SavedModel dosyalarını ayrı ayrı doğrular ve ancak bütün kontroller geçerse `ai-training/outputs`
+dizinini atomik biçimde değiştirir. İnternet yoksa arşivi depo içine kopyalamadan bilgisayardaki bir yoldan kurabilirsiniz:
+
+```powershell
+node scripts/install-model.mjs --archive C:\path\to\signbridge-autsl20-modelarts-v0.1.0.zip
+```
+
+Kurulumdan sonra platformdan bağımsız ön kontrolü çalıştırın:
 
 ```text
 node scripts/check-model-assets.mjs
 ```
 
-Model arşivi Windows'ta `Expand-Archive .\signbridge-model.zip .\ai-training\outputs`, macOS/Linux'ta `unzip signbridge-model.zip -d ai-training/outputs` ile açılabilir. Arşiv yapısı nedeniyle fazladan bir üst klasör oluşmadığını ön kontrol çıktısından doğrulayın. Eksik modelle manuel demo yapılacaksa `node scripts/check-model-assets.mjs --allow-manual-only` kullanın.
+Arşivi elle açmak yerine kurulum aracını kullanın; böylece yanlış klasör ve yarım kurulum riski önlenir. Eksik modelle manuel demo yapılacaksa `node scripts/check-model-assets.mjs --allow-manual-only` kullanın.
 
 İlk denemede `.env` içindeki `SESSION_STORE=memory` ayarını koruyun. Kalıcı mod için `SESSION_STORE=supabase`, `SUPABASE_URL` ve `SUPABASE_SERVICE_ROLE_KEY` değerlerini girin. Service-role anahtarını `NEXT_PUBLIC_` önekiyle tanımlamayın; anon anahtarı onun yerine kullanmayın. `.env` Git tarafından yok sayılır, anahtarları repoya veya loglara göndermeyin.
 
@@ -48,7 +58,15 @@ docker compose logs --tail 100 web ai-inference
 
 Tarayıcı adresi: `http://localhost:3000`
 
-CPU ile ilk model yükleme, bilgisayarın hızına göre yaklaşık 1-3 dakika sürebilir. Model yoksa ve `ALLOW_MANUAL_ONLY=true` ise AI servisi `manual_only` olarak sağlıklı başlar; kamera açılmaz ve görüşme manuel seçimle tamamlanır. Model ve yayın kapılarından geçmiş `enabled=true` politika birlikte bulunduğunda `camera_ai` modu açılır.
+CPU ile ilk model yükleme, bilgisayarın hızına göre yaklaşık 1-3 dakika sürebilir. Model yoksa ve `ALLOW_MANUAL_ONLY=true` ise AI servisi `manual_only` olarak sağlıklı başlar; kamera açılmaz ve görüşme manuel seçimle tamamlanır. Doğrulanmış model ve `decision_policy.team-camera.json` birlikte bulunduğunda `team_camera` açılır. Bu mod yalnız ekip testidir. `camera_ai` adı yalnız bütün fiziksel doğrulama ve OOD kapıları geçen, deneysel olmayan final politikası için kullanılır.
+
+Modu ve sürümleri tek yerden kontrol edin:
+
+```powershell
+Invoke-RestMethod http://localhost:3000/api/ai/status
+```
+
+`mode`, `modelVersion`, `decisionPolicyVersion`, `minimumMotionScore`, `experimental` ve kullanıcıya gösterilen uyarı birlikte dönmelidir.
 
 ## AI tahmin akışı
 

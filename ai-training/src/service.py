@@ -48,7 +48,11 @@ async def lifespan(_app: FastAPI):
     if label_config["vocabularyVersion"] != runtime["vocabularyVersion"]:
         raise RuntimeError("Etiket sözlüğü sürümü uyumsuz.")
     state["labels"] = label_config["labels"]
-    state["decision_policy"] = load_policy(Path(policy_value) if policy_value else None, runtime)
+    requested_policy_path = Path(policy_value) if policy_value else None
+    # A team camera policy is allowed only when the versioned model assets exist.
+    # Missing assets must still produce a healthy manual-only service.
+    policy_path = requested_policy_path if assets_available else CONFIG_DIR / "decision_policy.json"
+    state["decision_policy"] = load_policy(policy_path, runtime)
     if assets_available:
         import tensorflow as tf
 
@@ -56,7 +60,10 @@ async def lifespan(_app: FastAPI):
         validate_bundle(state["model"], runtime, state["labels"])
     elif state["decision_policy"].get("enabled", True):
         raise RuntimeError("Model olmadan yalnız enabled=false karar politikasıyla manual_only modu açılabilir.")
-    state["mode"] = "camera_ai" if assets_available and state["decision_policy"].get("enabled", True) else "manual_only"
+    if assets_available and state["decision_policy"].get("enabled", True):
+        state["mode"] = "team_camera" if state["decision_policy"].get("experimental") is True else "camera_ai"
+    else:
+        state["mode"] = "manual_only"
     try:
         yield
     finally:
@@ -79,6 +86,8 @@ def health() -> dict[str, object]:
         "cameraAiEnabled": bool("model" in state and state["decision_policy"].get("enabled", True)),
         "modelVersion": runtime["modelVersion"],
         "decisionPolicyVersion": state["decision_policy"]["decisionPolicyVersion"],
+        "experimental": state["decision_policy"].get("experimental") is True,
+        "warning": state["decision_policy"].get("warning"),
     }
 
 

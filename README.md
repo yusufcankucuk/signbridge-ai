@@ -23,23 +23,39 @@ Model tıbbi tanı koymaz, kesintisiz işaret dili cümlesi çözmez ve profesyo
 
 Komutları deponun ana klasöründe çalıştırın. Uygulamayı ilk kez deniyorsanız **Docker ile başlangıç** önerilir. Yerel demo varsayılan olarak görüşmeleri yalnız sunucu belleğinde tutar; Supabase zorunlu değildir.
 
-İki güvenli çalışma biçimi vardır:
+Üç çalışma biçimi vardır:
 
-- **Manuel güvenli demo:** Model dosyası gerekmez. Kamera AI kapalıdır; kullanıcı anlaşılır bir mesajla listeden seçime yönlendirilir. Mevcut dondurulmuş OOD sonucu `%31,63` olduğu için depodaki takip edilen politika varsayılan olarak bu moddadır.
-- **Tam AI modu:** Yalnız kamera doğruluk, kapsama, hareket ve OOD yayın kapılarının tümü geçilmişse `CAMERA_MOTION_POLICY_ENABLED=true` ile açılır. Aşağıdaki model çıktıları gerekir:
+- **`manual_only`:** Model dosyası gerekmez. Kamera kapalıdır; kullanıcı listeden seçime yönlendirilir.
+- **`team_camera`:** Doğrulanmış model paketiyle yalnız ekip içi teknik testtir. Beş demo sınıfı ve `0,95` eşik kullanılır; sonuç deneysel bir öneridir ve hasta onayı zorunludur.
+- **`camera_ai`:** Ancak fiziksel kamera doğruluğu, kapsama, statik hareket, gecikme ve OOD yayın kapılarının tamamı geçtikten sonra kullanılacak final modudur. Bu karar henüz verilmemiştir.
+
+Kamera modları için aşağıdaki model çıktıları gerekir:
 
 ```text
 ai-training/outputs/saved_model/
 ai-training/outputs/runtime_config.json
 ```
 
-Windows, macOS ve Linux'ta aynı ön kontrolü çalıştırın:
+Modeli GitHub Release üzerinden indirip SHA-256 doğrulamasıyla güvenli biçimde kurun:
+
+```bash
+node scripts/install-model.mjs
+node scripts/check-model-assets.mjs
+```
+
+İnternetsiz kurulumda ekipten alınan aynı ZIP dosyasını kullanabilirsiniz:
+
+```bash
+node scripts/install-model.mjs --archive path/to/signbridge-autsl20-modelarts-v0.1.0.zip
+```
+
+Windows, macOS ve Linux'ta ön kontrol aynıdır:
 
 ```bash
 node scripts/check-model-assets.mjs
 ```
 
-Komut dosya listesini ve SHA-256 değerlerini doğrular. Model yoksa manuel demo için `node scripts/check-model-assets.mjs --allow-manual-only` komutu başarılı çıkar ancak kamera AI'nın kapalı olduğunu açıkça bildirir. Model ve AUTSL verileri Git'e eklenmez.
+Kurucu önce arşiv hash'ini, sonra iç model dosyalarını doğrular. Bozuk veya yarım indirme çalışan modelin üzerine yazılmaz. Model yoksa manuel demo için `node scripts/check-model-assets.mjs --allow-manual-only` komutu başarılı çıkar ancak kameranın kapalı olduğunu açıkça bildirir. Model ve AUTSL verileri Git'e eklenmez.
 
 ### Seçenek 1 — Docker ile başlangıç
 
@@ -54,16 +70,28 @@ Gerekenler: Docker Desktop ve kamerası olan bir bilgisayar.
 
 2. İlk yerel denemede `.env` içindeki `SESSION_STORE=memory` ayarını koruyun. Kalıcı Supabase oturumu gerekiyorsa `infrastructure/database/schema.sql` dosyasını kendi projenizde çalıştırın, `SESSION_STORE=supabase`, `SUPABASE_URL` ve yalnızca sunucuda kalacak `SUPABASE_SERVICE_ROLE_KEY` değerlerini girin. Anon anahtarı service-role anahtarı yerine kullanmayın.
 
-3. Sistemi oluşturup başlatın:
+3. Ekip kamera testi yapacaksanız modeli tek komutla kurun. Yalnız manuel demo için bu adımı atlayın:
+
+   ```powershell
+   docker compose --profile setup run --rm model-setup
+   ```
+
+4. Sistemi oluşturup başlatın:
 
    ```powershell
    docker compose up --build -d
    docker compose ps
    ```
 
-4. `web` ve `ai-inference` durumları `healthy` olduğunda [http://localhost:3000](http://localhost:3000) adresini açın. `ai-inference` sağlık yanıtındaki `mode=manual_only` normal ve güvenli varsayılandır. Bu modda `Başla → Seçerek anlat` akışını kullanın. Yalnız onaylanmış politika `enabled=true` ise kamera yolu açılır.
+5. `web` ve `ai-inference` durumları `healthy` olduğunda [http://localhost:3000](http://localhost:3000) adresini açın. Durumu kontrol edin:
 
-5. İşiniz bittiğinde sistemi kapatın:
+   ```powershell
+   Invoke-RestMethod http://localhost:3000/api/ai/status
+   ```
+
+   Model yoksa `manual_only`, doğrulanmış model ve ekip politikası varsa `team_camera` görülür. `team_camera` güvenli yayın onayı değil, deneysel teknik testtir.
+
+6. İşiniz bittiğinde sistemi kapatın:
 
    ```powershell
    docker compose down
@@ -88,12 +116,19 @@ $env:DECISION_POLICY_PATH = (Resolve-Path .\configs\decision_policy.json).Path
 .\.venv\Scripts\python.exe -m uvicorn src.service:app --host 127.0.0.1 --port 8000
 ```
 
-Onaylanmış tam AI paketi varsa şu iki model yolu da tanımlanır:
+Kamera teknik testi için önce depo kökünde modeli kurun, ardından AI servisinde ekip politikasını seçin:
+
+```powershell
+node scripts/install-model.mjs
+```
+
+Sonra AI penceresinde şu model yollarını tanımlayın:
 
 ```powershell
 cd ai-training
 $env:MODEL_PATH = (Resolve-Path .\outputs\saved_model).Path
 $env:RUNTIME_CONFIG_PATH = (Resolve-Path .\outputs\runtime_config.json).Path
+$env:DECISION_POLICY_PATH = (Resolve-Path .\configs\decision_policy.team-camera.json).Path
 .\.venv\Scripts\python.exe -m uvicorn src.service:app --host 127.0.0.1 --port 8000
 ```
 
@@ -134,6 +169,7 @@ Web sağlık kontrolü:
 ```powershell
 Invoke-RestMethod http://localhost:3000/api/health
 Invoke-RestMethod http://localhost:3000/api/ready
+Invoke-RestMethod http://localhost:3000/api/ai/status
 ```
 
 İlk kontrolde `status=ok`; hazır olma kontrolünde oturum deposu erişilebiliyorsa `status=ready` olur. Sorun yaşarsanız Docker için `docker compose logs --tail 100 web ai-inference`, Docker olmadan çalıştırmada ise iki PowerShell penceresindeki hata mesajlarını kontrol edin.
