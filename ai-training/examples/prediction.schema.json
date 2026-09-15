@@ -29,7 +29,7 @@
     "preprocessingVersion": {"type": "string"},
     "vocabularyVersion": {"type": "string"},
     "decisionPolicyVersion": {"type": "string", "minLength": 1},
-    "rejectionReason": {"type": ["string", "null"], "enum": ["low_score", "ambiguous_prediction", null]},
+    "rejectionReason": {"type": ["string", "null"], "enum": ["low_score", "ambiguous_prediction", "unsupported_class", "policy_disabled", null]},
     "requiresConfirmation": {"type": "boolean"}
   },
   "allOf": [

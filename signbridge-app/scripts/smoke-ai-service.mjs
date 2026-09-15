@@ -40,7 +40,7 @@ assert.ok(result.decisionPolicyVersion.length > 0);
 assert.equal(typeof result.requiresConfirmation, 'boolean');
 if (result.isLowConfidence) {
     assert.equal(result.classId, null);
-    assert.ok(['low_score', 'ambiguous_prediction'].includes(result.rejectionReason));
+    assert.ok(['low_score', 'ambiguous_prediction', 'unsupported_class', 'policy_disabled'].includes(result.rejectionReason));
     assert.equal(result.requiresConfirmation, false);
 } else {
     assert.equal(result.rejectionReason, null);

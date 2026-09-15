@@ -1,7 +1,8 @@
 # SignBridge Docker kullanım kılavuzu
 
-Docker yapısı üç parçadan oluşur:
+Docker yapısı dört parçadan oluşur:
 
+- `model-setup`: GitHub Release modelini indirip iki aşamalı SHA-256 kontrolüyle kuran tek seferlik iş.
 - `web`: Next.js uygulaması; yalnızca `3000` portundan bilgisayara açılır.
 - `ai-inference`: Eğitilmiş modeli yükleyen FastAPI servisi; yalnızca Docker iç ağından erişilir.
 - `ai-training`: Veri hazırlama ve model eğitimi için isteğe bağlı tek seferlik iş.
@@ -13,9 +14,7 @@ Yerel demo varsayılan olarak `SESSION_STORE=memory` ile çalışır; Supabase z
 ## Ön koşullar
 
 1. Docker Desktop'ı açın ve Linux containers modunun çalıştığından emin olun.
-2. `ai-training/outputs` içinde şu iki çıktı bulunmalıdır:
-   - `saved_model/` dizini
-   - `runtime_config.json`
+2. Kamera teknik testi kullanılacaksa model aşağıdaki kurulum işiyle kurulmalıdır. Manuel güvenli demo model olmadan açılır.
 3. Yalnız kalıcı Supabase modu kullanacaksanız `infrastructure/database/schema.sql` dosyasını kendi Supabase projenizde çalıştırın.
 
 ## İlk çalıştırma
@@ -26,9 +25,26 @@ PowerShell'de depo kökünde:
 Copy-Item .env.docker.example .env
 notepad .env
 docker compose config
+docker compose --profile setup run --rm model-setup
 docker compose up --build -d
 docker compose ps
 ```
+
+`model-setup` şu sırayı uygular: Release arşivini geçici alana indirir, arşivin SHA-256 değerini doğrular,
+modeli açar, SavedModel dosyalarını ayrı ayrı doğrular ve ancak bütün kontroller geçerse `ai-training/outputs`
+dizinini atomik biçimde değiştirir. İnternet yoksa arşivi depo içine kopyalamadan bilgisayardaki bir yoldan kurabilirsiniz:
+
+```powershell
+node scripts/install-model.mjs --archive C:\path\to\signbridge-autsl20-modelarts-v0.1.0.zip
+```
+
+Kurulumdan sonra platformdan bağımsız ön kontrolü çalıştırın:
+
+```text
+node scripts/check-model-assets.mjs
+```
+
+Arşivi elle açmak yerine kurulum aracını kullanın; böylece yanlış klasör ve yarım kurulum riski önlenir. Eksik modelle manuel demo yapılacaksa `node scripts/check-model-assets.mjs --allow-manual-only` kullanın.
 
 İlk denemede `.env` içindeki `SESSION_STORE=memory` ayarını koruyun. Kalıcı mod için `SESSION_STORE=supabase`, `SUPABASE_URL` ve `SUPABASE_SERVICE_ROLE_KEY` değerlerini girin. Service-role anahtarını `NEXT_PUBLIC_` önekiyle tanımlamayın; anon anahtarı onun yerine kullanmayın. `.env` Git tarafından yok sayılır, anahtarları repoya veya loglara göndermeyin.
 
@@ -42,11 +58,19 @@ docker compose logs --tail 100 web ai-inference
 
 Tarayıcı adresi: `http://localhost:3000`
 
-CPU ile ilk model yükleme, bilgisayarın hızına göre yaklaşık 1-3 dakika sürebilir. Bu sırada `ai-inference` durumu `health: starting` görünür; hazır olduğunda web servisi otomatik başlar.
+CPU ile ilk model yükleme, bilgisayarın hızına göre yaklaşık 1-3 dakika sürebilir. Model yoksa ve `ALLOW_MANUAL_ONLY=true` ise AI servisi `manual_only` olarak sağlıklı başlar; kamera açılmaz ve görüşme manuel seçimle tamamlanır. Doğrulanmış model ve `decision_policy.team-camera.json` birlikte bulunduğunda `team_camera` açılır. Bu mod yalnız ekip testidir. `camera_ai` adı yalnız bütün fiziksel doğrulama ve OOD kapıları geçen, deneysel olmayan final politikası için kullanılır.
+
+Modu ve sürümleri tek yerden kontrol edin:
+
+```powershell
+Invoke-RestMethod http://localhost:3000/api/ai/status
+```
+
+`mode`, `modelVersion`, `decisionPolicyVersion`, `minimumMotionScore`, `experimental` ve kullanıcıya gösterilen uyarı birlikte dönmelidir.
 
 ## AI tahmin akışı
 
-Tarayıcı, MediaPipe Holistic ile kameradan landmark çıkarır ve `60 kare × 46 nokta` biçimindeki türetilmiş veriyi görüşme tahmin adresine yollar. Ham video varsayılan olarak kaydedilmez veya sunucuya gönderilmez. Web konteyneri AI isteğini iç ağdaki `ai-inference:8000` servisine aktarır. AI konteynerinin `8000` portu doğrudan bilgisayara açılmaz.
+Web önce AI sağlık durumunu okur. `cameraAiEnabled=false` ise kamerayı açmadan kullanıcıyı manuel seçime yönlendirir. Etkin modda tarayıcı, MediaPipe Holistic ile kameradan landmark çıkarır ve `60 kare × 46 nokta` biçimindeki türetilmiş veriyi görüşme tahmin adresine yollar. Statik veya yetersiz hareket `insufficient_motion` ile model çağrılmadan reddedilir. Ham video kaydedilmez veya sunucuya gönderilmez.
 
 İstek alanları [ai-contract.md](ai-contract.md) dosyasında açıklanır. Geçersiz boyut, maske veya ön işleme sürümü hem web proxy'sinde hem AI servisinde reddedilir.
 
@@ -96,6 +120,7 @@ Bu komut yalnızca konteyner ve ağları kaldırır; model, manifest veya veri d
 - AI portu dışarı açılmaz ve backend ağı `internal` olarak tanımlıdır.
 - CPU, bellek ve işlem sayısı sınırlandırılmıştır.
 - Model ve ham veri Docker imajına gömülmez.
-- Sağlık kontrolü başarısızsa web, AI hazır olmadan başlamaz.
+- Sağlık kontrolü tam AI veya güvenli `manual_only` modu hazır olmadan web'i başlatmaz.
+- Web görüntü önbelleği tmpfs alanı konteyner kullanıcısına ait `uid=1000,gid=1000` yazma izniyle bağlanır.
 
 Base image etiketleri tekrar üretilebilir derleme için SHA-256 digest'lerine sabitlenmiştir. Üretim yayınında bu digest'ler kontrollü biçimde güncellenmeli, imajlar Trivy/Dockle ile taranmalı ve sırlar Huawei Cloud Secret Management Service gibi bir sır kasasından verilmelidir.

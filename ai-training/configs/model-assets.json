@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "1.0",
+  "modelVersion": "autsl20-bigru-v0.1.0",
+  "files": {
+    "saved_model/saved_model.pb": "c698ce5d71c5c7aae77ed4c8fa3c8875ad46f5924532318e9ffd19ec49fcbd86",
+    "saved_model/variables/variables.data-00000-of-00001": "b5a1a2ad8cecb78bf82cf3d9a30f4bd5f542fb17880080a52a8d14a7ea9db83d",
+    "saved_model/variables/variables.index": "9390084288011fa248b9d439280c15e821f27b0b5f489632ad203762b2a395fb",
+    "runtime_config.json": "9f3eb4b50e34b853686a4b59ad7ccc78ada887d33dde05af22e6b1f73f8ed2b2"
+  },
+  "decisionPolicy": "ai-training/configs/decision_policy.json"
+}
