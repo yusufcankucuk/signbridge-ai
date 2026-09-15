@@ -30,6 +30,24 @@
   tedavi planı uçtan uca testleri geçti.
 - TypeScript tip kontrolü, lint ve istemci bundle gizli anahtar taraması geçti.
 
+## Açık PR'lar ve CI durumu
+
+Üç dal, plandaki sırayla istiflenmiş şekilde `develop` üzerine açıldı:
+
+- [`#16 feat(ai): add verified model bootstrap and team camera mode`](https://github.com/yusufcankucuk/signbridge-ai/pull/16)
+  (`feature/model-bootstrap-camera-demo` → `develop`)
+- [`#17 fix(flow): persist treatment plans and restore safe sessions`](https://github.com/yusufcankucuk/signbridge-ai/pull/17)
+  (`fix/e2e-patient-safety` → `feature/model-bootstrap-camera-demo`)
+- [`#18 test(release): add final validation gates and CI`](https://github.com/yusufcankucuk/signbridge-ai/pull/18)
+  (`feature/final-validation-release` → `fix/e2e-patient-safety`)
+
+İlk CI çalışmasında `web` işi `test:security` adımında asılı kaldı: `test:e2e-session` testi gerçek
+bir `next start` süreci başlatıyor, ama bu adım `npm run build`'dan önce çalışıyordu; temiz bir CI
+kopyasında `.next` çıktısı hiç var olmadığı için sunucu asla ayağa kalkamıyordu. `npm run build`
+adımı test adımlarından önceye alındı (commit `a3c4c23`, `feature/final-validation-release` üzerinde,
+henüz origin'e itilmedi — bu ortamdan doğrudan push için gerekli kimlik bilgisi yok). Bu değişiklik
+push edilip yeni bir çalışma tetiklendiğinde CI'ın uçtan uca yeşile dönmesi beklenir.
+
 ## İnsan/harici işlem bekleyen kapılar
 
 - İki farklı katılımcıyla 25 geliştirme + 25 holdout ve 10+10 statik kamera denemesi.
