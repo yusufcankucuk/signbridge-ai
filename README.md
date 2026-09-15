@@ -176,6 +176,32 @@ Invoke-RestMethod http://localhost:3000/api/ai/status
 
 AI hattının ayrıntıları [ai-training/README.md](ai-training/README.md), uygulama akışı [docs/api-and-state-machine.md](docs/api-and-state-machine.md), entegrasyon veri biçimi ise [docs/ai-contract.md](docs/ai-contract.md) dosyasındadır.
 
+## Kamera AI'ı deneme (`team_camera` modu)
+
+Model kurulu ve `/api/ai/status` `"mode": "team_camera"` döndürüyorsa tarayıcıdan gerçek kamera
+tahminini deneyebilirsiniz. Bu, ekip içi **deneysel** bir teknik testtir; yayınlanmış güvenli
+`camera_ai` modu değildir ve tıbbi tanı yerine geçmez.
+
+1. [http://localhost:3000](http://localhost:3000) adresini açın ve hasta akışını başlatın.
+2. Şikâyeti kamerayla anlatmayı deneyin; tarayıcı kamera izni isteyecektir (yalnız `localhost`
+   veya HTTPS üzerinde çalışır, ham görüntü sunucuya gönderilmez).
+3. Ekranda **"Deneysel kamera tahmini — tıbbi tanı değildir"** uyarısını göreceksiniz. Model şu beş
+   sınıftan birini önerir: `doktor`, `hasta`, `evet`, `hayır`, `ilaç`. Statik veya çok küçük hareket
+   model çağrısı yapılmadan reddedilir.
+4. Tahmini onaylayın ya da reddedin; her sonuç bir **öneridir**, hasta onaylamadan doktora iletilmez.
+   "Tekrar dene" ve "Seçerek anlat" (manuel listeden seçim) seçenekleri her zaman açıktır ve kamera
+   güven vermediğinde bu yola geçmekten çekinmeyin.
+5. Doktor bir soru sorduğunda hasta yanıtı yine kamera veya manuel seçimle verebilir; hangi ekranın
+   açılacağı bekleyen soruya göre otomatik belirlenir.
+6. Farklı ışık, mesafe ve hız koşullarında (normal, düşük ışık, uzak, yavaş, hızlı) denemek gerçek
+   modelin ne zaman güvenli önerdiğini, ne zaman reddettiğini görmenizi sağlar.
+
+Bu, resmî kabul ölçümü değildir; yalnız modeli günlük kullanımda tanımak içindir. Katılımcı başına
+25 geliştirme/holdout + 10 statik denemenin **kayıt altına alınan** resmî sürümü ve CSV biçimi için
+[`ai-training/README.md`](ai-training/README.md) içindeki "Haftalık kamera, eşik ve teslim çalışması"
+bölümüne bakın — `python -m src.validate_video` ile planlanan deneme matrisini üretip
+`python -m src.summarize_camera` ile sonuçları birleştirebilirsiniz.
+
 ## Dal düzeni
 
 - `main`: gösterime hazır sürüm
