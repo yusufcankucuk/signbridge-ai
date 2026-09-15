@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS interaction_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     session_id UUID NOT NULL REFERENCES consultation_sessions(id) ON DELETE CASCADE,
     type TEXT NOT NULL CHECK (
-        type IN ('prediction', 'confirmation', 'doctor_question', 'patient_answer', 'question_cancelled', 'doctor_response')
+        type IN ('prediction', 'confirmation', 'doctor_question', 'patient_answer', 'question_cancelled', 'doctor_response', 'treatment_plan')
     ),
     payload JSONB NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP

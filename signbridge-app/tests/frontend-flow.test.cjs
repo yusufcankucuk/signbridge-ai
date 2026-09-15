@@ -57,5 +57,6 @@ test('Çoklu ilaçta tüm kayıtlar doğrulanır', () => {
 });
 test('Kontrol tarihi veya planlanmadı seçimi gereklidir', () => {
   assert.ok(planErrors({ ...validPlan(), noFollowup: false }).length > 0);
-  assert.deepEqual(planErrors({ ...validPlan(), noFollowup: false, followupDate: '2026-10-15' }), []);
+  assert.deepEqual(planErrors({ ...validPlan(), noFollowup: false, followupDate: '2026-10-15' }, '2026-09-15'), []);
+  assert.ok(planErrors({ ...validPlan(), noFollowup: false, followupDate: '2020-01-01' }, '2026-09-15').some(error => error.includes('bugünden önce')));
 });

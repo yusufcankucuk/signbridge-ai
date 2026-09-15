@@ -16,7 +16,8 @@ export function Conversation() {
   const [editing, setEditing] = useState(false); const [text, setText] = useState('');
   const [history, setHistory] = useState(false); const [page, setPage] = useState(0);
   const [cancelError, setCancelError] = useState(''); const [cancelling, setCancelling] = useState(false);
-  const turn = state.turns[Math.min(page, state.turns.length - 1)];
+  const historyTurn = state.turns[Math.min(page, state.turns.length - 1)];
+  const latestTurn = state.turns[state.turns.length - 1];
   const art = EXPRESSIONS.find(e => e.sentence === state.expression);
   return <Frame title={history ? 'Soru ve yanıtlar' : 'Görüşme'} role="doktor" footer={state.expression && <>
     {editing ? <><Button disabled={!text.trim()} onClick={() => { setState(s => ({ ...s, expression: text.trim(), reviewed: true, plan: { ...s.plan, approved: false }, understood: false })); setEditing(false); }}>Onayla</Button><button className="compact-link" onClick={() => setEditing(false)}>Vazgeç</button></> :
@@ -28,9 +29,9 @@ export function Conversation() {
     {cancelError && <p className="compact-error" role="alert">{cancelError}</p>}
     {!state.expression ? <Empty text="Hasta henüz anlatımını onaylamadı." href="/camera" /> : editing ?
       <div className="compact-form my-auto"><label>Hastanın şikayeti<textarea rows={4} maxLength={500} value={text} onChange={e => setText(e.target.value)} /></label></div> :
-      history ? turn ? <div className="compact-center items-stretch text-left"><div className="compact-card"><small>Doktor</small><ReadText text={turn.text} /></div><div className="compact-card bg-brand-50"><small>Hasta</small><ReadText text={turn.answer} /></div></div> : <div className="compact-center"><p>Henüz yanıt yok.</p></div> :
+      history ? historyTurn ? <div className="compact-center items-stretch text-left"><div className="compact-card"><small>Doktor</small><ReadText text={historyTurn.text} /></div><div className="compact-card bg-brand-50"><small>Hasta</small><ReadText text={historyTurn.answer} /></div></div> : <div className="compact-center"><p>Henüz yanıt yok.</p></div> :
       <><div className="compact-symptom">{art && <div className="art"><ExpressionVisual expression={art} /></div>}<div className="min-w-0"><p className="text-caption font-medium text-ink-muted">Hastanın şikayeti</p><ReadText text={state.expression} /></div></div>
-      <div className="compact-center">{state.pending ? <ReadText text={state.pending.text} /> : turn ? <div className="compact-card w-full text-left"><p className="mb-2 text-caption text-ink-muted">Son yanıt</p><ReadText text={turn.answer} /></div> : <p className="text-ink-muted">Hastanın anlatımını inceleyin.</p>}
+      <div className="compact-center">{state.pending ? <ReadText text={state.pending.text} /> : latestTurn ? <div className="compact-card w-full text-left"><p className="mb-2 text-caption text-ink-muted">Son yanıt</p><ReadText text={latestTurn.answer} /></div> : <p className="text-ink-muted">Hastanın anlatımını inceleyin.</p>}
         {state.turns.length > 0 && <button className="compact-link" onClick={() => { setPage(state.turns.length - 1); setHistory(true); }}>Tüm yanıtlar ({state.turns.length})</button>}
         {state.reviewed && <button className="compact-link" onClick={() => { setText(state.expression); setEditing(true); }}>Şikayeti düzenle</button>}
       </div></>}

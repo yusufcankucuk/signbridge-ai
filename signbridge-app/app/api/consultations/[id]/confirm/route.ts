@@ -44,8 +44,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!manualFromCapture && !SessionManager.canTransition(session.state, nextState)) {
         return NextResponse.json({ error: 'Geçersiz durum geçişi.' }, { status: 409 });
     }
+    let event: { type: 'confirmation' | 'patient_answer'; payload: unknown } = { type: 'confirmation', payload: eventPayload };
+    if (answerConfirmation && confirmation.confirmed && !manualSelection) {
+        try {
+            const events = await store.getEvents(id);
+            const prediction = [...events].reverse().find((item) => item.type === 'prediction')?.payload as { displayText?: unknown } | undefined;
+            const questionId = await store.getPendingQuestionId(id);
+            if (!questionId || typeof prediction?.displayText !== 'string' || !prediction.displayText.trim()) {
+                return NextResponse.json({ error: 'Onaylanacak kamera yanıtı bulunamadı.' }, { status: 409 });
+            }
+            event = { type: 'patient_answer', payload: { questionId, answer: prediction.displayText.trim(), source: 'model' } };
+        } catch { return NextResponse.json({ error: 'Kamera yanıtı okunamadı.' }, { status: 500 }); }
+    }
     try {
-        const ok = await store.transition({ id, expectedState: session.state, nextState, event: { type: 'confirmation', payload: eventPayload } });
+        const ok = await store.transition({ id, expectedState: session.state, nextState, event });
         if (!ok) return NextResponse.json({ error: 'Oturum durumu değişti; yeniden deneyin.' }, { status: 409 });
     } catch { return NextResponse.json({ error: 'Oturum durumu güncellenemedi.' }, { status: 500 }); }
 
