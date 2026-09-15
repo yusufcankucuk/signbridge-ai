@@ -2,6 +2,7 @@
 
 import { cn } from "../../../lib/utils";
 import type { DoctorQuestion } from "../../data/questions";
+import QuestionGlyph from "./QuestionGlyph";
 
 interface QuestionCardProps {
     question: DoctorQuestion;
@@ -34,25 +35,15 @@ export default function QuestionCard({
             className={cn(
                 "flex shrink-0 items-center justify-center rounded-md",
                 row ? "h-11 w-11" : "h-12 w-12",
-                disabled
-                    ? "bg-white text-ink-muted"
-                    : "bg-doctor-50 text-doctor-500"
+                disabled ? "bg-white" : "bg-doctor-50"
             )}
             aria-hidden="true"
         >
-            <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className={row ? "h-6 w-6" : "h-7 w-7"}
-            >
-                {question.strokes.map((d) => (
-                    <path key={d} d={d} />
-                ))}
-            </svg>
+            <QuestionGlyph
+                question={question}
+                muted={disabled}
+                className={row ? "h-7 w-7" : "h-8 w-8"}
+            />
         </span>
     );
 

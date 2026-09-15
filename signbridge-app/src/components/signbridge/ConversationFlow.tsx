@@ -6,6 +6,7 @@ import { Frame, Choice, Empty, Pager, ReadText } from './CompactUI';
 import Button from '../ui/Button';
 import BodyMap from './BodyMap';
 import ExpressionVisual from './ExpressionVisual';
+import QuestionSymbol from './QuestionSymbol';
 import { EXPRESSIONS } from '../../data/expressions';
 import { BODY_REGIONS, MEDICATION_GROUPS } from '../../data/regions';
 import { questionLabels, recordAnswer, type QuestionKind } from '../../lib/consultationFlow';
@@ -50,7 +51,7 @@ export function Questions() {
   const [error, setError] = useState('');
   // Soru gönderilince sayfa değişene kadar ekranı koru; uyarı kutusu bir an görünmesin.
   const [leaving, setLeaving] = useState(false);
-  const options: [QuestionKind, string, string][] = [['duration', 'Süre / Zaman', '◷'], ['intensity', 'Şiddet derecesi', '▥'], ['location', 'Yer / Bölge', '⌖'], ['medication', 'İlaç kullanımı', '⊕']];
+  const options: [QuestionKind, string][] = [['duration', 'Süre / Zaman'], ['intensity', 'Şiddet derecesi'], ['location', 'Yer / Bölge'], ['medication', 'İlaç kullanımı']];
   const send = async () => {
     if (!text.trim() || state.pending || leaving) return;
     setLeaving(true);
@@ -68,8 +69,8 @@ export function Questions() {
     {error && <p className="compact-error" role="alert">{error}</p>}
     {!available ? <Empty text="Önce görüşme ekranındaki adımı tamamlayın." /> :
       edit ? <div className="compact-form my-auto"><label>Sorunuz<textarea rows={4} maxLength={180} value={text} onChange={e => { setText(e.target.value); setKind('custom'); }} /></label></div> :
-      <div className="compact-menu my-auto">{options.map(([key, title, icon]) => <button key={key} onClick={() => { setKind(key); setText(questionLabels[key]); setEdit(true); }}>
-        <span className="symbol" aria-hidden="true">{icon}</span><span><strong>{title}</strong><small>{questionLabels[key]}</small></span><span className="ml-auto text-ink-muted" aria-hidden="true">›</span>
+      <div className="compact-menu my-auto">{options.map(([key, title]) => <button key={key} onClick={() => { setKind(key); setText(questionLabels[key]); setEdit(true); }}>
+        <span className="symbol" aria-hidden="true"><QuestionSymbol kind={key} className="h-[26px] w-[26px]" /></span><span><strong>{title}</strong><small>{questionLabels[key]}</small></span><span className="ml-auto text-ink-muted" aria-hidden="true">›</span>
       </button>)}</div>}
   </Frame>;
 }
