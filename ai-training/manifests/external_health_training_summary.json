@@ -1,7 +1,7 @@
 {
   "vocabularyVersion": "signbridge34-v1",
-  "videos": 53,
-  "views": 212,
+  "videos": 79,
+  "views": 316,
   "extractors": [
     "mediapipe-holistic-legacy",
     "mediapipe-tasks-web"
@@ -15,23 +15,28 @@
     "ext_serpil-avci",
     "ext_sozluk-a",
     "ext_sozluk-b",
+    "ext_spreadthesign",
+    "ext_tidsozluk",
     "ext_turkcell-akademi"
   ],
   "sourcesPerAvatar": {
     "asthma": [
       "ext_ahmet-tombul",
       "ext_filiz-caglar",
-      "ext_serpil-avci"
+      "ext_serpil-avci",
+      "ext_spreadthesign"
     ],
     "bleeding": [
       "ext_ahmet-tombul",
       "ext_emrah-uresin",
       "ext_ezgi-tutkun",
       "ext_serpil-avci",
-      "ext_sozluk-a"
+      "ext_sozluk-a",
+      "ext_spreadthesign"
     ],
     "burn": [
-      "ext_sozluk-a"
+      "ext_sozluk-a",
+      "ext_spreadthesign"
     ],
     "diabetes": [
       "ext_ahmet-tombul",
@@ -56,55 +61,67 @@
       "ext_ahmet-tombul",
       "ext_emrah-uresin",
       "ext_ezgi-tutkun",
-      "ext_sozluk-a"
+      "ext_sozluk-a",
+      "ext_spreadthesign"
     ],
     "nausea": [
-      "ext_meb-bulanti"
+      "ext_meb-bulanti",
+      "ext_spreadthesign",
+      "ext_tidsozluk"
     ],
     "pain": [
       "ext_ahmet-tombul",
       "ext_emrah-uresin",
       "ext_ezgi-tutkun",
       "ext_filiz-caglar",
+      "ext_spreadthesign",
+      "ext_tidsozluk",
       "ext_turkcell-akademi"
     ],
     "palpitations": [
-      "ext_emrah-uresin"
+      "ext_emrah-uresin",
+      "ext_spreadthesign"
     ],
     "rash": [
       "ext_ahmet-tombul",
       "ext_filiz-caglar",
-      "ext_serpil-avci"
+      "ext_serpil-avci",
+      "ext_spreadthesign",
+      "ext_tidsozluk"
     ],
     "shortness-of-breath": [
       "ext_emrah-uresin",
-      "ext_ezgi-tutkun"
+      "ext_ezgi-tutkun",
+      "ext_spreadthesign"
     ],
     "stomachache": [
-      "ext_ezgi-tutkun"
+      "ext_ezgi-tutkun",
+      "ext_spreadthesign"
     ],
     "vomiting": [
       "ext_ahmet-tombul",
-      "ext_filiz-caglar"
+      "ext_filiz-caglar",
+      "ext_spreadthesign",
+      "ext_tidsozluk"
     ]
   },
   "avatarsWithoutVideo": [],
   "viewsPerClass": {
-    "asthma": 12,
-    "bleeding": 28,
-    "burn": 8,
+    "asthma": 16,
+    "bleeding": 32,
+    "burn": 12,
     "seker": 12,
     "dizziness": 20,
     "fever": 16,
     "headache": 24,
-    "heart-attack": 20,
-    "nausea": 4,
-    "pain": 20,
-    "palpitations": 8,
-    "rash": 12,
-    "shortness-of-breath": 16,
-    "stomachache": 4,
-    "vomiting": 8
+    "heart-attack": 28,
+    "nausea": 12,
+    "pain": 52,
+    "palpitations": 12,
+    "rash": 28,
+    "shortness-of-breath": 28,
+    "stomachache": 8,
+    "vomiting": 16
   },
   "skippedViews": [],
   "consent": "user_reported_permission"

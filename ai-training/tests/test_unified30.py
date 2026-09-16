@@ -380,3 +380,21 @@ def test_hand_local_features_are_scale_invariant_and_model_selects_width():
 
     assert features_for_model(Wide(_vector(0, .9)), landmarks, mask).shape == (60, 222)
     assert features_for_model(VectorModel(_vector(0, .9)), landmarks, mask).shape == (60, 138)
+
+
+def test_best_model_is_selected_only_after_minimum_epochs(tmp_path):
+    tf = pytest.importorskip("tensorflow")
+    from src.train_unified import _BestAfterEpoch
+
+    model = tf.keras.Sequential([tf.keras.layers.Input(shape=(2,)), tf.keras.layers.Dense(1)])
+    model.compile(optimizer="sgd", loss="mse")
+    path = tmp_path / "best.keras"
+    callback = _BestAfterEpoch(str(path), start_epoch=3)
+    callback.set_model(model)
+    callback.set_params({"epochs": 5})
+    callback.on_epoch_end(0, {"val_loss": 0.1})   # erken ve en düşük kayıp: yok sayılır
+    assert not path.exists()
+    callback.on_epoch_end(2, {"val_loss": 0.5})   # 3. epoch: kaydedilir
+    assert path.exists() and callback.best == 0.5
+    callback.on_epoch_end(3, {"val_loss": 0.7})
+    assert callback.best == 0.5

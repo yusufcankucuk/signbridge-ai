@@ -286,6 +286,9 @@ videolarından kesilmiş 53 klip, az kaynaklı iki belirti için bileşimsel sen
 `Copy-Item .env.unified34.example .env`; ayrıntı, ölçümler ve eğitim komutları:
 [docs/external-symptom-videos.md](docs/external-symptom-videos.md) ve
 [ai-training/reports/unified34-v0.3.0-2026-09-16.md](ai-training/reports/unified34-v0.3.0-2026-09-16.md).
+Ekip içinde, Spreadthesign ve Güncel TİD Sözlüğü klipleriyle genişletilmiş `v0.3.1` modeli de vardır
+(Release'te yoktur; `.env.unified34-team.example`,
+[rapor](ai-training/reports/unified34-v0.3.1-2026-09-16.md)).
 MEB videoları, landmark dosyaları ve model ağırlıkları kullanım/dağıtım izni doğrulanmadan GitHub'a
 yüklenmemelidir.
 

@@ -1,14 +1,14 @@
 {
   "vocabularyVersion": "signbridge34-v1",
-  "samples": 144,
+  "samples": 252,
   "perAvatar": {
-    "stomachache": 108,
-    "nausea": 36
+    "stomachache": 144,
+    "nausea": 108
   },
   "perRecipe": {
     "stomachache:location": 72,
-    "stomachache:handshape": 36,
-    "nausea:handshape": 36
+    "stomachache:handshape": 72,
+    "nausea:handshape": 108
   },
   "derivedSigners": [
     "ext_ahmet-tombul",

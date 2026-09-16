@@ -107,3 +107,24 @@ Kendi eğittiğiniz modeli kullanmak için `outputs/unified34` klasörünü eği
 yerine doğrudan `docker compose up` kullanın). `/camera-trials` ekranı sözlüğü servisten okur ve
 15 belirti × 5 = 75 deneme planlar. Eski sürüme dönmek için `.env.autsl20.example` (+
 `node scripts/install-model.mjs --model autsl20`) veya `.env.unified30.example` kullanın.
+
+## 5. Sözlük videoları (Spreadthesign, Güncel TİD Sözlüğü) ve ekip içi model
+
+`signbridge-unified34-bigru-v0.3.1`, v0.3.0 verisine Spreadthesign TİD sayfalarından (15 klip, en az 7
+işaretleyici) ve Aile ve Sosyal Hizmetler Bakanlığı Güncel TİD Sözlüğü'nden (11 klip) elle indirilen
+tek işaretlik videoları ekler. Kaynak adları `spreadthesign` ve `tidsozluk`tur; küçük videolar eğitimden
+önce 640×480 / 720×480 boyutuna büyütülür. Aynı içerikli iki indirme (ör. kaşıntı = alerji) SHA-256 ile
+ayıklanır.
+
+Bu sitelerin içerikleri açık lisanslı değildir; kullanım izni ekibin sorumluluğundadır. Bu nedenle
+v0.3.1 GitHub Release'e konmaz ve varsayılan kurulum v0.3.0 olarak kalır. Ekip içinde denemek için:
+
+```powershell
+# outputs/unified34-v0.3.1 klasörünü ekipten alın
+Copy-Item .env.unified34-team.example .env
+docker compose up --build -d
+```
+
+Hareketsiz görseller (resimler, çizimler) eğitimde kullanılmaz: model işaretin 60 karelik hareketini
+öğrenir; tek kare el biçimi ile yer bilgisini verir ama hareketi taşımaz ve hareketsiz örnekler
+modeli yanıltabilir.

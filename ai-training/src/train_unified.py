@@ -519,6 +519,32 @@ kullanım izni doğrulanana kadar yapılmamalıdır. Düşük görünürlüklü 
     )
 
 
+def _best_after_epoch_class():
+    import tensorflow as tf
+
+    class BestAfterEpoch(tf.keras.callbacks.Callback):
+        """val_loss'a göre en iyi modeli yalnız belirli bir epoch'tan sonra kaydeder."""
+
+        def __init__(self, path: str, start_epoch: int):
+            super().__init__()
+            self.path, self.start_epoch, self.best = path, start_epoch, float("inf")
+
+        def on_epoch_end(self, epoch, logs=None):
+            value = (logs or {}).get("val_loss")
+            last = epoch + 1 >= self.params.get("epochs", 0)
+            if value is None or (epoch + 1 < self.start_epoch and not last):
+                return
+            if value < self.best or (last and self.best == float("inf")):
+                self.best = value
+                self.model.save(self.path)
+
+    return BestAfterEpoch
+
+
+def _BestAfterEpoch(path: str, start_epoch: int):
+    return _best_after_epoch_class()(path, start_epoch)
+
+
 def train_one_seed(args, seed: int, output_dir: Path, data: dict, labels: list[dict], teacher_path: Path,
                    teacher_probabilities: dict[str, np.ndarray], symptom_indexes: list[int],
                    general_indexes: list[int]) -> dict[str, object]:
@@ -592,8 +618,11 @@ def train_one_seed(args, seed: int, output_dir: Path, data: dict, labels: list[d
                     loss="categorical_crossentropy", metrics=["accuracy"])
     best_path = output_dir / f"{MODEL_VERSION}.keras"
     callbacks = [
-        tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=args.patience, restore_best_weights=True),
-        tf.keras.callbacks.ModelCheckpoint(str(best_path), monitor="val_loss", save_best_only=True),
+        # AUTSL doğrulama kaybı gürültülüdür; ilk epoch'larda durmak sağlık sınıflarını eksik öğretir.
+        # Bu yüzden en iyi model ve erken durdurma ancak --min-finetune-epochs sonrasında değerlendirilir.
+        tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=args.patience,
+                                         start_from_epoch=args.min_finetune_epochs),
+        _BestAfterEpoch(str(best_path), args.min_finetune_epochs),
     ]
     finetune_history = student.fit(
         train_dataset, steps_per_epoch=steps_per_epoch,
@@ -640,17 +669,23 @@ def main() -> None:
     parser.add_argument("--head-epochs", type=int, default=10)
     parser.add_argument("--finetune-epochs", type=int, default=30)
     parser.add_argument("--patience", type=int, default=7)
+    parser.add_argument("--min-finetune-epochs", type=int, default=15,
+                        help="Bu epoch'tan önce erken durdurma ve en iyi model seçimi yapılmaz")
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--meb-augmentations", type=int, default=DEFAULT_MEB_AUGMENTATIONS_PER_CLASS,
                         help="Epoch başına her MEB referans videosu için artırılmış örnek sayısı")
     parser.add_argument("--seeds", type=_seed_list, default=_seed_list(DEFAULT_SEEDS))
     parser.add_argument("--seed", type=int, help="Tek tohumla çalıştırır (--seeds yerine)")
     parser.add_argument("--smoke", action="store_true", help="Küçük veri, 1+1 epoch; ölçüm değildir")
+    parser.add_argument("--model-version", help="Model sürüm adını değiştirir (ör. yerel/ekip içi yeniden eğitim)")
     parser.add_argument("--hand-local-features", action="store_true",
                         help="El biçimi özelliklerini ekler (girdi 222); servis modele göre otomatik seçer")
     args = parser.parse_args()
     seeds = [args.seed] if args.seed is not None else args.seeds
     expected_classes = select_variant(args.vocabulary)
+    if args.model_version:
+        global MODEL_VERSION
+        MODEL_VERSION = args.model_version
     global HAND_LOCAL
     HAND_LOCAL = bool(args.hand_local_features)
     if args.output_dir is None:
@@ -804,7 +839,13 @@ def main() -> None:
         "featureLayout": "xy-mask-138+handlocal-84" if HAND_LOCAL else "xy-mask-138",
     })
     shutil.copy2(CONFIG_DIR / LABELS_FILE, output_dir / LABELS_FILE)
-    shutil.copy2(CONFIG_DIR / POLICY_FILE, output_dir / POLICY_FILE)
+    policy = json.loads((CONFIG_DIR / POLICY_FILE).read_text(encoding="utf-8"))
+    policy_name = POLICY_FILE
+    if policy.get("modelVersion") != MODEL_VERSION:
+        # --model-version ile yeni sürüm adı verildiyse paketteki politika da aynı sürümü göstermelidir.
+        policy["modelVersion"] = MODEL_VERSION
+        policy_name = POLICY_FILE.replace(".json", f".{MODEL_VERSION.rsplit('-', 1)[-1]}.json")
+    write_json(output_dir / policy_name, policy)
     write_regression_report(output_dir / "regression_report.md", summary)
     _write_model_card(output_dir / "model_card.md", summary)
     print(json.dumps({k: v for k, v in metrics.items() if k not in {"mebReferenceDetails", "seedRuns"}},
