@@ -23,8 +23,10 @@ export function Frame({ title, role = 'hasta', children, footer, home = false, a
 }
 
 export function Actions({ children }: { children: ReactNode }) { return <div className="compact-actions">{children}</div>; }
-export function Choice({ children, selected, onClick }: { children: ReactNode; selected?: boolean; onClick: () => void }) {
-  return <button type="button" className={`compact-choice ${selected ? 'is-selected' : ''}`} aria-pressed={selected} onClick={onClick}>{children}</button>;
+// `label`, içeriği yalnız bir rakam/simge olan seçenekler içindir: ekran okuyucu
+// "1, düğme" yerine "1 / 5 — Çok hafif, düğme" okusun.
+export function Choice({ children, selected, onClick, label }: { children: ReactNode; selected?: boolean; onClick: () => void; label?: string }) {
+  return <button type="button" className={`compact-choice ${selected ? 'is-selected' : ''}`} aria-pressed={selected} aria-label={label} onClick={onClick}>{children}</button>;
 }
 export function Pager({ index, total, onChange, label = 'Sayfa' }: { index: number; total: number; onChange: (index: number) => void; label?: string }) {
   if (total < 2) return null;
@@ -57,3 +59,12 @@ export function ReadText({ text, className = '' }: { text: string; className?: s
 }
 export function Empty({ text, href = '/doctor/conversation' }: { text: string; href?: string }) { return <div className="compact-center"><p>{text}</p><Button href={href}>Geri dön</Button></div>; }
 export function CameraIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg>; }
+// Şikayet kataloğunda karşılığı olmayan bir model çıktısı için yedek görsel:
+// kaldırılmış bir el. Dekoratiftir; kelime ekranda metin olarak zaten yazıyor.
+export function SignIcon() {
+  return <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="h-full w-full text-brand-600" aria-hidden="true">
+    <path d="M20 26V10a3 3 0 0 1 6 0v12" />
+    <path d="M26 22v-4a3 3 0 0 1 6 0v10" />
+    <path d="M32 24v-2a3 3 0 0 1 6 0v12a10 10 0 0 1-10 10h-4a10 10 0 0 1-9-5.6l-4.2-8.6a3 3 0 0 1 5.2-3L20 32" />
+  </svg>;
+}

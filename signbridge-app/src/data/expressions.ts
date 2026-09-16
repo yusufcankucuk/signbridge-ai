@@ -1,8 +1,9 @@
 /**
  * Hastanın işaret diliyle anlatabileceği şikayetler.
  *
- * `id` değerleri AI modelinin sınıf adlarıyla eşleşir; ekranlar bu listeyi
- * hem elle seçimde (manual-select) hem de tahmin gösteriminde kullanır.
+ * Ekranlar bu listeyi hem elle seçimde (manual-select) hem de kamera tahmininin
+ * gösteriminde kullanır. Birleşik modelin `symptom` bağlamındaki cevabı
+ * `expressionId` alanında buradaki `id` değerini taşır (ör. `seker` → `diabetes`).
  *
  * İkonlar burada saf veri olarak duruyor (JSX değil), böylece bu dosya
  * hem sunucu hem istemci tarafında kullanılabilir. `ExpressionGlyph`
@@ -20,7 +21,7 @@ export interface ExpressionArt {
 }
 
 export interface Expression {
-    /** AI sınıf adı — API'ye bu gider. */
+    /** Avatar kimliği — modelin `expressionId` alanıyla eşleşir. */
     id: string;
     /** Ekranda görünen ad. */
     label: string;
@@ -37,6 +38,8 @@ export interface Expression {
     illustration?: string;
     /** Position in the unchanged, user-supplied 5 × 2 illustration sheet. */
     illustrationTile?: { column: number; row: number };
+    /** Acil olabilecek belirti: onay ekranında ayrıca uyarı gösterilir. */
+    urgent?: boolean;
 }
 
 export const EXPRESSIONS: Expression[] = [
@@ -194,6 +197,7 @@ export const EXPRESSIONS: Expression[] = [
     },
     {
         id: "heart-attack",
+        urgent: true,
         label: "Kalp krizi işareti",
         sentence: "Göğsümde şiddetli ağrı var",
         region: "govde",
@@ -207,6 +211,7 @@ export const EXPRESSIONS: Expression[] = [
     },
     {
         id: "bleeding",
+        urgent: true,
         label: "Kanama",
         sentence: "Kanamam var",
         region: "genel",
@@ -250,6 +255,7 @@ export const EXPRESSIONS: Expression[] = [
     },
     {
         id: "burn",
+        urgent: true,
         label: "Yanık",
         sentence: "Yanığım var",
         region: "genel",
@@ -265,6 +271,27 @@ export const EXPRESSIONS: Expression[] = [
 /** Kimlikten ifadeyi bulur; AI tahmini geldiğinde kullanılır. */
 export function findExpression(id: string): Expression | undefined {
     return EXPRESSIONS.find((item) => item.id === id);
+}
+
+interface CandidateLike {
+    text: string;
+    prediction?: { expressionId?: string | null } | null;
+}
+
+/**
+ * Onay ekranında gösterilecek avatarı seçer.
+ * Model cevabında `expressionId` varsa yalnız o avatar ve yalnız cümlesi cevap metniyle
+ * aynıysa gösterilir; böylece örneğin `diabetes` avatarı başka bir sınıfa yanlışlıkla bağlanmaz.
+ * `expressionId` yoksa (eski model veya elle seçim) cümle eşleşmesi kullanılır.
+ */
+export function expressionForCandidate(candidate: CandidateLike | null | undefined): Expression | undefined {
+    if (!candidate) return undefined;
+    const expressionId = candidate.prediction?.expressionId;
+    if (expressionId) {
+        const match = EXPRESSIONS.find((item) => item.id === expressionId);
+        return match && match.sentence === candidate.text ? match : undefined;
+    }
+    return EXPRESSIONS.find((item) => item.sentence === candidate.text);
 }
 
 /** Tahmin edilen sınıfın hastaya okunacak cümlesi; bilinmeyen sınıfta boş döner. */

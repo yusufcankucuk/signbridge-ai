@@ -13,6 +13,7 @@ type SlideVisual = 'diagnosis' | 'medicine' | 'advice' | 'date';
 type SlideDate = { day: string; month: string; year: string; weekday: string };
 type Slide = { title: string; text?: string; rows?: [string, string, string][]; visual?: SlideVisual; date?: SlideDate; medIndex?: number };
 type Step = 'diagnosis' | 'medicine' | 'usage' | 'advice' | 'followup' | 'review';
+type Followup = { question: string; answer: string };
 
 function followupParts(value: string): SlideDate | undefined {
   const date = new Date(`${value}T12:00:00`);
@@ -43,14 +44,22 @@ export function planSlides(plan: Plan): Slide[] {
   return slides;
 }
 
-export function summarySlides(expression: string, turns: Turn[], plan: Plan): Slide[] {
+export function summarySlides(expression: string, turns: Turn[], plan: Plan, followups: Followup[] = []): Slide[] {
   const slides: Slide[] = [{ title: 'Onaylanan şikâyet', text: expression, visual: 'diagnosis' }];
   turns.forEach((turn, index) => slides.push({
     title: `Soru ve yanıt ${index + 1}`,
     text: `Doktor: ${turn.text}\n\nHasta: ${turn.answer}`,
     visual: 'diagnosis',
   }));
-  return [...slides, ...planSlides(plan)];
+  // Takip soru-cevabı yalnız yazdırma belgesinde görünüyordu; hasta doktorun
+  // açıklamasını ekranda bir daha göremiyordu. Plan slaytlarının sonuna eklenir.
+  const followupSlides: Slide[] = followups.flatMap((followup, index) =>
+    textPages(`Hasta sorusu: ${followup.question}\n\nDoktor açıklaması: ${followup.answer}`).map(text => ({
+      title: followups.length > 1 ? `Ek açıklama ${index + 1}` : 'Ek açıklama',
+      text,
+      visual: 'advice' as SlideVisual,
+    })));
+  return [...slides, ...planSlides(plan), ...followupSlides];
 }
 
 function SlideArt({ slide }: { slide: Slide }) {
@@ -152,7 +161,7 @@ export function Treatment() {
 
 export function Summary() {
   const { state, setState } = useFlow(); const router = useRouter(); const [page, setPage] = useState(0);
-  const slides = summarySlides(state.expression, state.turns, state.plan); const index = Math.min(page, slides.length - 1);
+  const slides = summarySlides(state.expression, state.turns, state.plan, state.followups); const index = Math.min(page, slides.length - 1);
   return <Frame title="Doktorun yazdıkları" footer={state.plan.approved && <>
     <SlideNavigation page={index} total={slides.length} onBack={() => setPage(index - 1)} />
     <Button onClick={() => { if (index < slides.length - 1) setPage(index + 1); else { setState(s => ({ ...s, understood: true })); router.push('/print'); } }}>{index < slides.length - 1 ? 'Devam et' : 'Anladım'}</Button>
