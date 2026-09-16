@@ -3,11 +3,11 @@
   "defaultModel": "unified34",
   "models": {
     "unified34": {
-      "tag": "model-unified34-v0.3.0",
-      "assetName": "signbridge-unified34-v0.3.0.zip",
-      "downloadUrl": "https://github.com/yusufcankucuk/signbridge-ai/releases/download/model-unified34-v0.3.0/signbridge-unified34-v0.3.0.zip",
-      "sha256": "06564f73a49da52912bfac15d610496894edeea4a9b2b82f3b11988e7fc3c9cf",
-      "modelVersion": "signbridge-unified34-bigru-v0.3.0",
+      "tag": "model-unified34-v0.4.0",
+      "assetName": "signbridge-unified34-v0.4.0.zip",
+      "downloadUrl": "https://github.com/yusufcankucuk/signbridge-ai/releases/download/model-unified34-v0.4.0/signbridge-unified34-v0.4.0.zip",
+      "sha256": "68c3836e71eadeccb4d0905ed5aa732a37025ead8dfcd830ccc4bb8e868dbf49",
+      "modelVersion": "signbridge-unified34-bigru-v0.4.0",
       "usage": "academic-and-research-only",
       "modelDir": "ai-training/outputs/unified34",
       "assetsManifest": "ai-training/configs/model-assets.unified34.json",

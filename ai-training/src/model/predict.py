@@ -8,7 +8,7 @@ import numpy as np
 
 from src.common import label_config, load_json, model_labels
 from src.decision_policy import decide, default_policy, load_policy, validate_policy
-from src.model.dataset import BASE_FEATURES, HAND_LOCAL_TOTAL_FEATURES, features_for_model
+from src.model.dataset import BASE_FEATURES, HAND_LOCAL_TOTAL_FEATURES, features_for_model, mirror_landmarks
 
 
 def validate_bundle(model, runtime: dict[str, object], labels: list[dict[str, object]]) -> None:
@@ -40,8 +40,11 @@ def predict_landmarks(
     labels = model_labels(str(runtime["vocabularyVersion"])) if labels is None else labels
     if recognition_context not in {"general", "symptom"}:
         raise ValueError("Tanıma bağlamı general veya symptom olmalıdır.")
-    features = features_for_model(model, landmarks, mask)
-    probabilities = model.predict(features[None, ...], verbose=0)[0]
+    batch = [features_for_model(model, landmarks, mask)]
+    if runtime.get("testTimeMirror") is True:
+        # Sağ/sol el farkına karşı: ayna görüntünün olasılıklarıyla ortalama alınır.
+        batch.append(features_for_model(model, *mirror_landmarks(landmarks, mask)))
+    probabilities = np.asarray(model.predict(np.stack(batch), verbose=0), dtype=np.float64).mean(axis=0)
     if probabilities.shape != (len(labels),) or not np.isfinite(probabilities).all():
         raise ValueError("Model geçersiz skor üretti.")
     if (probabilities < 0).any() or (probabilities > 1).any() or not np.isclose(probabilities.sum(), 1, atol=1e-4):

@@ -26,7 +26,7 @@ Komutları deponun ana klasöründe çalıştırın. Uygulamayı ilk kez deniyor
 Üç çalışma biçimi vardır:
 
 - **`manual_only`:** Model dosyası gerekmez. Kamera kapalıdır; kullanıcı listeden seçime yönlendirilir.
-- **`team_camera`:** Doğrulanmış model paketiyle deneysel kamera testidir. Varsayılan paket 15 belirti avatarını tanıyan `signbridge-unified34-bigru-v0.3.0` modelidir; eski AUTSL-20 paketi de seçilebilir. Sonuç bir öneridir ve hasta onayı zorunludur.
+- **`team_camera`:** Doğrulanmış model paketiyle deneysel kamera testidir. Varsayılan paket 15 belirti avatarını tanıyan `signbridge-unified34-bigru-v0.4.0` modelidir; eski AUTSL-20 paketi de seçilebilir. Sonuç bir öneridir ve hasta onayı zorunludur.
 - **`camera_ai`:** Ancak fiziksel kamera doğruluğu, kapsama, statik hareket, gecikme ve OOD yayın kapılarının tamamı geçtikten sonra kullanılacak final modudur. Bu karar henüz verilmemiştir.
 
 ### En hızlı deneme (Docker, 4 komut)
@@ -43,13 +43,19 @@ docker compose up --build -d
 
 Birkaç dakika sonra <http://localhost:3000> adresini açın: **Başla → Kamerayı aç**; “Hazır” yazısı
 çıkınca ▶ (Anlatımı başlat) düğmesine basın, belirti işaretini yapın ve ■ (Anlatımı bitir) düğmesine basın.
-Sistem tahmin ettiği avatarı gösterir ve “Doğru anladım mı?” diye onayınızı ister.
+Sistem tahmin ettiği avatarı gösterir ve “Doğru anladım mı?” diye onayınızı ister. Altında sıradaki
+iki olası avatar da görünür (“Başka bir şey mi anlattınız?”); doğrusu oradaysa ona dokunup onaylayın.
 Kurulumu kontrol etmek için `Invoke-RestMethod http://localhost:3000/api/ai/status` çıktısında
 `cameraAiEnabled=true`, `vocabularyVersion=signbridge34-v1` ve `versionMismatch=false` görülmelidir.
 
 İyi sonuç için: yüzünüz, omuzlarınız ve iki eliniz görüntüde olsun; ışık önden gelsin; işareti bir kez,
-normal hızda yapın. Model deneyseldir; eğitimde görmediği kişilerde belirtilerin yaklaşık yarısını doğru
-bilir (ayrıntı: [ai-training/reports/unified34-v0.3.0-2026-09-16.md](ai-training/reports/unified34-v0.3.0-2026-09-16.md)).
+normal hızda yapın. Elinizi işaretten önce kaldırıp sonra indirebilirsiniz; kaydın başındaki ve sonundaki
+boş kısımlar atılır. Model deneyseldir. Eğitimde görmediği kişilerde:
+
+- ilk öneri yaklaşık %61 doğrudur;
+- doğru avatar, onay ekranındaki üç avatardan birinde yaklaşık %81 oranında bulunur.
+
+Ayrıntı: [ai-training/reports/unified34-v0.4.0-2026-09-16.md](ai-training/reports/unified34-v0.4.0-2026-09-16.md).
 
 ### Model paketleri
 
@@ -69,7 +75,7 @@ node scripts/check-model-assets.mjs
 İnternetsiz kurulumda ekipten alınan aynı ZIP dosyasını kullanabilirsiniz:
 
 ```bash
-node scripts/install-model.mjs --archive path/to/signbridge-unified34-v0.3.0.zip
+node scripts/install-model.mjs --archive path/to/signbridge-unified34-v0.4.0.zip
 ```
 
 Eski modeli kullanmak için `.env.autsl20.example` dosyasını `.env` olarak kopyalayın ve
@@ -278,14 +284,22 @@ sürümü beklenenle uyuşmazsa kamerayı açmaz (`versionMismatch=true`). 55 ka
 
 ### Birleşik 34 sınıflı model (15 belirti avatarı)
 
-`signbridge-unified34-bigru-v0.3.0` (`signbridge34-v1`), 30 sınıflı modele baş ağrısı, karın ağrısı,
-bulantı ve nefes darlığını ekler. MEB videolarına ek olarak internetteki 8 TİD eğitmeninin ders/sözlük
-videolarından kesilmiş 53 klip, az kaynaklı iki belirti için bileşimsel sentetik örnekler ve el biçimi
-özellikleri (girdi 222) kullanılır. Eğitimde hiç görülmeyen kişilerde belirti bağlamı doğruluğu yaklaşık
-%49–52'dir; bu bir öğrenci prototipidir, her sonuç hasta onayı ister. Çalıştırmak için
-`Copy-Item .env.unified34.example .env`; ayrıntı, ölçümler ve eğitim komutları:
+`signbridge-unified34-bigru-v0.4.0` (`signbridge34-v1`), 20 AUTSL kelimesine 15 belirti avatarını ekler.
+
+- **Eğitim verisi:** MEB videoları, internetteki 8 TİD eğitmeninin ders/sözlük videolarından kesilmiş
+  klipler ve az kaynaklı belirtiler için bileşimsel sentetik örnekler (ör. “ağrı” işaretinin başa/karna
+  taşınması).
+- **Kodlayıcı:** AUTSL'nin 226 işaretinin tamamıyla (43 kişi) önceden eğitildi.
+- **Tahmin:** Ayna görüntüyle ortalama alınır.
+- **İstemci:** Kaydı eğitim verisiyle aynı biçimde kırpar.
+
+Bu bir öğrenci prototipidir, her sonuç hasta onayı ister. Çalıştırmak için
+`Copy-Item .env.unified34.example .env`. Ayrıntı, ölçümler ve eğitim komutları:
 [docs/external-symptom-videos.md](docs/external-symptom-videos.md) ve
-[ai-training/reports/unified34-v0.3.0-2026-09-16.md](ai-training/reports/unified34-v0.3.0-2026-09-16.md).
+[ai-training/reports/unified34-v0.4.0-2026-09-16.md](ai-training/reports/unified34-v0.4.0-2026-09-16.md).
+
+Ekip içinde, Spreadthesign ve Güncel TİD Sözlüğü kliplerini de eğitime katan `v0.4.1` modeli vardır.
+Release'te yoktur; `.env.unified34-team.example` ile kullanılır.
 MEB videoları, landmark dosyaları ve model ağırlıkları kullanım/dağıtım izni doğrulanmadan GitHub'a
 yüklenmemelidir.
 

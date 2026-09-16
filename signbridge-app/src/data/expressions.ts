@@ -294,6 +294,35 @@ export function expressionForCandidate(candidate: CandidateLike | null | undefin
     return EXPRESSIONS.find((item) => item.sentence === candidate.text);
 }
 
+/** Birleşik modelde belirti sınıf kimliği avatar kimliğinden farklı olanlar. */
+const SYMPTOM_CLASS_EXPRESSIONS: Record<string, string> = { seker: "diabetes" };
+
+interface AlternativesLike {
+    alternatives?: string[];
+    expressionId?: string | null;
+    recognitionContext?: string;
+}
+
+/**
+ * Kamera önerisinin ardından gelen olası belirti avatarları (modelin `alternatives` sırası).
+ * Ana öneri ve tekrarlar çıkarılır; yalnız belirti bağlamında döner. Kişiden kişiye işaret
+ * farkı büyük olduğu için doğru avatar çoğu zaman ilk üç öneri içindedir; hasta seçip onaylar.
+ */
+export function alternativeExpressions(prediction: AlternativesLike | null | undefined, limit = 2): Expression[] {
+    if (!prediction || prediction.recognitionContext !== "symptom") return [];
+    const seen = new Set<string>(prediction.expressionId ? [prediction.expressionId] : []);
+    const out: Expression[] = [];
+    for (const classId of prediction.alternatives ?? []) {
+        const id = SYMPTOM_CLASS_EXPRESSIONS[classId] ?? classId;
+        if (seen.has(id)) continue;
+        seen.add(id);
+        const match = findExpression(id);
+        if (match) out.push(match);
+        if (out.length >= limit) break;
+    }
+    return out;
+}
+
 /** Tahmin edilen sınıfın hastaya okunacak cümlesi; bilinmeyen sınıfta boş döner. */
 export function sentenceFor(id: string): string {
     return findExpression(id)?.sentence ?? "";

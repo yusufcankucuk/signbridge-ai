@@ -43,7 +43,7 @@
   "method": "score_only",
   "confidenceThreshold": 0.95,
   "marginThreshold": 0.0,
-  "modelVersion": "signbridge-unified34-bigru-v0.4.0",
+  "modelVersion": "signbridge-unified34-bigru-v0.4.1",
   "preprocessingVersion": "landmark46-v1",
   "vocabularyVersion": "signbridge34-v1"
 }

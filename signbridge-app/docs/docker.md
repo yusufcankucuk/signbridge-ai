@@ -35,7 +35,7 @@ modeli açar, SavedModel dosyalarını ayrı ayrı doğrular ve ancak bütün ko
 (`ai-training/outputs/unified34`, eski model için `ai-training/outputs`) atomik biçimde değiştirir. İnternet yoksa arşivi depo içine kopyalamadan bilgisayardaki bir yoldan kurabilirsiniz:
 
 ```powershell
-node scripts/install-model.mjs --archive C:\path\to\signbridge-unified34-v0.3.0.zip
+node scripts/install-model.mjs --archive C:\path\to\signbridge-unified34-v0.4.0.zip
 ```
 
 Kurulumdan sonra platformdan bağımsız ön kontrolü çalıştırın:

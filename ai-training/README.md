@@ -114,8 +114,10 @@ doğruluğu en yüksek olanı seçer ve `regression_report.md` üretir. Kamera d
 `python -m src.summarize_symptom_trials <csv>` ile raporlanır. Ayrıntılar:
 [../docs/unified30-symptom-model.md](../docs/unified30-symptom-model.md).
 
-15 belirti avatarlı `signbridge34-v1` modeli için harici videolar, sentetik örnekler ve
-`--hand-local-features` seçeneği: [../docs/external-symptom-videos.md](../docs/external-symptom-videos.md).
+15 belirti avatarlı `signbridge34-v1` modeli için harici videolar, sentetik örnekler,
+AUTSL-226 kodlayıcı ön eğitimi (`src.data.pack_autsl226`, `src.pretrain_autsl226`, `--encoder-init`),
+`--hand-local-features` ve `--test-time-mirror` seçenekleri:
+[../docs/external-symptom-videos.md](../docs/external-symptom-videos.md).
 Bu modelde yalnız sağlık örneklerine %30 olasılıkla ayna uygulanır (solak kullanıcılar); AUTSL örnekleri
 çevrilmez.
 

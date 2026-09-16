@@ -37,15 +37,16 @@ FIELDNAMES = [
 
 # hedef avatar -> tarifler. El biçimi aktarımı yalnız hedef işaretin de düz elle vücuda dokunduğu
 # sınıflarda kullanılır (el biçimi ayırt edici olan kusma/yanık/çarpıntıda kullanılmaz).
-RECIPES: dict[str, list[dict[str, object]]] = {
-    "stomachache": [
-        {"kind": "location", "from": ["headache"], "region": "belly"},
-        {"kind": "handshape", "donors": ["shortness-of-breath", "heart-attack", "palpitations"]},
-    ],
-    "nausea": [
-        {"kind": "handshape", "donors": ["shortness-of-breath", "heart-attack", "stomachache"]},
-    ],
-}
+# Sıra önemlidir (örnek numaraları); yeni tarifler sona eklenir.
+RECIPES: list[tuple[str, dict[str, object]]] = [
+    ("stomachache", {"kind": "location", "from": ["headache"], "region": "belly"}),
+    ("stomachache", {"kind": "handshape", "donors": ["shortness-of-breath", "heart-attack", "palpitations"]}),
+    ("nausea", {"kind": "handshape", "donors": ["shortness-of-breath", "heart-attack", "stomachache"]}),
+    # TİD'de "ağrı" işareti acıyan yerde yapılır: baş ağrısı ≈ başta ağrı, karın ağrısı ≈ karında ağrı.
+    # Ağrı işaretini yapan birçok kişinin hareketi ilgili bölgeye taşınarak bu iki sınıfa kişi çeşitliliği eklenir.
+    ("headache", {"kind": "relocate", "from": ["pain"], "region": "head"}),
+    ("stomachache", {"kind": "relocate", "from": ["pain"], "region": "belly"}),
+]
 
 
 def _hand_centroids(landmarks: np.ndarray, mask: np.ndarray, block: slice) -> tuple[np.ndarray, np.ndarray]:
@@ -81,12 +82,14 @@ def region_anchor(samples: list[dict], region: str) -> np.ndarray:
         centroid, ok = _hand_centroids(sample["landmarks"], sample["mask"], block)
         if region == "belly":
             chosen = ok & (centroid[:, 1] > 0.8)
+        elif region == "head":
+            chosen = ok & (centroid[:, 1] < -0.35)
         else:
             chosen = ok
         if chosen.any():
             points.append(np.median(centroid[chosen], axis=0))
     if not points:
-        return np.asarray([0.0, 1.4], dtype=np.float32)
+        return np.asarray([-0.5, -0.8] if region == "head" else [0.0, 1.4], dtype=np.float32)
     return np.median(np.stack(points), axis=0).astype(np.float32)
 
 
@@ -118,6 +121,24 @@ def location_transfer(sample: dict, anchor: np.ndarray, rng: np.random.Generator
     landmarks[:, block, :] += (weights[:, None, None] * shift) * hand_mask[..., None]
     elbow = elbow_index(block)
     landmarks[:, elbow, :] += weights[:, None] * shift * 0.45 * mask[:, elbow:elbow + 1]
+    return {"landmarks": landmarks, "mask": mask.copy()}
+
+
+def relocate_sign(sample: dict, anchor: np.ndarray, rng: np.random.Generator) -> dict | None:
+    """Etkin elin tüm hareketini (biçim ve hareket korunarak) hedef vücut bölgesine taşır."""
+    landmarks = sample["landmarks"].copy()
+    mask = sample["mask"]
+    block = active_block(landmarks, mask)
+    centroid, ok = _hand_centroids(landmarks, mask, block)
+    if ok.sum() < 5:
+        return None
+    source_point = np.median(centroid[ok], axis=0)
+    target = anchor + rng.normal(0.0, [0.10, 0.10])
+    shift = (target - source_point).astype(np.float32)
+    hand_mask = mask[:, block].astype(bool)
+    landmarks[:, block, :] += shift * hand_mask[..., None]
+    elbow = elbow_index(block)
+    landmarks[:, elbow, :] += shift * 0.45 * mask[:, elbow:elbow + 1]
     return {"landmarks": landmarks, "mask": mask.copy()}
 
 
@@ -220,36 +241,36 @@ def synthesize(data_root: Path, manifests: list[Path], output_manifest: Path, vo
         })
 
     counter = 0
-    for avatar, recipes in RECIPES.items():
+    for avatar, recipe in RECIPES:
         if avatar not in by_avatar:
             continue
         targets = grouped.get(avatar, [])
-        for recipe in recipes:
-            if recipe["kind"] == "location":
-                anchor = region_anchor(targets, str(recipe["region"]))
-                for source_avatar in recipe["from"]:
-                    for base in grouped.get(source_avatar, []):
-                        for _ in range(per_pair):
-                            result = location_transfer(base, anchor, rng)
-                            if result is not None:
-                                counter += 1
-                                write(avatar, "location", result, base, None, counter)
-            else:
-                target_signers = {t["row"]["signer_id"] for t in targets}
-                for donor_avatar in recipe["donors"]:
-                    donors = [d for d in grouped.get(donor_avatar, []) if d["row"]["signer_id"] not in target_signers]
-                    for target in targets:
-                        if not donors:
-                            break
-                        for donor_index in rng.choice(len(donors), size=min(per_pair, len(donors)), replace=False):
-                            result = handshape_transplant(target, donors[int(donor_index)], rng)
-                            if result is not None:
-                                counter += 1
-                                write(avatar, "handshape", result, target, donors[int(donor_index)], counter)
+        if recipe["kind"] in {"location", "relocate"}:
+            transfer = location_transfer if recipe["kind"] == "location" else relocate_sign
+            anchor = region_anchor(targets, str(recipe["region"]))
+            for source_avatar in recipe["from"]:
+                for base in grouped.get(source_avatar, []):
+                    for _ in range(per_pair):
+                        result = transfer(base, anchor, rng)
+                        if result is not None:
+                            counter += 1
+                            write(avatar, str(recipe["kind"]), result, base, None, counter)
+        else:
+            target_signers = {t["row"]["signer_id"] for t in targets}
+            for donor_avatar in recipe["donors"]:
+                donors = [d for d in grouped.get(donor_avatar, []) if d["row"]["signer_id"] not in target_signers]
+                for target in targets:
+                    if not donors:
+                        break
+                    for donor_index in rng.choice(len(donors), size=min(per_pair, len(donors)), replace=False):
+                        result = handshape_transplant(target, donors[int(donor_index)], rng)
+                        if result is not None:
+                            counter += 1
+                            write(avatar, "handshape", result, target, donors[int(donor_index)], counter)
 
     output_manifest.parent.mkdir(parents=True, exist_ok=True)
     with output_manifest.open("w", encoding="utf-8-sig", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=FIELDNAMES)
+        writer = csv.DictWriter(handle, fieldnames=FIELDNAMES, lineterminator="\n")
         writer.writeheader()
         writer.writerows(output_rows)
     summary = {

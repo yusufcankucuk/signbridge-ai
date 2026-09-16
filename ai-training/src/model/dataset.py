@@ -48,6 +48,15 @@ def sequence_to_features(landmarks: np.ndarray, mask: np.ndarray, *, hand_local:
     return np.concatenate([base, hand_local_features(coordinates, mask)], axis=-1)
 
 
+# Ayna görüntü: omuz/dirsek ve iki el yer değiştirir, x ekseni ters çevrilir (solak işaretleyici).
+MIRROR_ORDER = [1, 0, 3, 2, *range(25, 46), *range(4, 25)]
+
+
+def mirror_landmarks(landmarks: np.ndarray, mask: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    mirrored = landmarks[:, MIRROR_ORDER].astype(np.float32) * np.asarray([-1.0, 1.0], dtype=np.float32)
+    return mirrored, mask[:, MIRROR_ORDER]
+
+
 def features_for_model(model, landmarks: np.ndarray, mask: np.ndarray) -> np.ndarray:
     """Modelin girdi boyutuna göre (138 veya 222) özellik üretir."""
     width = int(model.input_shape[-1])

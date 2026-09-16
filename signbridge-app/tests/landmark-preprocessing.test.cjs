@@ -11,7 +11,7 @@ const compiled = ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
 });
 const preprocessingModule = new Module(filename, module);
 preprocessingModule._compile(compiled.outputText, filename);
-const { assessPoseQuality, preprocessPoseSequence } = preprocessingModule.exports;
+const { assessPoseQuality, prepareRecordedFrames, preprocessPoseSequence } = preprocessingModule.exports;
 
 function visibleFrames(count = 24) {
   return Array.from({ length: count }, (_, frameIndex) => {
@@ -89,4 +89,49 @@ test('geçerli tek el ve iki el hareketi kalite kapısını geçer', () => {
 
 test('yeniden örnekleme deterministiktir', () => {
   assert.deepEqual(preprocessPoseSequence(visibleFrames(19)), preprocessPoseSequence(visibleFrames(19)));
+});
+
+function recordingWithIdleEdges() {
+  // 30 kare: 0–5 ve 26–29 arası eller kadraj dışında, sağ elde 12–14 arası kısa kayıp.
+  return Array.from({ length: 30 }, (_, frameIndex) => {
+    const keypoints = Array.from({ length: 75 }, () => [0, 0]);
+    const confidence = Array.from({ length: 75 }, () => 0);
+    keypoints[11] = [0.4, 0.4]; keypoints[12] = [0.6, 0.4]; confidence[11] = 1; confidence[12] = 1;
+    const handVisible = frameIndex >= 6 && frameIndex <= 25 && !(frameIndex >= 12 && frameIndex <= 14);
+    for (let index = 54; index < 75; index += 1) {
+      keypoints[index] = handVisible ? [frameIndex / 30, 0.5 + index / 1000] : [0, 0];
+      confidence[index] = handVisible ? 0.9 : 0;
+    }
+    return { keypoints, confidence };
+  });
+}
+
+test('kayıt başındaki/sonundaki boş kareler kırpılır ve kısa el kaybı doldurulur', () => {
+  const frames = recordingWithIdleEdges();
+  const prepared = prepareRecordedFrames(frames);
+  assert.equal(prepared.length, 22); // 5..26 (0,1 sn pay)
+  const filled = prepared[13 - 5];
+  assert.ok(Math.abs(filled.keypoints[54][0] - 13 / 30) < 1e-9);
+  assert.equal(filled.confidence[54], 0.9);
+  assert.equal(frames[13].confidence[54], 0, 'girdi değiştirilmemeli');
+  const raw = assessPoseQuality(frames, 0.1, 8, 0.6, 0.5, 0);
+  const trimmed = assessPoseQuality(prepared, 0.1, 8, 0.6, 0.5, 0);
+  assert.equal(raw.status, 'approved');
+  assert.ok(trimmed.handFrameRatio > raw.handFrameRatio);
+});
+
+test('uzun bekleme içeren kayıt kırpma sonrası el görünürlüğü kapısından geçer', () => {
+  const sign = recordingWithIdleEdges().slice(6, 26);
+  const idle = recordingWithIdleEdges()[0];
+  const frames = [...Array(25).fill(idle), ...sign, ...Array(15).fill(idle)];
+  assert.equal(assessPoseQuality(frames, 0.1, 8, 0.6, 0.5, 0).reason, 'low_hand_visibility');
+  assert.equal(assessPoseQuality(prepareRecordedFrames(frames), 0.1, 8, 0.6, 0.5, 0).status, 'approved');
+});
+
+test('eli hiç görünmeyen veya çok kısa kayıt kırpılmaz', () => {
+  const idle = recordingWithIdleEdges()[0];
+  assert.equal(prepareRecordedFrames(Array(12).fill(idle)).length, 12);
+  const short = recordingWithIdleEdges().slice(0, 9);
+  short[7] = recordingWithIdleEdges()[7];
+  assert.equal(prepareRecordedFrames(short).length, 9);
 });
