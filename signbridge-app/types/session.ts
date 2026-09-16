@@ -5,6 +5,9 @@ export type SessionState =
     | 'patient_confirmation'
     | 'doctor_review'
     | 'patient_response'
+    | 'patient_question'
+    | 'patient_answer'
+    | 'patient_answer_confirmation'
     | 'doctor_response'
     | 'patient_review'
     | 'ended';
@@ -24,7 +27,11 @@ export type InteractionEventType =
     | 'confirmation'
     | 'doctor_question'
     | 'patient_answer'
-    | 'doctor_response';
+    | 'question_cancelled'
+    | 'doctor_response'
+    | 'treatment_plan';
+
+export type QuestionKind = 'duration' | 'intensity' | 'location' | 'medication' | 'custom';
 
 // 2. Etkileşim Olayları Veri Modeli (interaction_events)
 export interface InteractionEvent {
@@ -48,7 +55,12 @@ export interface PredictionPayload {
     preprocessingVersion: string;
     vocabularyVersion: string;
     decisionPolicyVersion: string;
-    rejectionReason: 'low_score' | 'ambiguous_prediction' | null;
+    rejectionReason:
+        | 'low_score'
+        | 'ambiguous_prediction'
+        | 'unsupported_class'
+        | 'policy_disabled'
+        | null;
     requiresConfirmation: boolean;
 }
 
@@ -73,4 +85,22 @@ export interface PatientAnswerPayload {
     questionId: string;
     answer: string;
     source: 'manual' | 'demo' | 'model';
+}
+
+export interface TreatmentPlanPayload {
+    diagnosis: string;
+    explanation: string;
+    medications: Array<{
+        id: string;
+        name: string;
+        dose: string;
+        frequency: string;
+        meal: string;
+        duration: string;
+    }>;
+    noMedication: boolean;
+    advice: string;
+    followupDate: string;
+    noFollowup: boolean;
+    approved: true;
 }

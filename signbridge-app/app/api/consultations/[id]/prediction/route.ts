@@ -36,7 +36,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         return NextResponse.json({ error: 'Oturum bulunamadı.' }, { status: 404 });
     }
 
-    if (!SessionManager.canTransition(session.state, 'patient_confirmation')) {
+    const nextState = session.state === 'patient_answer'
+        ? 'patient_answer_confirmation'
+        : 'patient_confirmation';
+    if (!SessionManager.canTransition(session.state, nextState)) {
         return NextResponse.json({ error: 'Geçersiz durum geçişi. Şu an patient_capture bekleniyor.' }, { status: 409 });
     }
 
@@ -58,7 +61,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         transitioned = await store.transition({
             id,
             expectedState: session.state,
-            nextState: 'patient_confirmation',
+            nextState,
             event: { type: 'prediction', payload: result.prediction },
         });
     } catch {
@@ -68,7 +71,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     return NextResponse.json({
         success: true,
-        nextState: 'patient_confirmation',
+        nextState,
         prediction: result.prediction,
         provider: result.provider,
         fallbackUsed: result.fallbackUsed,

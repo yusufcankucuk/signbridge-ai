@@ -64,6 +64,29 @@ test('kısa, omuzsuz ve geçersiz diziler güvenli biçimde reddedilir', () => {
   assert.equal(assessPoseQuality(invalid).reason, 'invalid_or_non_finite_frame');
 });
 
+test('statik el ve yalnız kamera titreşimi yetersiz hareket olarak reddedilir', () => {
+  const staticFrames = visibleFrames();
+  staticFrames.forEach(frame => {
+    for (let index = 33; index < 75; index += 1) frame.keypoints[index][0] = -0.25;
+  });
+  const staticQuality = assessPoseQuality(staticFrames);
+  assert.match(staticQuality.reason, /insufficient_motion/);
+  assert.equal(staticQuality.motionScore, 0);
+
+  const cameraJitter = staticFrames.map((frame, index) => ({
+    confidence: [...frame.confidence],
+    keypoints: frame.keypoints.map(([x, y]) => [x + (index % 2 ? 0.002 : -0.002), y]),
+  }));
+  assert.match(assessPoseQuality(cameraJitter).reason, /insufficient_motion/);
+});
+
+test('geçerli tek el ve iki el hareketi kalite kapısını geçer', () => {
+  assert.equal(assessPoseQuality(visibleFrames()).status, 'approved');
+  const oneHand = visibleFrames();
+  oneHand.forEach(frame => { for (let index = 54; index < 75; index += 1) frame.confidence[index] = 0; });
+  assert.equal(assessPoseQuality(oneHand).status, 'approved');
+});
+
 test('yeniden örnekleme deterministiktir', () => {
   assert.deepEqual(preprocessPoseSequence(visibleFrames(19)), preprocessPoseSequence(visibleFrames(19)));
 });

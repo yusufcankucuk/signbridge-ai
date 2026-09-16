@@ -21,8 +21,8 @@ CLASSES = ["doktor", "hasta", "hayir", "evet", "ilac"]
 CONDITIONS = ["normal", "low_light", "far", "slow", "fast"]
 FIELDS = [
     "trial_id", "planned", "participant_code", "expected_class", "condition", "repeat",
-    "evaluation_group", "performance_verified", "source_kind", "quality_status", "quality_reason",
-    "shoulder_ratio", "hand_ratio", "frames", "capture_seconds", "captured_fps", "capture_stop_reason",
+    "evaluation_group", "performance_verified", "motion_label", "source_kind", "quality_status", "quality_reason",
+    "shoulder_ratio", "hand_ratio", "motion_score", "frames", "capture_seconds", "captured_fps", "capture_stop_reason",
     "predicted_class", "confidence", "accepted", "correct", "rejection_reason", "decision_policy_version",
     "model_load_ms", "warmup_ms", "extraction_ms", "preprocessing_ms", "inference_ms",
     "after_capture_ms", "status",
@@ -148,12 +148,14 @@ def evaluate_raw(model, runtime, points, confidences, decision_policy=None):
         minimum_frames=config["minimumSequenceFrames"],
         minimum_shoulder_ratio=config["minimumShoulderFrameRatio"],
         minimum_hand_ratio=config["minimumHandFrameRatio"],
+        minimum_motion_score=config["minimumMotionScore"],
     )
     row = {
         "quality_status": quality.status,
         "quality_reason": quality.reason,
         "shoulder_ratio": quality.shoulder_frame_ratio,
         "hand_ratio": quality.hand_frame_ratio,
+        "motion_score": quality.motion_score,
         "frames": len(points),
         "status": "quality_blocked",
         "accepted": False,
@@ -247,6 +249,7 @@ def main():
     parser.add_argument("--signer-code", dest="participant_code", default="anonymous")
     parser.add_argument("--group", choices=["development", "holdout", "reference"], default="development")
     parser.add_argument("--performance-verified", choices=["yes", "no", "unknown", "prompt"], default="unknown")
+    parser.add_argument("--motion-label", choices=["valid", "static"], default="valid")
     args = parser.parse_args()
 
     if args.matrix:
@@ -277,6 +280,7 @@ def main():
                     f"katılımcı={template['participant_code']} / grup={template['evaluation_group']}"
                 )
                 template["performance_verified"] = "unknown" if args.performance_verified == "prompt" else args.performance_verified
+                template["motion_label"] = args.motion_label
                 template["model_load_ms"] = model_load_ms
                 template["warmup_ms"] = warmup_ms if number == 1 else 0.0
                 measured = _evaluate_trial(model, runtime, policy, args, template)
@@ -292,6 +296,7 @@ def main():
                 "repeat": args.repeat,
                 "evaluation_group": args.group,
                 "performance_verified": args.performance_verified,
+                "motion_label": args.motion_label,
                 "model_load_ms": model_load_ms,
                 "warmup_ms": warmup_ms,
             }

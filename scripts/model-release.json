@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "1.0",
+  "tag": "model-autsl20-v0.1.0",
+  "assetName": "signbridge-autsl20-modelarts-v0.1.0.zip",
+  "downloadUrl": "https://github.com/yusufcankucuk/signbridge-ai/releases/download/model-autsl20-v0.1.0/signbridge-autsl20-modelarts-v0.1.0.zip",
+  "sha256": "1bdef13278487e77e788b2a9471a6c25743115bddc4f6f3be3615b7c035a5421",
+  "modelVersion": "autsl20-bigru-v0.1.0",
+  "usage": "academic-and-research-only"
+}
