@@ -5,10 +5,28 @@
  * Henüz ekranı yazılmamış sorular `ready: false` ile işaretli — arayüz
  * bunları "yakında" olarak pasif gösterir, tıklanınca hiçbir yere gitmez.
  *
- * İkonlar `expressions.ts` ile aynı biçimde saf veri (viewBox 0 0 24 24).
+ * İkonlar `expressions.ts` ile aynı biçimde saf veri, ancak iki boyamalı:
+ * her parça bir `tone` taşır (koyu lacivert → açık mavi) ve dolgu ya da
+ * çizgi olarak çizilir. Çizim alanı viewBox 0 0 48 48.
  */
 
 import type { QuestionParam } from "../constants/routes";
+
+/** İkon paletindeki basamaklar — `QuestionGlyph` gerçek renklere çevirir. */
+export type QuestionTone = "dark" | "mid" | "light" | "pale" | "faint" | "white";
+
+/** İkonun tek bir parçası. */
+export interface QuestionShape {
+    /** viewBox="0 0 48 48" içindeki yol. */
+    d: string;
+    tone: QuestionTone;
+    /** `true` → çizgi olarak çizilir; yoksa dolgu. */
+    stroke?: boolean;
+    /** Çizgi kalınlığı (varsayılan 3). */
+    width?: number;
+    /** Parçaya özel dönüşüm (ör. kapsülü eğmek için). */
+    transform?: string;
+}
 
 export interface DoctorQuestion {
     id: string;
@@ -25,8 +43,8 @@ export interface DoctorQuestion {
      * listeye sığan kadarı gösterilir; kalanlar hazır olduğunda açılır.
      */
     listed: boolean;
-    /** viewBox="0 0 24 24" içinde çizilen çizgiler. */
-    strokes: string[];
+    /** Sorunun resmi — arkadan öne doğru çizilen parçalar. */
+    art: QuestionShape[];
 }
 
 export const DOCTOR_QUESTIONS: DoctorQuestion[] = [
@@ -37,7 +55,12 @@ export const DOCTOR_QUESTIONS: DoctorQuestion[] = [
         target: "duration",
         ready: true,
         listed: true,
-        strokes: ["M12 7v5l3 2", "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z"],
+        /* Saat: kadranın dışında açık mavi bir yay, içinde koyu akrep-yelkovan. */
+        art: [
+            { d: "M24 9A17 17 0 0 1 41 26", tone: "light", stroke: true, width: 3.5 },
+            { d: "M11 26a13 13 0 1 0 26 0a13 13 0 1 0 -26 0Z", tone: "dark", stroke: true, width: 3 },
+            { d: "M24 17.5V26H30.5", tone: "dark", stroke: true, width: 3 },
+        ],
     },
     {
         id: "intensity",
@@ -46,12 +69,13 @@ export const DOCTOR_QUESTIONS: DoctorQuestion[] = [
         target: "intensity",
         ready: true,
         listed: true,
-        /* Yükselen çubuklar: 24'lük kutuya dikeyde ortalanır, kırpılmaz. */
-        strokes: [
-            "M5 19v-3.5",
-            "M10 19v-7",
-            "M15 19v-10.5",
-            "M20 19v-14",
+        /* Yükselen çubuklar: yükseldikçe koyulaşır, renk tek başına anlam
+           taşımasın diye yükseklik de artar. */
+        art: [
+            { d: "M6.5 31H8.5A2.5 2.5 0 0 1 11 33.5V38.5A2.5 2.5 0 0 1 8.5 41H6.5A2.5 2.5 0 0 1 4 38.5V33.5A2.5 2.5 0 0 1 6.5 31Z", tone: "pale" },
+            { d: "M17.5 24H19.5A2.5 2.5 0 0 1 22 26.5V38.5A2.5 2.5 0 0 1 19.5 41H17.5A2.5 2.5 0 0 1 15 38.5V26.5A2.5 2.5 0 0 1 17.5 24Z", tone: "light" },
+            { d: "M28.5 17H30.5A2.5 2.5 0 0 1 33 19.5V38.5A2.5 2.5 0 0 1 30.5 41H28.5A2.5 2.5 0 0 1 26 38.5V19.5A2.5 2.5 0 0 1 28.5 17Z", tone: "mid" },
+            { d: "M39.5 10H41.5A2.5 2.5 0 0 1 44 12.5V38.5A2.5 2.5 0 0 1 41.5 41H39.5A2.5 2.5 0 0 1 37 38.5V12.5A2.5 2.5 0 0 1 39.5 10Z", tone: "dark" },
         ],
     },
     {
@@ -63,9 +87,11 @@ export const DOCTOR_QUESTIONS: DoctorQuestion[] = [
         /* Soru listesinde yok: özet, doktor tedaviyi yazdıktan SONRA
            hastaya gösterilir (`/doctor/result` → `/patient/summary`). */
         listed: false,
-        strokes: [
-            "M8 4h8a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z",
-            "M9.5 12l2 2 3.5-4",
+        /* Panoya takılı onay işareti. */
+        art: [
+            { d: "M16 8H32A5 5 0 0 1 37 13V35A5 5 0 0 1 32 40H16A5 5 0 0 1 11 35V13A5 5 0 0 1 16 8Z", tone: "faint" },
+            { d: "M21 4.5H27A3 3 0 0 1 30 7.5V8.5A3 3 0 0 1 27 11.5H21A3 3 0 0 1 18 8.5V7.5A3 3 0 0 1 21 4.5Z", tone: "dark" },
+            { d: "M17.5 25.5L22 30L31 19", tone: "dark", stroke: true, width: 3.5 },
         ],
     },
     {
@@ -75,9 +101,14 @@ export const DOCTOR_QUESTIONS: DoctorQuestion[] = [
         target: "location",
         ready: true,
         listed: true,
-        strokes: [
-            "M12 21s-6-4.5-6-9a6 6 0 0 1 12 0c0 4.5-6 9-6 9z",
-            "M12 12h.01",
+        /* Gövde silueti + ağrının yayıldığı iç içe halkalar. */
+        art: [
+            { d: "M19 10a5 5 0 1 0 10 0a5 5 0 1 0 -10 0Z", tone: "dark", stroke: true, width: 3 },
+            { d: "M13 22C15 18.5 18.5 17 24 17C29.5 17 33 18.5 35 22L38.5 33M13 22L9.5 33", tone: "dark", stroke: true, width: 3 },
+            { d: "M16.5 24L15 40M31.5 24L33 40", tone: "dark", stroke: true, width: 3 },
+            { d: "M15 29a9 9 0 1 0 18 0a9 9 0 1 0 -18 0Z", tone: "faint" },
+            { d: "M18.5 29a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0 -11 0Z", tone: "light" },
+            { d: "M21.5 29a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0 -5 0Z", tone: "dark" },
         ],
     },
     {
@@ -87,9 +118,12 @@ export const DOCTOR_QUESTIONS: DoctorQuestion[] = [
         target: "medication",
         ready: true,
         listed: true,
-        strokes: [
-            "M8.5 4.5h7a3 3 0 0 1 0 6h-7a3 3 0 0 1 0-6z",
-            "M8.5 13.5h7a3 3 0 0 1 0 6h-7a3 3 0 0 1 0-6z",
+        /* Eğik kapsül (iki yarısı iki ton) + yanında yuvarlak tablet. */
+        art: [
+            { d: "M20 11H14A8 8 0 0 0 14 27H20Z", tone: "dark", transform: "rotate(35 20 19)" },
+            { d: "M20 11H26A8 8 0 0 1 26 27H20Z", tone: "light", transform: "rotate(35 20 19)" },
+            { d: "M30.5 36a7.5 7.5 0 1 0 15 0a7.5 7.5 0 1 0 -15 0Z", tone: "light" },
+            { d: "M34 39.5L42 32.5", tone: "white", stroke: true, width: 2.6 },
         ],
     },
     {
@@ -98,10 +132,11 @@ export const DOCTOR_QUESTIONS: DoctorQuestion[] = [
         hint: "Bilinen alerjisi var mı?",
         ready: false,
         listed: false,
-        strokes: [
-            "M12 4v11",
-            "M12 19h.01",
-            "M10.3 4.2L2.6 17.5A1.5 1.5 0 0 0 3.9 19.8h16.2a1.5 1.5 0 0 0 1.3-2.3L13.7 4.2a1.5 1.5 0 0 0-2.6 0z",
+        /* Uyarı üçgeni. */
+        art: [
+            { d: "M21.4 8.6L6.4 34.5A3 3 0 0 0 9 39H39A3 3 0 0 0 41.6 34.5L26.6 8.6A3 3 0 0 0 21.4 8.6Z", tone: "pale" },
+            { d: "M24 18V27", tone: "dark", stroke: true, width: 3.5 },
+            { d: "M22 32.5a2 2 0 1 0 4 0a2 2 0 1 0 -4 0Z", tone: "dark" },
         ],
     },
 ];

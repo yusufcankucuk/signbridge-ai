@@ -11,7 +11,8 @@ import { DiagnosisVisual, MedicineVisual, AdviceVisual, CalendarVisual, MedRowIc
 
 type SlideVisual = 'diagnosis' | 'medicine' | 'advice' | 'date';
 type SlideDate = { day: string; month: string; year: string; weekday: string };
-type Slide = { title: string; text?: string; rows?: [string, string, string][]; visual?: SlideVisual; date?: SlideDate };
+type Slide = { title: string; text?: string; rows?: [string, string, string][]; visual?: SlideVisual; date?: SlideDate; medIndex?: number };
+type Step = 'diagnosis' | 'medicine' | 'usage' | 'advice' | 'followup' | 'review';
 
 function followupParts(value: string): SlideDate | undefined {
   const date = new Date(`${value}T12:00:00`);
@@ -30,11 +31,11 @@ export function planSlides(plan: Plan): Slide[] {
   if (!plan.noMedication) plan.medications.forEach((m, i) => {
     const rows: [string, string, string][] = [['İlaç', m.name, 'name'], ['Doz', m.dose, 'dose'], ['Sıklık', m.frequency, 'frequency'], ['Yemek / Kullanım', m.meal, 'meal'], ['Süre', m.duration, 'duration']];
     if (rows.some(row => row[1].length > 38)) {
-      rows.forEach(([label, value, icon]) => textPages(value, 150).forEach(text => slides.push({ title: `İlaç ${i + 1} • ${label}`, rows: [[label, text, icon]], visual: 'medicine' })));
+      rows.forEach(([label, value, icon]) => textPages(value, 150).forEach(text => slides.push({ title: `İlaç ${i + 1} • ${label}`, rows: [[label, text, icon]], visual: 'medicine', medIndex: i })));
     } else if (rows.some(row => row[1].length > 28) || rows.reduce((sum, row) => sum + row[1].length, 0) > 95) {
-      slides.push({ title: `İlaç ${i + 1}`, rows: rows.slice(0, 3), visual: 'medicine' });
-      slides.push({ title: `İlaç ${i + 1} • Kullanım`, rows: rows.slice(3), visual: 'medicine' });
-    } else slides.push({ title: plan.diagnosis.length <= 38 ? plan.diagnosis : `İlaç ${i + 1}`, rows, visual: 'medicine' });
+      slides.push({ title: `İlaç ${i + 1}`, rows: rows.slice(0, 3), visual: 'medicine', medIndex: i });
+      slides.push({ title: `İlaç ${i + 1} • Kullanım`, rows: rows.slice(3), visual: 'medicine', medIndex: i });
+    } else slides.push({ title: plan.diagnosis.length <= 38 ? plan.diagnosis : `İlaç ${i + 1}`, rows, visual: 'medicine', medIndex: i });
   });
   if (plan.noMedication || plan.advice) textPages(plan.advice || 'İlaç yazılmadı.').forEach(text => slides.push({ title: plan.noMedication ? 'İlaçsız tedavi' : 'Dikkat edeceklerim', text, visual: 'advice' }));
   const parts = plan.noFollowup ? undefined : followupParts(plan.followupDate);
@@ -71,14 +72,21 @@ function SlideNavigation({ page, total, onBack }: { page: number; total: number;
 
 export function Treatment() {
   const { state, setState } = useFlow(); const router = useRouter(); const plan = state.plan;
-  const [step, setStep] = useState<'diagnosis' | 'medicine' | 'usage' | 'advice' | 'followup' | 'review'>('diagnosis');
+  const [step, setStep] = useState<Step>('diagnosis');
   const [medicineIndex, setMedicineIndex] = useState(0); const [page, setPage] = useState(0); const [error, setError] = useState('');
   const [medicationDone, setMedicationDone] = useState(false); const [saving, setSaving] = useState(false);
   const current = plan.medications[medicineIndex];
   const update = (patch: Partial<Plan>) => setState(s => ({ ...s, plan: { ...s.plan, ...patch, approved: false }, understood: false }));
   const updateMedicine = (key: keyof Medication, value: string) => update({ medications: plan.medications.map((m, index) => index === medicineIndex ? { ...m, [key]: value } : m) });
   const addMedicine = () => { update({ noMedication: false, medications: [...plan.medications, { id: crypto.randomUUID(), name: '', dose: '', frequency: '', meal: '', duration: '' }] }); setMedicineIndex(plan.medications.length); setMedicationDone(false); setStep('medicine'); setError(''); };
-  const go = (next: typeof step) => { setStep(next); setError(''); };
+  const go = (next: Step) => { setStep(next); setError(''); };
+  // Önizlemede "Düzenle", sihirbazı baştan açmak yerine o slayta karşılık gelen adımı açar.
+  const editSlide = (slide: Slide) => {
+    if (slide.visual === 'medicine') { setMedicineIndex(slide.medIndex ?? 0); setMedicationDone(false); go('medicine'); return; }
+    if (slide.visual === 'advice') { go('advice'); return; }
+    if (slide.visual === 'date') { go('followup'); return; }
+    go('diagnosis');
+  };
   const next = () => {
     if (step === 'diagnosis') {
       if (!plan.diagnosis.trim() || !plan.explanation.trim()) { setError('Tanı ve açıklamayı tamamlayın.'); return; }
@@ -123,7 +131,7 @@ export function Treatment() {
         catch { setSaving(false); setError('Tedavi planı kaydedilemedi. Lütfen tekrar deneyin.'); return; }
         setState(s => ({ ...s, plan: { ...s.plan, medications: s.plan.noMedication ? [] : s.plan.medications, followupDate: s.plan.noFollowup ? '' : s.plan.followupDate, approved: true }, understood: false }));
         router.push('/handoff/patient?next=summary');
-      }}>{page < slides.length - 1 ? 'Devam et' : 'Onayla, hastaya göster'}</Button><button className="compact-link" onClick={() => go('diagnosis')}>Düzenle</button>
+      }}>{page < slides.length - 1 ? 'Devam et' : 'Onayla, hastaya göster'}</Button><button className="compact-link" onClick={() => editSlide(slide)}>Düzenle</button>
     </> : <><Button onClick={next} disabled={step === 'medicine' && !plan.noMedication && !current && !medicationDone}>Devam et</Button><button className="compact-link" onClick={back}>Geri</button></>}
   </>}>
     {!valid ? <Empty text="Önce görüşmeyi tamamlayın." /> :

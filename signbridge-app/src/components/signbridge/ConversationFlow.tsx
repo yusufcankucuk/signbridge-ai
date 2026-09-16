@@ -6,6 +6,7 @@ import { Frame, Choice, Empty, Pager, ReadText } from './CompactUI';
 import Button from '../ui/Button';
 import BodyMap from './BodyMap';
 import ExpressionVisual from './ExpressionVisual';
+import QuestionSymbol from './QuestionSymbol';
 import { EXPRESSIONS } from '../../data/expressions';
 import { BODY_REGIONS, MEDICATION_GROUPS } from '../../data/regions';
 import { questionLabels, recordAnswer, type QuestionKind } from '../../lib/consultationFlow';
@@ -45,7 +46,7 @@ export function Questions() {
   const [error, setError] = useState('');
   // Soru gönderilince sayfa değişene kadar ekranı koru; uyarı kutusu bir an görünmesin.
   const [leaving, setLeaving] = useState(false);
-  const options: [QuestionKind, string, string][] = [['duration', 'Süre / Zaman', '◷'], ['intensity', 'Şiddet derecesi', '▥'], ['location', 'Yer / Bölge', '⌖'], ['medication', 'İlaç kullanımı', '⊕']];
+  const options: [QuestionKind, string][] = [['duration', 'Süre / Zaman'], ['intensity', 'Şiddet derecesi'], ['location', 'Yer / Bölge'], ['medication', 'İlaç kullanımı']];
   const send = async () => {
     if (!text.trim() || state.pending || leaving) return;
     const question = { id: crypto.randomUUID(), kind, text: text.trim() };
@@ -63,8 +64,8 @@ export function Questions() {
     {error && <p className="compact-error" role="alert">{error}</p>}
     {!available ? <Empty text="Önce görüşme ekranındaki adımı tamamlayın." /> :
       edit ? <div className="compact-form my-auto"><label>Sorunuz<textarea rows={4} maxLength={180} value={text} onChange={e => { setText(e.target.value); setKind('custom'); }} /></label></div> :
-      <div className="compact-menu my-auto">{options.map(([key, title, icon]) => <button key={key} onClick={() => { setKind(key); setText(questionLabels[key]); setEdit(true); }}>
-        <span className="symbol" aria-hidden="true">{icon}</span><span><strong>{title}</strong><small>{questionLabels[key]}</small></span><span className="ml-auto text-ink-muted" aria-hidden="true">›</span>
+      <div className="compact-menu my-auto">{options.map(([key, title]) => <button key={key} onClick={() => { setKind(key); setText(questionLabels[key]); setEdit(true); }}>
+        <span className="symbol" aria-hidden="true"><QuestionSymbol kind={key} className="h-[26px] w-[26px]" /></span><span><strong>{title}</strong><small>{questionLabels[key]}</small></span><span className="ml-auto text-ink-muted" aria-hidden="true">›</span>
       </button>)}</div>}
   </Frame>;
 }
@@ -98,8 +99,14 @@ export function PatientResponse({ kind }: { kind: QuestionKind }) {
     void send(answer);
   };
   const canContinue = kind === 'medication' && selected === 'Evet' ? stage === 'choice' || (stage === 'groups' ? groups.length > 0 : !!detail.trim()) : valid;
+  // Buton pasifken hastanın ne yapması gerektiği yazıyla da söylenir; tanı/ilaç adımlarındaki uyarılarla tutarlı olsun.
+  const hint = kind === 'custom' ? 'Devam etmek için yanıtınızı yazın.' :
+    stage === 'name' ? 'Devam etmek için ilacın adını yazın.' :
+    stage === 'groups' ? 'Devam etmek için en az bir ilaç grubu seçin.' :
+    'Devam etmek için bir seçenek seçin.';
   return <Frame title={titles[kind]} footer={ready && <>
     <Button disabled={!canContinue || leaving} onClick={next}>{kind === 'medication' && selected === 'Evet' && (stage === 'choice' || (stage === 'groups' && groups.includes('Başka bir ilaç'))) ? 'Devam et' : 'Doktora ilet'}</Button>
+    {!canContinue && !leaving && <p className="text-center text-caption text-ink-muted">{hint}</p>}
     {stage !== 'choice' ? <button className="compact-link" onClick={() => setStage(stage === 'name' ? 'groups' : 'choice')}>Geri</button> :
       <button className="compact-link" onClick={() => { setState(s => ({ ...s, capture: 'answer', candidate: null })); router.push('/camera'); }}>İşaret diliyle yanıtla</button>}
   </>}>
