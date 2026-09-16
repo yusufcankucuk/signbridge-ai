@@ -1,0 +1,24 @@
+{
+  "vocabularyVersion": "signbridge34-v1",
+  "samples": 144,
+  "perAvatar": {
+    "stomachache": 108,
+    "nausea": 36
+  },
+  "perRecipe": {
+    "stomachache:location": 72,
+    "stomachache:handshape": 36,
+    "nausea:handshape": 36
+  },
+  "derivedSigners": [
+    "ext_ahmet-tombul",
+    "ext_emrah-uresin",
+    "ext_ezgi-tutkun",
+    "ext_serpil-avci",
+    "ext_sozluk-a",
+    "ext_sozluk-b",
+    "ext_turkcell-akademi",
+    "meb_official_01"
+  ],
+  "note": "Sentetik örneklerdir; gerçek katılımcı veya kamera başarısı olarak raporlanmaz."
+}

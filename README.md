@@ -4,8 +4,8 @@ SignBridge, Türk İşaret Dili (TİD) kullanan hasta ile işaret dili bilmeyen 
 
 ## MVP kapsamı
 
-1. Hasta kameraya tek bir izole işaret yapar.
-2. Güvenli yayın kapısı açıksa AUTSL-20 modeli en olası sınıfı ve güven puanını üretir.
+1. Hasta kameraya tek bir izole işaret yapar (ör. “başım ağrıyor”, “ateşim var”).
+2. Varsayılan `signbridge-unified34` modeli 20 genel kelime ve 15 belirti avatarı arasından en olası sonucu ve güven puanını üretir.
 3. Güven düşükse sistem tahmin yürütmez; yeniden deneme veya manuel seçim sunar.
 4. Hasta sonucu onaylar ya da düzeltir.
 5. Doktor yazılı/sesli yanıt verir ve hasta ekranda okur.
@@ -26,17 +26,40 @@ Komutları deponun ana klasöründe çalıştırın. Uygulamayı ilk kez deniyor
 Üç çalışma biçimi vardır:
 
 - **`manual_only`:** Model dosyası gerekmez. Kamera kapalıdır; kullanıcı listeden seçime yönlendirilir.
-- **`team_camera`:** Doğrulanmış model paketiyle yalnız ekip içi teknik testtir. Modelin 20 sınıfının tamamı ve `0,95` eşik kullanılır; sonuç deneysel bir öneridir ve hasta onayı zorunludur.
+- **`team_camera`:** Doğrulanmış model paketiyle deneysel kamera testidir. Varsayılan paket 15 belirti avatarını tanıyan `signbridge-unified34-bigru-v0.3.0` modelidir; eski AUTSL-20 paketi de seçilebilir. Sonuç bir öneridir ve hasta onayı zorunludur.
 - **`camera_ai`:** Ancak fiziksel kamera doğruluğu, kapsama, statik hareket, gecikme ve OOD yayın kapılarının tamamı geçtikten sonra kullanılacak final modudur. Bu karar henüz verilmemiştir.
 
-Kamera modları için aşağıdaki model çıktıları gerekir:
+### En hızlı deneme (Docker, 4 komut)
 
-```text
-ai-training/outputs/saved_model/
-ai-training/outputs/runtime_config.json
+Gerekenler: Git, Docker Desktop, kameralı bir bilgisayar ve Chrome veya Edge.
+
+```powershell
+git clone https://github.com/yusufcankucuk/signbridge-ai.git
+cd signbridge-ai
+Copy-Item .env.docker.example .env          # macOS/Linux: cp .env.docker.example .env
+docker compose --profile setup run --rm model-setup
+docker compose up --build -d
 ```
 
-Modeli GitHub Release üzerinden indirip SHA-256 doğrulamasıyla güvenli biçimde kurun:
+Birkaç dakika sonra <http://localhost:3000> adresini açın: **Başla → Kamerayı aç**; “Hazır” yazısı
+çıkınca ▶ (Anlatımı başlat) düğmesine basın, belirti işaretini yapın ve ■ (Anlatımı bitir) düğmesine basın.
+Sistem tahmin ettiği avatarı gösterir ve “Doğru anladım mı?” diye onayınızı ister.
+Kurulumu kontrol etmek için `Invoke-RestMethod http://localhost:3000/api/ai/status` çıktısında
+`cameraAiEnabled=true`, `vocabularyVersion=signbridge34-v1` ve `versionMismatch=false` görülmelidir.
+
+İyi sonuç için: yüzünüz, omuzlarınız ve iki eliniz görüntüde olsun; ışık önden gelsin; işareti bir kez,
+normal hızda yapın. Model deneyseldir; eğitimde görmediği kişilerde belirtilerin yaklaşık yarısını doğru
+bilir (ayrıntı: [ai-training/reports/unified34-v0.3.0-2026-09-16.md](ai-training/reports/unified34-v0.3.0-2026-09-16.md)).
+
+### Model paketleri
+
+Kamera modları için doğrulanmış model gerekir. Kurulum aracı modeli GitHub Release'ten indirir,
+SHA-256 ile doğrular ve doğru klasöre açar:
+
+| Model | Komut | Klasör |
+|---|---|---|
+| `unified34` (varsayılan; 20 kelime + 15 belirti) | `node scripts/install-model.mjs` | `ai-training/outputs/unified34/` |
+| `autsl20` (eski; 20 kelime) | `node scripts/install-model.mjs --model autsl20` | `ai-training/outputs/` |
 
 ```bash
 node scripts/install-model.mjs
@@ -46,8 +69,11 @@ node scripts/check-model-assets.mjs
 İnternetsiz kurulumda ekipten alınan aynı ZIP dosyasını kullanabilirsiniz:
 
 ```bash
-node scripts/install-model.mjs --archive path/to/signbridge-autsl20-modelarts-v0.1.0.zip
+node scripts/install-model.mjs --archive path/to/signbridge-unified34-v0.3.0.zip
 ```
+
+Eski modeli kullanmak için `.env.autsl20.example` dosyasını `.env` olarak kopyalayın ve
+`node scripts/install-model.mjs --model autsl20` çalıştırın.
 
 Windows, macOS ve Linux'ta ön kontrol aynıdır:
 
@@ -55,7 +81,7 @@ Windows, macOS ve Linux'ta ön kontrol aynıdır:
 node scripts/check-model-assets.mjs
 ```
 
-Kurucu önce arşiv hash'ini, sonra iç model dosyalarını doğrular. Bozuk veya yarım indirme çalışan modelin üzerine yazılmaz. Model yoksa manuel demo için `node scripts/check-model-assets.mjs --allow-manual-only` komutu başarılı çıkar ancak kameranın kapalı olduğunu açıkça bildirir. Model ve AUTSL verileri Git'e eklenmez.
+Kurucu önce arşiv hash'ini, sonra iç model dosyalarını doğrular. Bozuk veya yarım indirme çalışan modelin üzerine yazılmaz. Model yoksa manuel demo için `node scripts/check-model-assets.mjs --allow-manual-only` komutu başarılı çıkar ancak kameranın kapalı olduğunu açıkça bildirir. Model ağırlıkları, videolar ve AUTSL verileri Git'e eklenmez; model yalnız Release dosyası olarak dağıtılır.
 
 ### Seçenek 1 — Docker ile başlangıç
 
@@ -70,7 +96,7 @@ Gerekenler: Docker Desktop ve kamerası olan bir bilgisayar.
 
 2. İlk yerel denemede `.env` içindeki `SESSION_STORE=memory` ayarını koruyun. Kalıcı Supabase oturumu gerekiyorsa `infrastructure/database/schema.sql` dosyasını kendi projenizde çalıştırın, `SESSION_STORE=supabase`, `SUPABASE_URL` ve yalnızca sunucuda kalacak `SUPABASE_SERVICE_ROLE_KEY` değerlerini girin. Anon anahtarı service-role anahtarı yerine kullanmayın.
 
-3. Ekip kamera testi yapacaksanız modeli tek komutla kurun. Yalnız manuel demo için bu adımı atlayın:
+3. Kamera testi yapacaksanız modeli tek komutla kurun (varsayılan `unified34`). Yalnız manuel demo için bu adımı atlayın:
 
    ```powershell
    docker compose --profile setup run --rm model-setup
@@ -126,9 +152,10 @@ Sonra AI penceresinde şu model yollarını tanımlayın:
 
 ```powershell
 cd ai-training
-$env:MODEL_PATH = (Resolve-Path .\outputs\saved_model).Path
-$env:RUNTIME_CONFIG_PATH = (Resolve-Path .\outputs\runtime_config.json).Path
-$env:DECISION_POLICY_PATH = (Resolve-Path .\configs\decision_policy.team-camera.json).Path
+$env:MODEL_PATH = (Resolve-Path .\outputs\unified34\saved_model).Path
+$env:RUNTIME_CONFIG_PATH = (Resolve-Path .\outputs\unified34\runtime_config.json).Path
+$env:LABELS_PATH = (Resolve-Path .\configs\labels.signbridge34.json).Path
+$env:DECISION_POLICY_PATH = (Resolve-Path .\configs\decision_policy.unified34-team-camera.json).Path
 .\.venv\Scripts\python.exe -m uvicorn src.service:app --host 127.0.0.1 --port 8000
 ```
 
@@ -210,6 +237,57 @@ Bu, resmî kabul ölçümü değildir; yalnız modeli günlük kullanımda tanı
 [`ai-training/README.md`](ai-training/README.md) içindeki "Haftalık kamera, eşik ve teslim çalışması"
 bölümüne bakın — `python -m src.validate_video` ile planlanan deneme matrisini üretip
 `python -m src.summarize_camera` ile sonuçları birleştirebilirsiniz.
+
+### Birleşik 30 sınıflı MEB belirti deneyi
+
+`signbridge-unified30-bigru-v0.2.0`, mevcut 20 AUTSL sınıfını koruyup 10 yeni belirti çıktısı ekler.
+Mevcut `seker` sınıfı 14 numaralı indeksini korur; ilk şikâyet ekranında `diabetes` avatarına ve
+“Şeker hastasıyım” ifadesine bağlanır. Böylece belirti bağlamında 11 avatar adayı vardır.
+
+Bu paket sınıf başına yalnız bir MEB referans videosuyla eğitildiği için deneysel bir öğrenci
+prototipidir. Bağımsız kullanıcı başarımı kanıtlanmış değildir, tıbbi tanı koymaz ve bütün sonuçlar
+hasta onayı ister. Dört bileşik veya anlam eşleşmesi doğrulanmamış ifade (`headache`, `stomachache`,
+`nausea`, `shortness-of-breath`) manuel seçimde kalır.
+
+Birleşik modeli Docker ile hazırlayıp eğitmek için (çıktı klasörü boş olmalıdır). Tarayıcı
+çıkarıcısı görünümleri önce `node scripts/extract-browser-landmarks.mjs` ile üretilir
+(ayrıntı: [docs/unified30-symptom-model.md](docs/unified30-symptom-model.md)):
+
+```powershell
+$env:SIGNBRIDGE_DATA_ROOT = "C:/path/to/signbridge-data"
+docker compose --profile training run --rm --entrypoint python ai-training `
+  -m src.data.prepare_meb_health --data-root /data `
+  --browser-landmarks /data/processed/meb_health11_browser_raw.json
+docker compose --profile training run --rm --entrypoint python ai-training `
+  -m src.train_unified --data-root /data --manifest-dir /app/manifests `
+  --base-model /outputs/saved_model --output-dir /outputs/unified30
+```
+
+Eğitim tamamlandıktan sonra birleşik paketi çalıştırmak için örnek ayarları kopyalayın:
+
+```powershell
+Copy-Item .env.unified30.example .env
+docker compose up --build -d
+Invoke-RestMethod http://localhost:3000/api/ai/status
+```
+
+Beklenen sürümler `signbridge-unified30-bigru-v0.2.0` ve `signbridge30-v1` değerleridir. Web, servis
+sürümü beklenenle uyuşmazsa kamerayı açmaz (`versionMismatch=true`). 55 kamera denemesi için
+<http://localhost:3000/camera-trials> kullanılır. Ayrıntılar, gerileme raporu ve eski modele dönüş:
+[docs/unified30-symptom-model.md](docs/unified30-symptom-model.md).
+
+### Birleşik 34 sınıflı model (15 belirti avatarı)
+
+`signbridge-unified34-bigru-v0.3.0` (`signbridge34-v1`), 30 sınıflı modele baş ağrısı, karın ağrısı,
+bulantı ve nefes darlığını ekler. MEB videolarına ek olarak internetteki 8 TİD eğitmeninin ders/sözlük
+videolarından kesilmiş 53 klip, az kaynaklı iki belirti için bileşimsel sentetik örnekler ve el biçimi
+özellikleri (girdi 222) kullanılır. Eğitimde hiç görülmeyen kişilerde belirti bağlamı doğruluğu yaklaşık
+%49–52'dir; bu bir öğrenci prototipidir, her sonuç hasta onayı ister. Çalıştırmak için
+`Copy-Item .env.unified34.example .env`; ayrıntı, ölçümler ve eğitim komutları:
+[docs/external-symptom-videos.md](docs/external-symptom-videos.md) ve
+[ai-training/reports/unified34-v0.3.0-2026-09-16.md](ai-training/reports/unified34-v0.3.0-2026-09-16.md).
+MEB videoları, landmark dosyaları ve model ağırlıkları kullanım/dağıtım izni doğrulanmadan GitHub'a
+yüklenmemelidir.
 
 ## Dal düzeni
 

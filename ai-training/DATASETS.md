@@ -14,7 +14,10 @@ AUTSL'nin resmî train/validation/test ayrımı korunur. Bölümlerdeki işaret�
 
 - Kaynak: [MEB Sağlık Tematik Sözlükleri](https://orgm.meb.gov.tr/icdep/saglik-tematik-sozlukleri-107)
 - Bu projedeki rolü: sağlık terimi kataloğu, resmî görsel referans ve 12 terimlik manuel seçim menüsü
-- Eğitim durumu: `reference_only`
+- Eğitim durumu: AUTSL-20 modelinde `reference_only`; deneysel `signbridge30-v1` birleşik modelinde
+  11 video (`manifests/meb_health11_training.csv`) tek referans ve artırımla eğitime girer
+- Lisans: sayfada makine öğrenmesi eğitimi veya model ağırlığı dağıtımı için açık izin görülmedi;
+  birleşik model ağırlıkları izin doğrulanana kadar yayımlanmaz
 - Depolama: videolar Git'e eklenmez; yalnızca kaynak/etiket manifesti tutulur
 
 Her terim için yalnızca bir resmî örnek bulunması, modelin farklı kişiler ve ortamlar üzerinde öğrenmesi için yeterli değildir. Bu nedenle MEB videolarının çoğaltılmış kopyaları bağımsız gerçek veri sayılmaz ve AUTSL test ölçümüne karıştırılmaz. İleride farklı gönüllülerden açık rıza ile çoklu çekim toplanırsa ayrı bir sürüm ve kişi bazlı ayrım ile eğitime alınabilir.

@@ -45,6 +45,13 @@ async function freePort() {
     return port;
 }
 
+const TEST_CONTRACT_ENV = {
+    AI_EXPECTED_MODEL_VERSION: 'autsl20-bigru-v0.1.0',
+    AI_EXPECTED_PREPROCESSING_VERSION: 'landmark46-v1',
+    AI_EXPECTED_VOCABULARY_VERSION: 'autsl20-v1',
+    CAMERA_TRIALS_ENABLED: 'false',
+};
+
 async function startNext(environment) {
     const port = await freePort();
     const output = [];
@@ -54,6 +61,8 @@ async function startNext(environment) {
             ...process.env,
             NODE_ENV: 'production',
             SESSION_STORE: 'memory',
+            // Geliştiricinin .env.local dosyası test sözleşmesini değiştirmesin.
+            ...TEST_CONTRACT_ENV,
             ...environment
         },
         stdio: ['ignore', 'pipe', 'pipe']
@@ -297,5 +306,105 @@ test('ModelArts kesintisinde yapılandırılmış local fallback kullanılır', 
         await stopNext(app.child);
         await closeServer(modelarts.server);
         await closeServer(local.server);
+    }
+});
+
+const UNIFIED_ENV = {
+    AI_EXPECTED_MODEL_VERSION: 'signbridge-unified30-bigru-v0.2.0',
+    AI_EXPECTED_VOCABULARY_VERSION: 'signbridge30-v1',
+    CAMERA_MOTION_POLICY_ENABLED: 'true',
+};
+
+function healthBody(modelVersion, vocabularyVersion) {
+    return {
+        status: 'ok', mode: 'team_camera', modelLoaded: true, cameraAiEnabled: true, modelVersion,
+        vocabularyVersion, preprocessingVersion: 'landmark46-v1', decisionPolicyVersion: 'test-policy',
+        experimental: true, warning: 'Deneysel kamera tahmini; tıbbi tanı değildir ve hasta onayı zorunludur.',
+    };
+}
+
+test('servis sürümü beklenenle uyuşmazsa kamera tahmini açılmaz', async () => {
+    let health = healthBody('autsl20-bigru-v0.1.0', 'autsl20-v1');
+    const upstream = await listen((_request, response) => {
+        response.writeHead(200, { 'content-type': 'application/json' });
+        response.end(JSON.stringify(health));
+    });
+    const app = await startNext({ AI_PROVIDER: 'local', AI_LOCAL_URL: upstream.url, ...UNIFIED_ENV });
+    try {
+        let status = await (await fetch(`${app.baseUrl}/api/ai/status`)).json();
+        assert.equal(status.cameraAiEnabled, false);
+        assert.equal(status.mode, 'manual_only');
+        assert.equal(status.versionMismatch, true);
+        assert.deepEqual(status.versionMismatchFields, ['modelVersion', 'vocabularyVersion']);
+
+        health = healthBody('signbridge-unified30-bigru-v0.2.0', 'signbridge30-v1');
+        status = await (await fetch(`${app.baseUrl}/api/ai/status`)).json();
+        assert.equal(status.cameraAiEnabled, true);
+        assert.equal(status.mode, 'team_camera');
+        assert.equal(status.versionMismatch, false);
+        assert.equal(status.modelVersion, 'signbridge-unified30-bigru-v0.2.0');
+        assert.equal(status.vocabularyVersion, 'signbridge30-v1');
+        assert.equal(status.experimental, true);
+    } finally {
+        await stopNext(app.child);
+        await closeServer(upstream.server);
+    }
+});
+
+test('belirti bağlamı servise iletilir ve şeker diabetes avatar kimliğiyle döner', async () => {
+    let receivedContext;
+    const prediction = {
+        classId: 'seker', expressionId: 'diabetes', displayText: 'Şeker hastasıyım', confidence: 0.97,
+        alternatives: ['seker', 'pain', 'burn'], isLowConfidence: false, forcedCandidate: false, experimental: true,
+        recognitionContext: 'symptom', predictionMode: 'model', modelVersion: 'signbridge-unified30-bigru-v0.2.0',
+        preprocessingVersion: 'landmark46-v1', vocabularyVersion: 'signbridge30-v1',
+        decisionPolicyVersion: 'signbridge30-team-camera-v1', rejectionReason: null, requiresConfirmation: true,
+    };
+    const upstream = await listen((request, response) => {
+        let raw = '';
+        request.on('data', (chunk) => { raw += chunk; });
+        request.on('end', () => {
+            receivedContext = JSON.parse(raw).recognitionContext;
+            response.writeHead(200, { 'content-type': 'application/json' });
+            response.end(JSON.stringify(prediction));
+        });
+    });
+    const app = await startNext({ AI_PROVIDER: 'local', AI_LOCAL_URL: upstream.url, ...UNIFIED_ENV });
+    try {
+        const response = await fetch(`${app.baseUrl}/api/ai/predict`, {
+            method: 'POST', headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ ...VALID_REQUEST, recognitionContext: 'symptom' }),
+        });
+        assert.equal(response.status, 200);
+        assert.equal(receivedContext, 'symptom');
+        const body = await response.json();
+        assert.equal(body.expressionId, 'diabetes');
+        const invalid = await fetch(`${app.baseUrl}/api/ai/predict`, {
+            method: 'POST', headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ ...VALID_REQUEST, recognitionContext: 'diagnosis' }),
+        });
+        assert.equal(invalid.status, 400);
+    } finally {
+        await stopNext(app.child);
+        await closeServer(upstream.server);
+    }
+});
+
+test('kamera deneme sayfası yalnız açıkça etkinleştirildiğinde açılır', async () => {
+    const closed = await startNext({ AI_PROVIDER: 'mock' });
+    try {
+        // Kök düzen Suspense ile akış yaptığı için durum kodu 200 kalabilir; önemli olan içeriğin gelmemesidir.
+        const html = await (await fetch(`${closed.baseUrl}/camera-trials`)).text();
+        assert.equal(html.includes('Belirti kamera denemeleri'), false);
+    } finally {
+        await stopNext(closed.child);
+    }
+    const open = await startNext({ AI_PROVIDER: 'mock', CAMERA_TRIALS_ENABLED: 'true' });
+    try {
+        const response = await fetch(`${open.baseUrl}/camera-trials`);
+        assert.equal(response.status, 200);
+        assert.equal((await response.text()).includes('Belirti kamera denemeleri'), true);
+    } finally {
+        await stopNext(open.child);
     }
 });

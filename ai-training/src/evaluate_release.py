@@ -16,7 +16,7 @@ import numpy as np
 from src.common import AI_ROOT, autsl_labels, load_json, preprocessing_config, write_json
 from src.data.convert_autsl import _load_official_autsl_pickle
 from src.data.preprocessing import assess_quality, preprocess_pose_sequence
-from src.model.dataset import load_split, sequence_to_features
+from src.model.dataset import features_for_model, load_split
 from src.model.predict import validate_bundle
 
 
@@ -230,7 +230,7 @@ def _score_ood(model, data_root: Path, selection, vocabulary):
         if quality.status == "approved":
             processed = preprocess_pose_sequence(points, confidence, minimum_confidence=cfg["minimumConfidence"])
             probability = model.predict(
-                sequence_to_features(processed["landmarks"], processed["mask"])[None], verbose=0
+                features_for_model(model, processed["landmarks"], processed["mask"])[None], verbose=0
             )[0]
             _, top, margin = _score_and_margin(probability[None])
             row.update(confidence=float(top[0]), margin=float(margin[0]))

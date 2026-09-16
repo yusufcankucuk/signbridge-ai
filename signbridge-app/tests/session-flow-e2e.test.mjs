@@ -201,7 +201,16 @@ async function startNext(environment) {
         ['./node_modules/next/dist/bin/next', 'start', '-H', '127.0.0.1', '-p', String(port)],
         {
             cwd: process.cwd(),
-            env: { ...process.env, NODE_ENV: 'production', ...environment },
+            env: {
+                ...process.env,
+                NODE_ENV: 'production',
+                // Geliştiricinin .env.local dosyası test sözleşmesini değiştirmesin.
+                AI_EXPECTED_MODEL_VERSION: 'autsl20-bigru-v0.1.0',
+                AI_EXPECTED_PREPROCESSING_VERSION: 'landmark46-v1',
+                AI_EXPECTED_VOCABULARY_VERSION: 'autsl20-v1',
+                CAMERA_TRIALS_ENABLED: 'false',
+                ...environment,
+            },
             stdio: ['ignore', 'pipe', 'pipe']
         },
     );

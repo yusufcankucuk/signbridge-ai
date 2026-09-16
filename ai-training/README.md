@@ -1,6 +1,6 @@
 # SignBridge AI veri ve model hattı
 
-Bu klasör AUTSL poz verisini güvenli bir eğitim biçimine dönüştürür, 20 sınıflı BiGRU başlangıç modelini eğitir ve uygulamanın kullanacağı JSON tahminini üretir.
+Bu klasör AUTSL poz verisini güvenli bir eğitim biçimine dönüştürür, 20 sınıflı BiGRU başlangıç modelini eğitir ve bu modeli MEB sağlık referanslarıyla deneysel 30 sınıflı birleşik modele genişletebilir.
 
 Kaynak ve kullanım kararları [DATASETS.md](DATASETS.md) dosyasında kayıtlıdır.
 
@@ -37,8 +37,9 @@ AUTSL PKL dosyaları yalnızca resmî/güvenilen indirmeden kullanılmalıdır. 
 Yalnız çıkarım/kamera testi yapacak ekip üyesi, depo kökünde eğitilmiş sürümlü paketi kurar:
 
 ```powershell
-node scripts/install-model.mjs
+node scripts/install-model.mjs                    # varsayılan: unified34 (20 kelime + 15 belirti)
 node scripts/check-model-assets.mjs
+node scripts/install-model.mjs --model autsl20    # isteğe bağlı: eski 20 kelimelik model
 ```
 
 Bu işlem modeli yeniden eğitmez. GitHub Release arşivinin ve içindeki SavedModel dosyalarının SHA-256
@@ -83,7 +84,9 @@ python -m src.data.validate_npz "$env:SIGNBRIDGE_DATA_ROOT\processed"
 - **Mask:** Bir noktanın ilgili karede gerçekten görülüp görülmediğini belirtir.
 - **Normalizasyon:** Kişinin görüntüdeki yeri ve boyutundan kaynaklanan farkı azaltır.
 
-`needs_review` örnekleri silinmez; model eğitimine alınmadan insan incelemesine ayrılır. MEB-16 videoları tek örnekli olduğundan model eğitiminde kullanılmaz; resmî referans ve manuel seçim sözlüğüdür.
+`needs_review` örnekleri silinmez. AUTSL-20 sürümünde MEB videoları yalnız referanstır. Deneysel
+`train_unified` çalışmasında seçilen 11 MEB kaydı açıkça `meb_health11_training.csv` manifestiyle
+kullanılır; düşük görünürlük durumu kaybedilmez ve bu örnekler bağımsız test olarak raporlanmaz.
 
 ## 4. Modeli eğitme
 
@@ -92,6 +95,34 @@ python -m src.train --epochs 50 --batch-size 32
 ```
 
 Eğitimde küçük koordinat gürültüsü, ölçek değişimi ve geçici landmark düşürme uygulanır. TİD'de sağ/sol yön anlam taşıyabileceğinden yatay çevirme kullanılmaz. Erken durdurma doğrulama kaybı iyileşmediğinde eğitimi keser.
+
+Mevcut modeli 30 çıkışa genişleten deneysel eğitim:
+
+```powershell
+python -m src.data.prepare_meb_health --data-root "$env:SIGNBRIDGE_DATA_ROOT" `
+  --browser-landmarks "$env:SIGNBRIDGE_DATA_ROOT/processed/meb_health11_browser_raw.json"
+python -m src.train_unified `
+  --data-root "$env:SIGNBRIDGE_DATA_ROOT" `
+  --base-model outputs/saved_model `
+  --output-dir outputs/unified30
+```
+
+`prepare_meb_health` 11 MEB videosunu kırpar, kısa (≤5 kare) landmark kayıplarını doldurur ve
+kaynak SHA-256/kalite bilgisini manifeste yazar. `train_unified` varsayılan olarak `42`, `123`, `2026`
+tohumlarını eğitir, AUTSL gerileme kapısını (≤3 yüzde puan) geçenler arasından AUTSL doğrulama
+doğruluğu en yüksek olanı seçer ve `regression_report.md` üretir. Kamera denemeleri
+`python -m src.summarize_symptom_trials <csv>` ile raporlanır. Ayrıntılar:
+[../docs/unified30-symptom-model.md](../docs/unified30-symptom-model.md).
+
+15 belirti avatarlı `signbridge34-v1` modeli için harici videolar, sentetik örnekler ve
+`--hand-local-features` seçeneği: [../docs/external-symptom-videos.md](../docs/external-symptom-videos.md).
+Bu modelde yalnız sağlık örneklerine %30 olasılıkla ayna uygulanır (solak kullanıcılar); AUTSL örnekleri
+çevrilmez.
+
+Bu eğitim ilk 20 çıkış ağırlığını aynı indekslerde tutar, 10 yeni belirti sınıfı ekler ve eski
+AUTSL davranışını bilgi damıtma ile korumaya çalışır. `seker-hastaligi` ayrı bir çıkış değildir;
+mevcut 14 numaralı `seker` sınıfını destekler ve belirti bağlamında `diabetes` avatarına bağlanır.
+Çıktı klasörü boş olmalıdır; mevcut modelin üzerine yazılmaz.
 
 Çıktılar `outputs/` altında oluşur:
 

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1.0",
+  "modelVersion": "signbridge-unified34-bigru-v0.3.0",
+  "vocabularyVersion": "signbridge34-v1",
+  "files": {
+    "saved_model/saved_model.pb": "422f65503da2f97a845e4d028b9801f4a8258d4c42308b9e285f33181242a52a",
+    "saved_model/variables/variables.data-00000-of-00001": "84d6a738d2f35c9d672880d877e02f0924bd492560b289a37bebc0ea64d1ca6f",
+    "saved_model/variables/variables.index": "9c8385c36c8ea18320dd8152fe20a8e86611ec43a494913798a049fac8e74308",
+    "runtime_config.json": "da0a4927c1737537d9f25c865e952c4a88ca17128555109f51fce204091bec32"
+  },
+  "decisionPolicy": "ai-training/configs/decision_policy.unified34-team-camera.json",
+  "labels": "ai-training/configs/labels.signbridge34.json"
+}
