@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
-from src.common import autsl_labels
+from src.common import autsl_labels, model_labels
 from src.decision_policy import decide, default_policy, validate_policy
 from src.evaluate_release import calibration_metrics, candidate_table, select_candidate, threshold_decision, threshold_table
 from src.model.predict import predict_landmarks, validate_bundle
@@ -21,6 +21,8 @@ from src.calibrate_motion import select_motion_threshold
 
 RUNTIME = dict(modelVersion="autsl20-bigru-v0.1.0", preprocessingVersion="landmark46-v1",
                vocabularyVersion="autsl20-v1", confidenceThreshold=.8)
+UNIFIED_RUNTIME = dict(modelVersion="signbridge-unified30-bigru-v0.2.0", preprocessingVersion="landmark46-v1",
+                       vocabularyVersion="signbridge30-v1", confidenceThreshold=.95)
 
 
 class FixedModel:
@@ -34,6 +36,17 @@ class FixedModel:
         p = np.full((len(x), 20), (1-self.confidence)/19, dtype=np.float64)
         p[:, 0] = self.confidence
         return p
+
+
+class VectorModel:
+    input_shape = (None, 60, 138)
+    output_shape = (None, 30)
+
+    def __init__(self, probabilities):
+        self.probabilities = np.asarray(probabilities, dtype=np.float64)
+
+    def predict(self, x, verbose=0):
+        return np.repeat(self.probabilities[None, :], len(x), axis=0)
 
 
 @pytest.fixture
@@ -187,6 +200,52 @@ def test_bundle_validation():
     swapped[0]["classId"], swapped[1]["classId"] = swapped[1]["classId"], swapped[0]["classId"]
     with pytest.raises(ValueError):
         validate_bundle(FixedModel(), RUNTIME, swapped)
+
+    unified_labels = model_labels("signbridge30-v1")
+    probabilities = np.full(30, 1 / 30)
+    validate_bundle(VectorModel(probabilities), UNIFIED_RUNTIME, unified_labels)
+
+
+def test_symptom_context_maps_seker_to_diabetes_and_forces_experimental_candidate():
+    probabilities = np.full(30, 0.001, dtype=np.float64)
+    probabilities[0] = 0.50
+    probabilities[14] = 0.30
+    probabilities[20:] = (1.0 - probabilities[:20].sum()) / 10
+    policy = {
+        **default_policy(UNIFIED_RUNTIME),
+        "decisionPolicyVersion": "signbridge30-team-camera-v1",
+        "experimental": True,
+    }
+    landmarks = np.zeros((60, 46, 2), dtype=np.float32)
+    mask = np.ones((60, 46), dtype=np.uint8)
+    result = predict_landmarks(
+        VectorModel(probabilities), landmarks, mask, UNIFIED_RUNTIME,
+        labels=model_labels("signbridge30-v1"), decision_policy=policy,
+        recognition_context="symptom",
+    )
+    assert result["classId"] == "seker"
+    assert result["expressionId"] == "diabetes"
+    assert result["displayText"] == "Şeker hastasıyım"
+    assert result["isLowConfidence"] is True
+    assert result["forcedCandidate"] is True
+    assert result["requiresConfirmation"] is True
+    assert result["recognitionContext"] == "symptom"
+
+
+def test_general_context_keeps_original_seker_display_and_excludes_symptom_classes():
+    probabilities = np.full(30, 0.001, dtype=np.float64)
+    probabilities[14] = 0.96
+    probabilities[20] = 0.01
+    probabilities /= probabilities.sum()
+    landmarks = np.zeros((60, 46, 2), dtype=np.float32)
+    mask = np.ones((60, 46), dtype=np.uint8)
+    result = predict_landmarks(
+        VectorModel(probabilities), landmarks, mask, UNIFIED_RUNTIME,
+        labels=model_labels("signbridge30-v1"), recognition_context="general",
+    )
+    assert result["classId"] == "seker"
+    assert result["expressionId"] == "seker"
+    assert result["displayText"] == "Şeker"
 
 
 def test_threshold_selection():

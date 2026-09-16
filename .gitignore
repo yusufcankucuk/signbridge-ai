@@ -38,6 +38,10 @@ artifacts/models/
 *.h5
 saved_model/
 ai-training/outputs/
+
+# MEB referans videoları ve kamera deneme çıktıları depoya girmez
+signbridge-app/public/reference/
+symptom-camera-trials-*.csv
 ai-training/.model-install-*/
 ai-training/outputs.backup-*/
 **/.model-install-*/

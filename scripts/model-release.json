@@ -1,9 +1,30 @@
 {
-  "schemaVersion": "1.0",
-  "tag": "model-autsl20-v0.1.0",
-  "assetName": "signbridge-autsl20-modelarts-v0.1.0.zip",
-  "downloadUrl": "https://github.com/yusufcankucuk/signbridge-ai/releases/download/model-autsl20-v0.1.0/signbridge-autsl20-modelarts-v0.1.0.zip",
-  "sha256": "1bdef13278487e77e788b2a9471a6c25743115bddc4f6f3be3615b7c035a5421",
-  "modelVersion": "autsl20-bigru-v0.1.0",
-  "usage": "academic-and-research-only"
+  "schemaVersion": "2.0",
+  "defaultModel": "unified34",
+  "models": {
+    "unified34": {
+      "tag": "model-unified34-v0.3.0",
+      "assetName": "signbridge-unified34-v0.3.0.zip",
+      "downloadUrl": "https://github.com/yusufcankucuk/signbridge-ai/releases/download/model-unified34-v0.3.0/signbridge-unified34-v0.3.0.zip",
+      "sha256": "06564f73a49da52912bfac15d610496894edeea4a9b2b82f3b11988e7fc3c9cf",
+      "modelVersion": "signbridge-unified34-bigru-v0.3.0",
+      "usage": "academic-and-research-only",
+      "modelDir": "ai-training/outputs/unified34",
+      "assetsManifest": "ai-training/configs/model-assets.unified34.json",
+      "env": ".env.unified34.example",
+      "description": "20 AUTSL kelimesi + 15 belirti avatarı (deneysel)"
+    },
+    "autsl20": {
+      "tag": "model-autsl20-v0.1.0",
+      "assetName": "signbridge-autsl20-modelarts-v0.1.0.zip",
+      "downloadUrl": "https://github.com/yusufcankucuk/signbridge-ai/releases/download/model-autsl20-v0.1.0/signbridge-autsl20-modelarts-v0.1.0.zip",
+      "sha256": "1bdef13278487e77e788b2a9471a6c25743115bddc4f6f3be3615b7c035a5421",
+      "modelVersion": "autsl20-bigru-v0.1.0",
+      "usage": "academic-and-research-only",
+      "modelDir": "ai-training/outputs",
+      "assetsManifest": "ai-training/configs/model-assets.json",
+      "env": ".env.autsl20.example",
+      "description": "AUTSL-20 genel işaret modeli (20 kelime)"
+    }
+  }
 }

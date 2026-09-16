@@ -20,10 +20,14 @@
   ],
   "properties": {
     "classId": {"type": ["string", "null"]},
+    "expressionId": {"type": ["string", "null"]},
     "displayText": {"type": "string", "minLength": 1},
     "confidence": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
     "alternatives": {"type": "array", "items": {"type": "string"}, "maxItems": 3},
     "isLowConfidence": {"type": "boolean"},
+    "forcedCandidate": {"type": "boolean"},
+    "experimental": {"type": "boolean"},
+    "recognitionContext": {"enum": ["general", "symptom"]},
     "predictionMode": {"enum": ["model", "mock", "manual"]},
     "modelVersion": {"type": ["string", "null"]},
     "preprocessingVersion": {"type": "string"},
@@ -34,7 +38,10 @@
   },
   "allOf": [
     {
-      "if": {"properties": {"isLowConfidence": {"const": true}}},
+      "if": {
+        "required": ["isLowConfidence", "forcedCandidate"],
+        "properties": {"isLowConfidence": {"const": true}, "forcedCandidate": {"const": false}}
+      },
       "then": {
         "properties": {
           "classId": {"type": "null"},

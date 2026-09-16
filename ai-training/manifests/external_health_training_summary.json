@@ -1,0 +1,111 @@
+{
+  "vocabularyVersion": "signbridge34-v1",
+  "videos": 53,
+  "views": 212,
+  "extractors": [
+    "mediapipe-holistic-legacy",
+    "mediapipe-tasks-web"
+  ],
+  "sources": [
+    "ext_ahmet-tombul",
+    "ext_emrah-uresin",
+    "ext_ezgi-tutkun",
+    "ext_filiz-caglar",
+    "ext_meb-bulanti",
+    "ext_serpil-avci",
+    "ext_sozluk-a",
+    "ext_sozluk-b",
+    "ext_turkcell-akademi"
+  ],
+  "sourcesPerAvatar": {
+    "asthma": [
+      "ext_ahmet-tombul",
+      "ext_filiz-caglar",
+      "ext_serpil-avci"
+    ],
+    "bleeding": [
+      "ext_ahmet-tombul",
+      "ext_emrah-uresin",
+      "ext_ezgi-tutkun",
+      "ext_serpil-avci",
+      "ext_sozluk-a"
+    ],
+    "burn": [
+      "ext_sozluk-a"
+    ],
+    "diabetes": [
+      "ext_ahmet-tombul",
+      "ext_filiz-caglar"
+    ],
+    "dizziness": [
+      "ext_emrah-uresin",
+      "ext_ezgi-tutkun",
+      "ext_sozluk-b"
+    ],
+    "fever": [
+      "ext_emrah-uresin",
+      "ext_serpil-avci"
+    ],
+    "headache": [
+      "ext_ezgi-tutkun",
+      "ext_serpil-avci",
+      "ext_sozluk-b",
+      "ext_turkcell-akademi"
+    ],
+    "heart-attack": [
+      "ext_ahmet-tombul",
+      "ext_emrah-uresin",
+      "ext_ezgi-tutkun",
+      "ext_sozluk-a"
+    ],
+    "nausea": [
+      "ext_meb-bulanti"
+    ],
+    "pain": [
+      "ext_ahmet-tombul",
+      "ext_emrah-uresin",
+      "ext_ezgi-tutkun",
+      "ext_filiz-caglar",
+      "ext_turkcell-akademi"
+    ],
+    "palpitations": [
+      "ext_emrah-uresin"
+    ],
+    "rash": [
+      "ext_ahmet-tombul",
+      "ext_filiz-caglar",
+      "ext_serpil-avci"
+    ],
+    "shortness-of-breath": [
+      "ext_emrah-uresin",
+      "ext_ezgi-tutkun"
+    ],
+    "stomachache": [
+      "ext_ezgi-tutkun"
+    ],
+    "vomiting": [
+      "ext_ahmet-tombul",
+      "ext_filiz-caglar"
+    ]
+  },
+  "avatarsWithoutVideo": [],
+  "viewsPerClass": {
+    "asthma": 12,
+    "bleeding": 28,
+    "burn": 8,
+    "seker": 12,
+    "dizziness": 20,
+    "fever": 16,
+    "headache": 24,
+    "heart-attack": 20,
+    "nausea": 4,
+    "pain": 20,
+    "palpitations": 8,
+    "rash": 12,
+    "shortness-of-breath": 16,
+    "stomachache": 4,
+    "vomiting": 8
+  },
+  "skippedViews": [],
+  "consent": "user_reported_permission"
+}

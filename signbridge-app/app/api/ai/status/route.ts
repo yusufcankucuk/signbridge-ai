@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { expectedAiVersions, versionMismatches } from '@/lib/ai/versionGate';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,12 +34,18 @@ export async function GET() {
         const body = await response.json() as {
             mode?: unknown;
             cameraAiEnabled?: unknown;
+            modelLoaded?: unknown;
             modelVersion?: unknown;
             decisionPolicyVersion?: unknown;
             experimental?: unknown;
             warning?: unknown;
+            vocabularyVersion?: unknown;
+            preprocessingVersion?: unknown;
         };
-        const cameraAiEnabled = body.cameraAiEnabled !== false && motionPolicyEnabled;
+        // Servis beklenen model/sözlük sürümünü çalıştırmıyorsa kamera tahmini hiç açılmaz.
+        const expectedVersions = expectedAiVersions(process.env);
+        const mismatches = body.modelLoaded === false ? [] : versionMismatches(body, expectedVersions);
+        const cameraAiEnabled = body.cameraAiEnabled !== false && motionPolicyEnabled && mismatches.length === 0;
         return NextResponse.json({
             status: 'ok',
             mode: cameraAiEnabled && typeof body.mode === 'string' ? body.mode : 'manual_only',
@@ -48,12 +55,16 @@ export async function GET() {
             decisionPolicyVersion: typeof body.decisionPolicyVersion === 'string' ? body.decisionPolicyVersion : null,
             experimental: cameraAiEnabled && body.experimental === true,
             warning: cameraAiEnabled && typeof body.warning === 'string' ? body.warning : null,
+            vocabularyVersion: typeof body.vocabularyVersion === 'string' ? body.vocabularyVersion : null,
+            expectedVersions,
+            versionMismatch: mismatches.length > 0,
+            versionMismatchFields: mismatches,
         });
     } catch {
         return NextResponse.json({
             status: 'unavailable', mode: 'manual_only', cameraAiEnabled: false,
             minimumMotionScore, modelVersion: null, decisionPolicyVersion: null,
-            experimental: false, warning: null,
+            experimental: false, warning: null, vocabularyVersion: null,
         });
     }
 }

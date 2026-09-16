@@ -7,7 +7,7 @@ import { Frame, Choice, Empty, Pager, ReadText, CameraIcon } from './CompactUI';
 import Button from '../ui/Button';
 import Logo from '../layout/Logo';
 import ExpressionVisual from './ExpressionVisual';
-import { EXPRESSIONS } from '../../data/expressions';
+import { EXPRESSIONS, expressionForCandidate } from '../../data/expressions';
 import { recordAnswer } from '../../lib/consultationFlow';
 import { submitPatientAnswer } from '../../lib/sessionClient';
 import { assessPoseQuality, preprocessPoseSequence, type RawPoseFrame } from '../../lib/landmarkPreprocessing';
@@ -121,13 +121,17 @@ export function Camera() {
       const input = preprocessPoseSequence(frames);
       const response = await fetch(`/api/consultations/${encodeURIComponent(state.sessionId)}/prediction`, {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ ...input, sessionId: state.sessionId }),
+        body: JSON.stringify({
+          ...input,
+          sessionId: state.sessionId,
+          recognitionContext: state.capture === 'complaint' ? 'symptom' : 'general',
+        }),
       });
       const body = await response.json() as { prediction?: unknown; error?: unknown };
       if (!response.ok || !isPredictionPayload(body.prediction)) throw new Error(typeof body.error === 'string' ? body.error : 'Tahmin alınamadı.');
       const prediction = body.prediction;
       stopCamera();
-      if (prediction.isLowConfidence || !prediction.classId) {
+      if ((prediction.isLowConfidence && prediction.forcedCandidate !== true) || !prediction.classId) {
         setState(current => ({ ...current, candidate: null }));
         router.replace(`/fallback?reason=${encodeURIComponent(prediction.rejectionReason ?? 'low_score')}&advanced=1`);
       } else {
@@ -194,7 +198,7 @@ export function Confirm() {
   const [leaving, setLeaving] = useState(false);
   const [initialCandidate] = useState(state.candidate);
   const candidate = state.candidate ?? (leaving ? initialCandidate : null);
-  const expression = EXPRESSIONS.find(e => e.sentence === candidate?.text);
+  const expression = expressionForCandidate(candidate);
   const [error, setError] = useState('');
   const manualPath = state.capture === 'answer' && state.pending ? `/patient/${state.pending.kind}` : state.capture === 'followup' ? '/patient/question' : '/manual-select';
   const confirm = async () => {
@@ -240,7 +244,8 @@ export function Confirm() {
   </>}>
     {!candidate ? <Empty text="Henüz bir anlatım yok." href="/camera" /> : <>
       {expression ? <><div className="compact-illustration"><div><ExpressionVisual expression={expression} /></div></div><p className="compact-sentence">{expression.sentence}</p></> : <div className="compact-center"><ReadText text={candidate.text} /></div>}
-      {candidate.prediction?.confidence != null && <p className="text-center text-caption text-ink-muted">Model skoru: %{(candidate.prediction.confidence * 100).toFixed(1)} · Hasta onayı gereklidir.</p>}
+      {expression?.urgent && <p className="rounded-xl border border-warning-100 bg-warning-50 px-4 py-3 text-center text-caption font-semibold text-warning-700" role="alert">Acil olabilir. {candidate.prediction ? 'Bu, deneysel bir kamera önerisidir; ' : ''}belirtiler şiddetliyse hemen sağlık personeline haber verin veya 112’yi arayın.</p>}
+      {candidate.prediction?.confidence != null && <p className="text-center text-caption text-ink-muted">Model skoru: %{(candidate.prediction.confidence * 100).toFixed(1)}{candidate.prediction.forcedCandidate ? ' · Düşük güvenli deneysel öneri' : ''} · Hasta onayı gereklidir.</p>}
       {error && <p className="compact-error" role="alert">{error}</p>}
     </>}
   </Frame>;
