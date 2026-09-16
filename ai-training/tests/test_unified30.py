@@ -245,6 +245,51 @@ def test_synthesis_moves_head_location_to_belly_and_keeps_labels(tmp_path):
     assert nausea["derived_signer_id"] != "ext_d"     # el biçimi başka kişiden
 
 
+def test_pain_sign_is_relocated_to_head_and_belly(tmp_path):
+    from src.data.synthesize_symptoms import synthesize
+
+    def sample(path, class_id, index, signer, y):
+        landmarks = np.zeros((60, 46, 2), dtype=np.float32)
+        mask = np.zeros((60, 46), dtype=np.uint8)
+        landmarks[:, 0] = (0.5, 0.0)
+        landmarks[:, 1] = (-0.5, 0.0)
+        mask[:, :4] = 1
+        wiggle = 0.1 * np.sin(np.linspace(0, 6, 60))[:, None]
+        landmarks[:, 25:46, 0] = -0.4 + wiggle + np.linspace(-0.05, 0.05, 21)
+        landmarks[:, 25:46, 1] = y + np.linspace(-0.05, 0.05, 21)
+        mask[:, 25:46] = 1
+        target = tmp_path / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(target, landmarks=landmarks, mask=mask, confidence=mask.astype(np.float32), original_length=60)
+        return {"sample_id": target.stem, "class_id": class_id, "model_index": index, "source": "EXTERNAL",
+                "signer_id": signer, "landmark_path": path, "quality_status": "approved",
+                "training_status": "trainable", "avatar_id": class_id, "extractor": "mediapipe-tasks-web"}
+
+    rows = [
+        sample("p/pain.npz", "pain", 20, "ext_p", 0.3),
+        sample("p/head.npz", "headache", 30, "ext_h", -0.9),
+        sample("p/belly.npz", "stomachache", 31, "ext_s", 1.2),
+    ]
+    manifest = tmp_path / "in.csv"
+    with manifest.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+    output = tmp_path / "syn.csv"
+    summary = synthesize(tmp_path, [manifest], output, "signbridge34-v1", per_pair=2, seed=3)
+    assert summary["perRecipe"]["headache:relocate"] == 2
+    assert summary["perRecipe"]["stomachache:relocate"] == 2
+    produced = [row for row in csv.DictReader(output.open(encoding="utf-8-sig")) if row["recipe"] == "relocate"]
+    original = np.load(tmp_path / "p/pain.npz")["landmarks"][:, 25:46]
+    for row in produced:
+        assert row["derived_signer_id"] == "ext_p"
+        moved = np.load(tmp_path / row["landmark_path"])["landmarks"][:, 25:46]
+        y = moved[..., 1].mean()
+        assert (y < -0.6) if row["avatar_id"] == "headache" else (y > 0.9)
+        # hareket ve el biçimi korunur (yalnız öteleme)
+        assert np.allclose((moved - moved.mean(axis=(0, 1))), (original - original.mean(axis=(0, 1))), atol=1e-5)
+
+
 def _synthetic_pose(frames=40, seed=0):
     rng = np.random.default_rng(seed)
     keypoints = np.zeros((frames, 75, 2), dtype=np.float32)
@@ -353,7 +398,7 @@ def test_unified34_vocabulary_extends_unified30():
     assert [label["classId"] for label in unified34["labels"][30:]] == ["headache", "stomachache", "nausea", "shortness-of-breath"]
     assert len(unified34["symptomClassIds"]) == 15
     policy = load_policy(CONFIG_DIR / "decision_policy.unified34-team-camera.json",
-                         dict(UNIFIED_RUNTIME, modelVersion="signbridge-unified34-bigru-v0.3.0", vocabularyVersion="signbridge34-v1"))
+                         dict(UNIFIED_RUNTIME, modelVersion="signbridge-unified34-bigru-v0.4.0", vocabularyVersion="signbridge34-v1"))
     assert set(unified34["symptomClassIds"]) <= set(policy["allowedClassIds"])
     assert select_variant("signbridge34-v1") == 34
     assert select_variant("signbridge30-v1") == 30

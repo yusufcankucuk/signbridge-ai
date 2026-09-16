@@ -16,7 +16,7 @@ function load(relative) {
   return loaded.exports;
 }
 
-const { EXPRESSIONS, expressionForCandidate } = load('../src/data/expressions.ts');
+const { EXPRESSIONS, alternativeExpressions, expressionForCandidate } = load('../src/data/expressions.ts');
 const trials = load('../src/lib/cameraTrials.ts');
 const { versionMismatches, expectedAiVersions } = load('../lib/ai/versionGate.ts');
 const labelsPath = path.resolve(__dirname, '../../ai-training/configs/labels.signbridge30.json');
@@ -129,4 +129,25 @@ test('kamera titreşimi omuz normalizasyonuyla hareket sayılmaz', () => {
   assert.equal(quality.status, 'needs_review');
   assert.equal(quality.reason, 'insufficient_motion');
   assert.ok(quality.motionScore < 1e-6);
+});
+
+const labels34Path = path.resolve(__dirname, '../../ai-training/configs/labels.signbridge34.json');
+const unified34 = fs.existsSync(labels34Path) ? JSON.parse(fs.readFileSync(labels34Path, 'utf8')) : null;
+
+test('onay ekranındaki diğer olası avatarlar model sırasını izler ve 15 belirtinin hepsine eşlenir', { skip: !unified34 }, () => {
+  // Her belirti sınıfı bir alternatif olarak gelebilir; hepsinin avatarı ve cümlesi sözlükle aynı olmalı.
+  for (const classId of unified34.symptomClassIds) {
+    const label = unified34.labels.find(item => item.classId === classId);
+    const [match] = alternativeExpressions({ recognitionContext: 'symptom', expressionId: 'x', alternatives: [classId] });
+    assert.ok(match, `${classId} alternatif avatarı yok`);
+    assert.equal(match.id, label.symptomExpressionId);
+    assert.equal(match.sentence, label.symptomDisplayText);
+  }
+  const prediction = { recognitionContext: 'symptom', expressionId: 'headache', alternatives: ['headache', 'seker', 'dizziness'] };
+  assert.deepEqual(alternativeExpressions(prediction).map(item => item.id), ['diabetes', 'dizziness']);
+  assert.deepEqual(alternativeExpressions(prediction, 1).map(item => item.id), ['diabetes']);
+  // Genel bağlamda (AUTSL kelimeleri) ve bilinmeyen sınıflarda avatar önerilmez.
+  assert.deepEqual(alternativeExpressions({ ...prediction, recognitionContext: 'general' }), []);
+  assert.deepEqual(alternativeExpressions({ recognitionContext: 'symptom', expressionId: null, alternatives: ['doktor', 'fever', 'fever'] }).map(item => item.id), ['fever']);
+  assert.deepEqual(alternativeExpressions(null), []);
 });

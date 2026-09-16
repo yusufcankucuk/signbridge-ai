@@ -7,10 +7,10 @@ import { Frame, Choice, Empty, Pager, ReadText, CameraIcon } from './CompactUI';
 import Button from '../ui/Button';
 import Logo from '../layout/Logo';
 import ExpressionVisual from './ExpressionVisual';
-import { EXPRESSIONS, expressionForCandidate } from '../../data/expressions';
+import { EXPRESSIONS, alternativeExpressions, expressionForCandidate } from '../../data/expressions';
 import { recordAnswer, type FlowState } from '../../lib/consultationFlow';
 import { submitPatientAnswer } from '../../lib/sessionClient';
-import { assessPoseQuality, preprocessPoseSequence, type RawPoseFrame } from '../../lib/landmarkPreprocessing';
+import { assessPoseQuality, prepareRecordedFrames, preprocessPoseSequence, type RawPoseFrame } from '../../lib/landmarkPreprocessing';
 import { getHolisticLandmarker, resultToRawFrame } from '../../lib/browserVision';
 import { isPredictionPayload } from '../../../lib/prediction';
 import type { HolisticLandmarker } from '@mediapipe/tasks-vision';
@@ -117,7 +117,7 @@ export function Camera() {
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = null;
     setPhase('processing'); setMessage('Landmark verileri hazırlanıyor ve model çalıştırılıyor…');
-    const frames = framesRef.current;
+    const frames = prepareRecordedFrames(framesRef.current);
     const quality = assessPoseQuality(frames, 0.1, 8, 0.6, 0.5, motionThresholdRef.current);
     if (quality.status !== 'approved') {
       setState(current => ({ ...current, candidate: null }));
@@ -209,11 +209,19 @@ export function Confirm() {
   const { state, setState } = useFlow(); const router = useRouter();
   // Onaydan sonra sayfa değişene kadar ekranı olduğu gibi tut; boş uyarı görünmesin.
   const [leaving, setLeaving] = useState(false);
-  const [initialCandidate] = useState(state.candidate);
-  const candidate = state.candidate ?? (leaving ? initialCandidate : null);
+  const [shownCandidate, setShownCandidate] = useState(state.candidate);
+  const candidate = state.candidate ?? (leaving ? shownCandidate : null);
   const expression = expressionForCandidate(candidate);
+  const alternatives = candidate?.source === 'model' && state.capture === 'complaint' ? alternativeExpressions(candidate.prediction) : [];
   const [error, setError] = useState('');
   const manualPath = manualPathFor(state);
+  // Olası diğer avatarlardan biri seçilirse elle seçim gibi onaylanır (hasta yine "Doğru" der).
+  const chooseAlternative = (text: string) => {
+    if (leaving) return;
+    const chosen = { text, source: 'manual' as const };
+    setShownCandidate(chosen);
+    setState(s => ({ ...s, candidate: chosen }));
+  };
   const confirm = async () => {
     if (!state.candidate || leaving) return;
     setLeaving(true);
@@ -258,6 +266,12 @@ export function Confirm() {
     {!candidate ? <Empty text="Henüz bir anlatım yok." href="/camera" /> : <>
       {expression ? <><div className="compact-illustration"><div><ExpressionVisual expression={expression} /></div></div><p className="compact-sentence">{expression.sentence}</p></> : <div className="compact-center"><ReadText text={candidate.text} /></div>}
       {expression?.urgent && <p className="rounded-xl border border-warning-100 bg-warning-50 px-4 py-3 text-center text-caption font-semibold text-warning-700" role="alert">Acil olabilir. {candidate.prediction ? 'Bu, deneysel bir kamera önerisidir; ' : ''}belirtiler şiddetliyse hemen sağlık personeline haber verin veya 112’yi arayın.</p>}
+      {alternatives.length > 0 && <div className="compact-alternatives" role="group" aria-label="Diğer olası belirtiler">
+        <p>Başka bir şey mi anlattınız?</p>
+        <div>{alternatives.map(item => <button key={item.id} type="button" onClick={() => chooseAlternative(item.sentence)} aria-label={`${item.label}: bunu seç`}>
+          <span className="compact-alternative-art" aria-hidden="true"><ExpressionVisual expression={item} /></span><span>{item.label}</span>
+        </button>)}</div>
+      </div>}
       {candidate.prediction?.confidence != null && <p className="text-center text-caption text-ink-muted">Model skoru: %{(candidate.prediction.confidence * 100).toFixed(1)}{candidate.prediction.forcedCandidate ? ' · Düşük güvenli deneysel öneri' : ''} · Hasta onayı gereklidir.</p>}
       {error && <p className="compact-error" role="alert">{error}</p>}
     </>}

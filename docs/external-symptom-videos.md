@@ -46,60 +46,116 @@ kalan çalıştırma yeniden başlatıldığında işlenmiş videolar atlanır.
 
 ### Az kaynaklı belirtiler için bileşimsel örnekler
 
-Karın ağrısı ve bulantı için internette yalnız bir kişinin videosu bulunduğundan, gerçek landmark
-dizilerinden kontrollü sentetik örnekler üretilir (baş ağrısındaki “baş” konumu karna taşınır; tek
-bulantı örneğinin el yolu başka kişilerin düz el biçimiyle birleştirilir):
+Bazı belirtiler için internette çok az kişinin videosu vardır. Gerçek landmark dizilerinden kontrollü
+sentetik örnekler üretilir:
+
+- **location:** Baş ağrısındaki “baş” konumu karna taşınır (karın ağrısı).
+- **handshape:** Tek karın ağrısı/bulantı örneğinin el yolu, başka kişilerin düz el biçimiyle birleştirilir.
+- **relocate:** TİD'de “ağrı” işareti acıyan yerde yapılır. Ağrı işaretini yapan tüm kişilerin hareketi
+  başa (baş ağrısı) ve karna (karın ağrısı) taşınır. Bu, baş ağrısında yeni kişilerdeki doğruluğu en çok
+  artıran adımdır.
 
 ```powershell
 python -m src.data.synthesize_symptoms --data-root "$env:SIGNBRIDGE_DATA_ROOT" --per-pair 3
 ```
 
-Sentetik satırlar `source=SYNTHETIC`, `signer_id=syn_<kaynak>` ile ayrı manifeste yazılır; eğitimde
-her sınıfın en fazla yarısını oluşturur ve dışarıda bırakılan kaynaktan türetilenler eğitime girmez.
-Gerçek katılımcı veya kamera başarısı olarak raporlanmaz.
+Sentetik satırlar `source=SYNTHETIC`, `signer_id=syn_<kaynak>` ile ayrı manifeste yazılır. Eğitimde
+her sınıf içinde gerçek ve sentetik örnekler eşit payla örneklenir; dışarıda bırakılan kaynaktan
+türetilenler eğitime girmez. Gerçek katılımcı veya kamera başarısı olarak raporlanmaz.
 
-## 3. Eğitim ve kişi bağımsız ölçüm
+## 3. Kodlayıcı ön eğitimi (AUTSL-226)
 
-Önce bir kaynağı tamamen dışarıda bırakarak kişi bağımsız başarıyı ölçün, sonra bütün kaynaklarla
-son modeli eğitin:
+Yeni kişilere genelleme büyük ölçüde kodlayıcının kişiden bağımsız hareket ve el biçimi öğrenmesine
+bağlıdır. AUTSL'nin OpenHands poz paketinde (`AUTSL.zip`, `train/val/test_poses/*.pkl`) 226 işaretin
+tamamı ve 43 işaretleyici vardır. Aynı BiGRU mimarisi bu verinin tamamıyla önceden eğitilir:
 
 ```powershell
-# a) Ölçüm: ext_emrah-uresin hiç görülmeden test edilir
-python -m src.train_unified --vocabulary signbridge34-v1 --hand-local-features `
-  --data-root "$env:SIGNBRIDGE_DATA_ROOT" --base-model outputs/saved_model `
-  --extra-manifest manifests/external_health_training.csv `
-  --extra-manifest manifests/synthetic_health_training.csv `
-  --holdout-source ext_emrah-uresin --seeds 42 --output-dir outputs/unified34-holdout-emrah
-
-# b) Son model: bütün kaynaklar
-python -m src.train_unified --vocabulary signbridge34-v1 --hand-local-features `
-  --data-root "$env:SIGNBRIDGE_DATA_ROOT" --base-model outputs/saved_model `
-  --extra-manifest manifests/external_health_training.csv `
-  --extra-manifest manifests/synthetic_health_training.csv `
-  --output-dir outputs/unified34
+# 1) Poz dosyalarını landmark46-v1 parçalarına dönüştür (bir kez, ~3 dk)
+python -m src.data.pack_autsl226 --zip "<yol>/AUTSL.zip" --data-root "$env:SIGNBRIDGE_DATA_ROOT"
+# 2) Ön eğitim (CPU'da ~40 dk; AUTSL-226 doğrulama %84,4, test %81,0)
+python -m src.pretrain_autsl226 --data-root "$env:SIGNBRIDGE_DATA_ROOT" --output-dir outputs/autsl226
 ```
 
-`--hand-local-features`, her elin el bileğine göre ve el boyuyla ölçeklenmiş biçimini (84 ek değer)
-girdiye ekler; model girdisi 222 olur. İlk BiGRU'nun ek ağırlıkları sıfırla başlar (başlangıçta AUTSL-20
-modeliyle aynı davranır) ve ince ayarda eğitilir. Servis, modelin girdi boyutuna bakarak 138 veya 222
-özelliği kendisi seçer; eski modeller değişmeden çalışır. Eğitimde ayrıca %30 ayna (solak kullanıcı),
-±8° döndürme, konum/ölçek ve ele özgü küçük kaymalar uygulanır.
+AUTSL test kişileri ön eğitimde kullanılmaz. Bu yüzden birleşik modelin AUTSL-20 test kapısı geçerli
+kalır. Kodlayıcı tek başına uygulamada kullanılmaz.
+
+## 4. Eğitim ve kişi bağımsız ölçüm
+
+Önce bir kaynağı tamamen dışarıda bırakarak kişi bağımsız başarıyı ölçün, sonra son modeli eğitin:
+
+```powershell
+$common = @("--vocabulary", "signbridge34-v1", "--hand-local-features", "--test-time-mirror",
+  "--data-root", "$env:SIGNBRIDGE_DATA_ROOT", "--base-model", "outputs/saved_model",
+  "--encoder-init", "outputs/autsl226/saved_model",
+  "--extra-manifest", "manifests/external_health_training.csv",
+  "--extra-manifest", "manifests/synthetic_health_training.csv")
+
+# a) Ölçüm: Serpil Avcı, Filiz Çağlar ve sözlük 2. kişi hiç görülmeden test edilir
+python -m src.train_unified @common --seeds 42 --output-dir outputs/unified34-holdout-b `
+  --holdout-source ext_serpil-avci --holdout-source ext_filiz-caglar --holdout-source ext_sozluk-b
+
+# b) Yayın modeli (v0.4.0): sözlük siteleri eğitime girmez, yalnız ölçülür
+python -m src.train_unified @common --model-version signbridge-unified34-bigru-v0.4.0 `
+  --holdout-source ext_spreadthesign --holdout-source ext_tidsozluk --output-dir outputs/unified34
+```
+
+- **`--hand-local-features`:** Her elin el bileğine göre ve el boyuyla ölçeklenmiş biçimini
+  (84 ek değer) girdiye ekler; model girdisi 222 olur.
+- **`--encoder-init`:** Kodlayıcıyı AUTSL-226 ön eğitiminden alır. İlk 20 sınıfın çıktı satırları da
+  226 sınıflı başlıktan kopyalanır. `--base-model` (AUTSL-20) yalnız damıtma ve gerileme kapısı için kullanılır.
+- **`--test-time-mirror`:** `runtime_config.json` içine `testTimeMirror: true` yazar. Servis her tahminde
+  ayna görüntüyü de çalıştırır ve olasılıkların ortalamasını alır (solak kullanıcılar ve el farkı için).
+- **Veri çoğaltma:** Eğitimde ayrıca %30 ayna (solak kullanıcı), ±8° döndürme, konum/ölçek ve ele özgü
+  küçük kaymalar uygulanır.
+
+Servis, modelin girdi boyutuna bakarak 138 veya 222 özelliği kendisi seçer; eski modeller değişmeden
+çalışır.
 
 Dışarıda bırakılan kaynakta yalnız o kaynağın kapsadığı belirtiler ölçülür. Bir belirtinin tek
-kaynağı dışarıda bırakılırsa eğitim o sınıf için örnek bulamayacağı için durur; bu durumda başka bir
-kaynağı seçin. `regression_report.md` içindeki “Dışarıda bırakılan kaynak” bölümü raporlanacak kişi
-bağımsız sonuçtur; eğitim verisindeki %100'e yakın değerler başarı kanıtı değildir.
+kaynağı dışarıda bırakılırsa eğitim o sınıf için örnek bulamayacağı için durur. `regression_report.md`
+içindeki “Dışarıda bırakılan kaynak” bölümü raporlanacak kişi bağımsız sonuçtur; eğitim verisindeki
+%100'e yakın değerler başarı kanıtı değildir.
 
-## 4. Çalıştırma
+### Gerçek kayda yakın ölçüm
 
-Bu model artık varsayılandır; hazır paketi kurmak için eğitim gerekmez
-([model-release-unified34-v0.3.0.md](model-release-unified34-v0.3.0.md)):
+Kesilmiş klipler yalnız işareti içerir. Uygulamada ise kayıt, el kadraja gelmeden başlar ve işaret
+bittikten sonra biter. Bu yüzden kişi bağımsız ölçüm ayrıca iki yolla yapılır:
+
+- **Bağlamlı klipler:** Aynı ders videolarından önce/sonra 1,5 sn doğal hareketle kesilir
+  (`<veri kökü>/harici_ham/baglamli/`), canlı çıkarıcıyla (10 kare/sn) işlenir ve canlı yoldan
+  (kırpma → kalite kapısı → servis) geçirilir:
+
+  ```powershell
+  python -m src.evaluate_context_clips --model-dir outputs/unified34-holdout-b `
+    --raw-json "$env:SIGNBRIDGE_DATA_ROOT/processed/baglamli_browser_raw.json" `
+    --plan "$env:SIGNBRIDGE_DATA_ROOT/harici_ham/baglamli/plan.csv" `
+    --signer serpil-avci --signer filiz-caglar --signer sozluk-b
+  ```
+- **Benzetim:** `src/data/simulate_recordings.py`, bekleme ve el kaldırma/indirme kareleri ekler.
+  Benzetimle eğitim denendi ama bağlamlı kliplerde iyileşme vermediği için yayın modelinde kullanılmadı.
+
+Sonuçlar: [unified34-v0.4.0 raporu](../ai-training/reports/unified34-v0.4.0-2026-09-16.md).
+
+## 5. Canlı kayıt: kırpma ve olası diğer avatarlar
+
+- **Kırpma:** İstemci (`prepareRecordedFrames`) kaydı eğitim verisiyle aynı biçime getirir: kısa el
+  kayıplarını doldurur, ellerin görünmediği baş/son kareleri ~0,1 sn pay bırakarak atar. Eskiden hasta
+  elini geç kaldırınca kayıt “eller yeterince görünmedi” diye reddediliyor ya da işaret 60 kareye
+  sıkışıp yanlış tanınıyordu. Python karşılığı `trim_recording`'dir; iki taraf aynı testle doğrulanır.
+- **Olası diğer avatarlar:** Onay ekranı, modelin ilk önerisinin altında sıradaki iki belirti avatarını
+  “Başka bir şey mi anlattınız?” başlığıyla gösterir. Hasta birini seçerse o avatar ekrana gelir ve hasta
+  yine “Doğru, doktora ilet” ile onaylar (elle seçim olarak kaydedilir).
+
+## 6. Çalıştırma
+
+Bu model varsayılandır; hazır paketi kurmak için eğitim gerekmez
+([model-release-unified34-v0.4.0.md](model-release-unified34-v0.4.0.md)):
 
 ```powershell
 Copy-Item .env.docker.example .env      # .env.unified34.example ile aynıdır
 docker compose --profile setup run --rm model-setup
 docker compose up --build -d
-Invoke-RestMethod http://localhost:3000/api/ai/status   # vocabularyVersion = signbridge34-v1
+Invoke-RestMethod http://localhost:3000/api/ai/status   # modelVersion = signbridge-unified34-bigru-v0.4.0
 ```
 
 Kendi eğittiğiniz modeli kullanmak için `outputs/unified34` klasörünü eğitim çıktısıyla değiştirin ve
@@ -108,19 +164,21 @@ yerine doğrudan `docker compose up` kullanın). `/camera-trials` ekranı sözl�
 15 belirti × 5 = 75 deneme planlar. Eski sürüme dönmek için `.env.autsl20.example` (+
 `node scripts/install-model.mjs --model autsl20`) veya `.env.unified30.example` kullanın.
 
-## 5. Sözlük videoları (Spreadthesign, Güncel TİD Sözlüğü) ve ekip içi model
+## 7. Sözlük videoları (Spreadthesign, Güncel TİD Sözlüğü) ve ekip içi model
 
-`signbridge-unified34-bigru-v0.3.1`, v0.3.0 verisine Spreadthesign TİD sayfalarından (15 klip, en az 7
-işaretleyici) ve Aile ve Sosyal Hizmetler Bakanlığı Güncel TİD Sözlüğü'nden (11 klip) elle indirilen
-tek işaretlik videoları ekler. Kaynak adları `spreadthesign` ve `tidsozluk`tur; küçük videolar eğitimden
-önce 640×480 / 720×480 boyutuna büyütülür. Aynı içerikli iki indirme (ör. kaşıntı = alerji) SHA-256 ile
-ayıklanır.
+Ekip içi `signbridge-unified34-bigru-v0.4.1`, v0.4.0 ile aynı yöntemle eğitilir. Tek farkı,
+Spreadthesign TİD sayfalarından (15 klip, en az 7 işaretleyici) ve Aile ve Sosyal Hizmetler Bakanlığı
+Güncel TİD Sözlüğü'nden (11 klip) elle indirilen tek işaretlik videoların da eğitime girmesidir.
+
+- **Kaynak adları:** `spreadthesign` ve `tidsozluk`.
+- **Hazırlık:** Küçük videolar eğitimden önce 640×480 / 720×480 boyutuna büyütülür. Aynı içerikli iki
+  indirme (ör. kaşıntı = alerji) SHA-256 ile ayıklanır.
 
 Bu sitelerin içerikleri açık lisanslı değildir; kullanım izni ekibin sorumluluğundadır. Bu nedenle
-v0.3.1 GitHub Release'e konmaz ve varsayılan kurulum v0.3.0 olarak kalır. Ekip içinde denemek için:
+v0.4.1 GitHub Release'e konmaz. Ekip içinde denemek için:
 
 ```powershell
-# outputs/unified34-v0.3.1 klasörünü ekipten alın
+# outputs/unified34-v0.4.1 klasörünü ekipten alın
 Copy-Item .env.unified34-team.example .env
 docker compose up --build -d
 ```

@@ -26,7 +26,7 @@ from pathlib import Path
 import numpy as np
 
 from src.common import AI_ROOT, CONFIG_DIR, label_config, label_filename, resolve_data_root, write_json
-from src.model.dataset import BASE_FEATURES, HAND_LOCAL_TOTAL_FEATURES, load_split
+from src.model.dataset import BASE_FEATURES, HAND_LOCAL_TOTAL_FEATURES, MIRROR_ORDER, load_split
 
 
 MODEL_VERSION = "signbridge-unified30-bigru-v0.2.0"
@@ -43,7 +43,7 @@ HAND_LOCAL = False
 # Sözlük → (model sürümü, politika dosyası, beklenen sınıf sayısı)
 VARIANTS = {
     "signbridge30-v1": ("signbridge-unified30-bigru-v0.2.0", "decision_policy.unified30-team-camera.json", 30),
-    "signbridge34-v1": ("signbridge-unified34-bigru-v0.3.0", "decision_policy.unified34-team-camera.json", 34),
+    "signbridge34-v1": ("signbridge-unified34-bigru-v0.4.0", "decision_policy.unified34-team-camera.json", 34),
 }
 
 
@@ -114,6 +114,27 @@ def initialize_from_autsl20(teacher, student) -> None:
     student.layers[-1].set_weights([destination_kernel, destination_bias])
 
 
+def initialize_from_encoder(encoder, student, old_original_ids: list[int]) -> None:
+    """Kodlayıcıyı AUTSL-226 ön eğitiminden alır (aynı mimari, 60×222).
+
+    İlk 20 sınıfın çıktı satırları 226 sınıflı başlıktaki karşılıklarından (AUTSL sınıf numarası)
+    kopyalanır; yeni belirti sınıflarının satırları rastgele başlar.
+    """
+    if tuple(encoder.input_shape[1:]) != tuple(student.input_shape[1:]):
+        raise ValueError("Ön eğitimli kodlayıcı girdi biçimi birleşik modelle aynı olmalıdır (60×222).")
+    if len(encoder.layers) != len(student.layers):
+        raise ValueError("Ön eğitimli kodlayıcı beklenen BiGRU mimarisiyle uyumsuz.")
+    if len(old_original_ids) != OLD_CLASS_COUNT or max(old_original_ids) >= encoder.output_shape[-1]:
+        raise ValueError("AUTSL-20 sınıflarının özgün numaraları ön eğitim başlığıyla eşleşmiyor.")
+    for source, destination in zip(encoder.layers[:-1], student.layers[:-1]):
+        destination.set_weights(source.get_weights())
+    source_kernel, source_bias = encoder.layers[-1].get_weights()
+    destination_kernel, destination_bias = student.layers[-1].get_weights()
+    destination_kernel[:, :OLD_CLASS_COUNT] = source_kernel[:, old_original_ids]
+    destination_bias[:OLD_CLASS_COUNT] = source_bias[old_original_ids]
+    student.layers[-1].set_weights([destination_kernel, destination_bias])
+
+
 def _time_warp(coordinates, mask):
     """Hızı %80–120 arasında değiştirir ve başlangıç/bitişi küçükçe kaydırır."""
     import tensorflow as tf
@@ -140,7 +161,14 @@ def _time_warp(coordinates, mask):
     return tf.ensure_shape(coordinates, (60, 46, 2)), tf.ensure_shape(mask, (60, 46, 1))
 
 
-MIRROR_ORDER = [1, 0, 3, 2, *range(25, 46), *range(4, 25)]
+DERIVED_SOURCES = {"SYNTHETIC", "RECORDING_SIM"}
+
+
+def is_derived(row: dict) -> bool:
+    """Gerçek kaynaktan türetilmiş (sentetik veya kayıt benzetimi) örnek mi?"""
+    return row.get("source") in DERIVED_SOURCES
+
+
 
 
 def augment_feature(features, target):
@@ -259,10 +287,10 @@ def evaluate_student(
     sugar_members = y_test == sugar
     sugar_symptom = context_predictions(test_probabilities[sugar_members], symptom_indexes)
     meb_context = context_predictions(meb_probabilities, symptom_indexes)
-    real_meb = np.asarray([row.get("source") != "SYNTHETIC" for row in meb_rows], dtype=bool)
+    real_meb = np.asarray([not is_derived(row) for row in meb_rows], dtype=bool)
     meb_details = []
     for row, target, probabilities, context_winner in zip(meb_rows, y_meb, meb_probabilities, meb_context):
-        if row.get("source") == "SYNTHETIC":
+        if is_derived(row):
             continue
         meb_details.append({
             "sampleId": row["sample_id"],
@@ -559,9 +587,15 @@ def train_one_seed(args, seed: int, output_dir: Path, data: dict, labels: list[d
     x_validation, y_validation, _ = data["validation"]
     x_meb, y_meb, _ = data["meb"]
 
-    teacher = tf.keras.models.load_model(str(teacher_path))
     student = build_model(class_count)
-    initialize_from_autsl20(teacher, student)
+    if args.encoder_init:
+        encoder = tf.keras.models.load_model(str(Path(args.encoder_init).resolve()))
+        old_ids = [int(item["originalClassId"]) for item in label_config(BASE_VOCABULARY_VERSION)["labels"]]
+        initialize_from_encoder(encoder, student, old_ids)
+        del encoder
+    else:
+        teacher = tf.keras.models.load_model(str(teacher_path))
+        initialize_from_autsl20(teacher, student)
 
     old_targets = _distillation_targets(teacher_probabilities["train"], y_train, class_count)
     new_targets = np.eye(class_count, dtype=np.float32)[y_meb]
@@ -571,17 +605,20 @@ def train_one_seed(args, seed: int, output_dir: Path, data: dict, labels: list[d
         len(x_train), seed=seed, reshuffle_each_iteration=True
     ).repeat()
     # MEB: her sınıf eşit olasılıkla örneklenir (sınıf dengeli örnekleme).
-    synthetic = np.asarray([row.get("source") == "SYNTHETIC" for row in data["meb"][2]], dtype=bool)
+    sources = np.asarray([row.get("source", "") for row in data["meb"][2]])
+    synthetic = sources == "SYNTHETIC"
+    recording = sources == "RECORDING_SIM"
 
     def class_dataset(label):
-        real = (y_meb == label) & ~synthetic
-        fake = (y_meb == label) & synthetic
-        parts = [tf.data.Dataset.from_tensor_slices((x_meb[real], new_targets[real])).repeat()]
-        if fake.any():
-            # Sentetik örnekler sınıfın en fazla yarısını oluşturur; gerçek örnekler baskın kalır.
-            parts.append(tf.data.Dataset.from_tensor_slices((x_meb[fake], new_targets[fake])).repeat())
-            return tf.data.Dataset.sample_from_datasets(parts, weights=[0.5, 0.5], seed=seed)
-        return parts[0]
+        pools = [(y_meb == label) & ~synthetic & ~recording, (y_meb == label) & recording,
+                 (y_meb == label) & synthetic]
+        # Gerçek klip, kayıt benzetimi ve sentetik örnekler eşit payla örneklenir (olanlar arasında);
+        # böylece türetilmiş örnekler bir sınıfı tek başına belirlemez.
+        parts = [tf.data.Dataset.from_tensor_slices((x_meb[pool], new_targets[pool])).repeat()
+                 for pool in pools if pool.any()]
+        if len(parts) == 1:
+            return parts[0]
+        return tf.data.Dataset.sample_from_datasets(parts, weights=[1.0 / len(parts)] * len(parts), seed=seed)
 
     per_class = [class_dataset(label) for label in np.unique(y_meb)]
     new_dataset = tf.data.Dataset.sample_from_datasets(per_class, seed=seed).map(
@@ -591,7 +628,7 @@ def train_one_seed(args, seed: int, output_dir: Path, data: dict, labels: list[d
         [old_dataset, new_dataset], weights=[2.0 / 3.0, 1.0 / 3.0], seed=seed
     ).batch(args.batch_size).prefetch(tf.data.AUTOTUNE)
     reference_videos = len({row.get("raw_path") or row["sample_id"] for row in data["meb"][2]
-                            if row.get("source") != "SYNTHETIC"})
+                            if not is_derived(row)})
     steps_per_epoch = max(
         1, math.ceil((len(x_train) + args.meb_augmentations * reference_videos) / args.batch_size)
     )
@@ -609,7 +646,7 @@ def train_one_seed(args, seed: int, output_dir: Path, data: dict, labels: list[d
     )
 
     trainable = {"encoder_bigru_64", "embedding_64", "class_probabilities"}
-    if HAND_LOCAL:
+    if HAND_LOCAL or args.encoder_init:
         # Ek el biçimi girdileri ilk BiGRU'ya bağlıdır; bu katman eğitilmezse sıfır ağırlıklar öğrenilemez.
         trainable.add("encoder_bigru_128")
     for layer in student.layers:
@@ -678,6 +715,11 @@ def main() -> None:
     parser.add_argument("--seed", type=int, help="Tek tohumla çalıştırır (--seeds yerine)")
     parser.add_argument("--smoke", action="store_true", help="Küçük veri, 1+1 epoch; ölçüm değildir")
     parser.add_argument("--model-version", help="Model sürüm adını değiştirir (ör. yerel/ekip içi yeniden eğitim)")
+    parser.add_argument("--test-time-mirror", action="store_true",
+                        help="Servis tahmininde ayna görüntüyle ortalama alınır (runtime_config.testTimeMirror)")
+    parser.add_argument("--encoder-init",
+                        help="AUTSL-226 ön eğitimli kodlayıcı (src.pretrain_autsl226 çıktısı saved_model); "
+                             "--hand-local-features gerektirir. Öğretmen (--base-model) damıtma ve kapı için kalır.")
     parser.add_argument("--hand-local-features", action="store_true",
                         help="El biçimi özelliklerini ekler (girdi 222); servis modele göre otomatik seçer")
     args = parser.parse_args()
@@ -688,6 +730,8 @@ def main() -> None:
         MODEL_VERSION = args.model_version
     global HAND_LOCAL
     HAND_LOCAL = bool(args.hand_local_features)
+    if args.encoder_init and not HAND_LOCAL:
+        raise ValueError("--encoder-init, --hand-local-features ile birlikte kullanılmalıdır (60×222).")
     if args.output_dir is None:
         args.output_dir = str(AI_ROOT / "outputs" / ("unified30" if expected_classes == 30 else "unified34"))
 
@@ -734,13 +778,13 @@ def main() -> None:
     held = np.asarray([row.get("signer_id", "") in holdout for row in health_rows], dtype=bool)
     # Dışarıda bırakılan kaynaktan türetilen sentetik örnekler ne eğitime ne ölçüme girer (sızıntı olmasın).
     derived = np.asarray([
-        row.get("source") == "SYNTHETIC" and row.get("derived_signer_id", "") in holdout for row in health_rows
+        is_derived(row) and row.get("derived_signer_id", "") in holdout for row in health_rows
     ], dtype=bool)
     if held.any():
         data["holdout"] = (health_x[held], health_y[held], [r for r, h in zip(health_rows, held) if h])
     keep = ~held & ~derived
     data["meb"] = (health_x[keep], health_y[keep], [r for r, k in zip(health_rows, keep) if k])
-    real_labels = [int(v) for v, row in zip(data["meb"][1], data["meb"][2]) if row.get("source") != "SYNTHETIC"]
+    real_labels = [int(v) for v, row in zip(data["meb"][1], data["meb"][2]) if not is_derived(row)]
     missing = sorted(set(symptom_indexes) - set(real_labels))
     if missing:
         names = [labels[index]["classId"] for index in missing]
@@ -787,6 +831,7 @@ def main() -> None:
         "createdAt": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
         "smokeOnly": bool(args.smoke),
         "baseModel": teacher_path.name,
+        "encoderInit": Path(args.encoder_init).parent.name + "/" + Path(args.encoder_init).name if args.encoder_init else None,
         "selectionCriterion": "gate-passing run with highest AUTSL validation accuracy",
         "extraManifests": [Path(item).name for item in args.extra_manifest],
         "classCount": len(labels),
@@ -801,16 +846,17 @@ def main() -> None:
         "autslTrainSamples": int(len(data["train"][1])),
         "autslValidationSamples": int(len(data["validation"][1])),
         "autslTestSamples": int(len(data["test"][1])),
-        "mebReferenceSamples": int(sum(row.get("source") != "SYNTHETIC" for row in data["meb"][2])),
+        "mebReferenceSamples": int(sum(not is_derived(row) for row in data["meb"][2])),
         "mebReferenceVideos": len({row.get("raw_path") or row["sample_id"] for row in data["meb"][2]
-                                   if row.get("source") != "SYNTHETIC"}),
-        "healthSources": sorted({row.get("signer_id", "") for row in data["meb"][2] if row.get("source") != "SYNTHETIC"}),
+                                   if not is_derived(row)}),
+        "healthSources": sorted({row.get("signer_id", "") for row in data["meb"][2] if not is_derived(row)}),
         "syntheticSamples": int(sum(row.get("source") == "SYNTHETIC" for row in data["meb"][2])),
+        "recordingSimSamples": int(sum(row.get("source") == "RECORDING_SIM" for row in data["meb"][2])),
         "mebViewsByExtractor": {
             name: sum(row.get("extractor", "mediapipe-holistic-legacy") == name for row in data["meb"][2]
-                      if row.get("source") != "SYNTHETIC")
+                      if not is_derived(row))
             for name in sorted({row.get("extractor", "mediapipe-holistic-legacy") for row in data["meb"][2]
-                                if row.get("source") != "SYNTHETIC"})
+                                if not is_derived(row)})
         },
         "mebAugmentationsPerSamplePerEpoch": args.meb_augmentations,
         "mebNeedsReviewSources": int(sum(
@@ -837,6 +883,7 @@ def main() -> None:
         "vocabularyVersion": VOCABULARY_VERSION,
         "confidenceThreshold": 0.95,
         "featureLayout": "xy-mask-138+handlocal-84" if HAND_LOCAL else "xy-mask-138",
+        **({"testTimeMirror": True} if args.test_time_mirror else {}),
     })
     shutil.copy2(CONFIG_DIR / LABELS_FILE, output_dir / LABELS_FILE)
     policy = json.loads((CONFIG_DIR / POLICY_FILE).read_text(encoding="utf-8"))
