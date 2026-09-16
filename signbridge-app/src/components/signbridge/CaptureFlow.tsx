@@ -8,12 +8,20 @@ import Button from '../ui/Button';
 import Logo from '../layout/Logo';
 import ExpressionVisual from './ExpressionVisual';
 import { EXPRESSIONS } from '../../data/expressions';
-import { recordAnswer } from '../../lib/consultationFlow';
+import { recordAnswer, type FlowState } from '../../lib/consultationFlow';
 import { submitPatientAnswer } from '../../lib/sessionClient';
 import { assessPoseQuality, preprocessPoseSequence, type RawPoseFrame } from '../../lib/landmarkPreprocessing';
 import { getHolisticLandmarker, resultToRawFrame } from '../../lib/browserVision';
 import { isPredictionPayload } from '../../../lib/prediction';
 import type { HolisticLandmarker } from '@mediapipe/tasks-vision';
+
+// Kamera yolundan çıkılırken hastanın düşeceği manuel ekran, akışın bağlamına göre belirlenir.
+// Yanıt modunda soru tipine ait hazır seçenek ekranı, ek soru modunda soru ekranı, aksi hâlde şikayet listesi.
+export function manualPathFor(state: FlowState): string {
+  if (state.capture === 'answer') return state.pending ? `/patient/${state.pending.kind}` : '/manual-select';
+  if (state.capture === 'followup') return '/patient/question';
+  return '/manual-select';
+}
 
 export function Home() {
   const { state, start } = useFlow();
@@ -58,7 +66,7 @@ export function Camera() {
   const [message, setMessage] = useState('Kamera henüz açılmadı.');
   const [seconds, setSeconds] = useState(0);
   const [cameraWarning, setCameraWarning] = useState('');
-  const alternative = state.capture === 'answer' ? `/patient/${state.pending?.kind || 'custom'}` : state.capture === 'followup' ? '/patient/question' : '/manual-select';
+  const alternative = manualPathFor(state);
 
   const stopCamera = () => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -177,8 +185,13 @@ export function Camera() {
 }
 
 export function CameraHelp() {
-  return <Frame title="Kamera açılmadı" footer={<><Button href="/camera">Tekrar dene</Button><Button href="/manual-select" variant="outline">Seçerek devam et</Button></>}>
-    <div className="compact-center"><div className="h-20 w-20 text-brand-600"><CameraIcon /></div><p>Kamera iznini kontrol edin.</p></div>
+  const { state } = useFlow();
+  const manualPath = manualPathFor(state);
+  const answering = state.capture === 'answer' && !!state.pending;
+  return <Frame title="Kamera açılmadı" footer={<><Button href="/camera">Tekrar dene</Button><Button href={manualPath} variant="outline">{answering ? 'Seçerek yanıtla' : 'Seçerek devam et'}</Button></>}>
+    <div className="compact-center"><div className="h-20 w-20 text-brand-600"><CameraIcon /></div>
+      {answering && state.pending && <div className="compact-card w-full"><p className="text-caption text-ink-muted">Doktorun sorusu</p><ReadText text={state.pending.text} /></div>}
+      <p>Kamera iznini kontrol edin.</p></div>
   </Frame>;
 }
 
@@ -196,7 +209,7 @@ export function Confirm() {
   const candidate = state.candidate ?? (leaving ? initialCandidate : null);
   const expression = EXPRESSIONS.find(e => e.sentence === candidate?.text);
   const [error, setError] = useState('');
-  const manualPath = state.capture === 'answer' && state.pending ? `/patient/${state.pending.kind}` : state.capture === 'followup' ? '/patient/question' : '/manual-select';
+  const manualPath = manualPathFor(state);
   const confirm = async () => {
     if (!state.candidate || leaving) return;
     setLeaving(true);
@@ -250,10 +263,15 @@ export function ManualSelect() {
   const { state, setState } = useFlow(); const router = useRouter();
   const [text, setText] = useState(''); const [page, setPage] = useState(0);
   const [writing, setWriting] = useState(state.capture !== 'complaint');
+  const pending = state.capture === 'answer' ? state.pending : null;
   const send = (value: string) => { if (!value.trim()) return; setState(s => ({ ...s, candidate: { text: value.trim(), source: 'manual' } })); router.push('/confirm'); };
-  return <Frame title={writing ? 'Ne anlatmak istersiniz?' : 'Şikayetinizi seçin'} footer={writing ? <><Button disabled={!text.trim()} onClick={() => send(text)}>Devam et</Button><button className="compact-link" onClick={() => state.capture === 'complaint' ? setWriting(false) : router.push('/camera')}>Geri</button></> :
+  return <Frame title={writing ? (pending ? 'Doktorun sorusu' : 'Ne anlatmak istersiniz?') : 'Şikayetinizi seçin'} footer={writing ? <><Button disabled={!text.trim()} onClick={() => send(text)}>Devam et</Button>{!text.trim() && <p className="text-center text-caption text-ink-muted">{pending ? 'Devam etmek için yanıtınızı yazın.' : 'Devam etmek için anlatımınızı yazın.'}</p>}<button className="compact-link" onClick={() => state.capture === 'complaint' ? setWriting(false) : router.push('/camera')}>Geri</button></> :
     <><Pager index={page} total={Math.ceil(EXPRESSIONS.length / 4)} onChange={setPage} /><button className="compact-link" onClick={() => setWriting(true)}>Başka bir şey anlatacağım</button></>}>
-    {writing ? <div className="compact-form flex-1 justify-center"><label>Anlatımınız<textarea rows={4} maxLength={500} value={text} onChange={e => setText(e.target.value)} /></label></div> :
+    {writing ? <div className="compact-form flex-1 justify-center">
+      {pending && <div className="compact-card"><ReadText text={pending.text} /></div>}
+      <label>{pending ? 'Yanıtınız' : 'Anlatımınız'}<textarea rows={4} maxLength={500} value={text} onChange={e => setText(e.target.value)} /></label>
+      {pending && pending.kind !== 'custom' && <Link href={`/patient/${pending.kind}`} className="compact-link">Hazır yanıtlardan seçin</Link>}
+    </div> :
       <div className="compact-grid my-auto">{EXPRESSIONS.slice(page * 4, page * 4 + 4).map(e => <Choice key={e.id} onClick={() => send(e.sentence)}><div className="compact-symptom-choice-art text-brand-600"><ExpressionVisual expression={e} /></div>{e.label}</Choice>)}</div>}
   </Frame>;
 }
@@ -263,7 +281,7 @@ export function Fallback() {
   const query = useSearchParams();
   const reason = query.get('reason');
   const requiresServerReset = query.get('advanced') === '1';
-  const manualPath = state.capture === 'answer' && state.pending ? `/patient/${state.pending.kind}` : state.capture === 'followup' ? '/patient/question' : '/manual-select';
+  const manualPath = manualPathFor(state);
   const detail = reason?.includes('shoulder') ? 'İki omuz yeterince görünmedi.' : reason?.includes('hand') ? 'Eller yeterince görünmedi.' : reason?.includes('insufficient_motion') ? 'Yeterli hareket algılanmadı. İşareti yeniden yapın veya listeden seçin.' : reason === 'ambiguous_prediction' ? 'İki olası işaret birbirine çok yakındı.' : reason === 'unsupported_class' ? 'Bu işaret güvenli demo kapsamının dışında.' : reason === 'policy_disabled' ? 'Kamera tahmini güvenlik politikası nedeniyle kapalı.' : reason === 'service_error' ? 'Kamera hizmetine şu an ulaşılamıyor. Listeden seçim yaparak devam edebilirsiniz.' : reason === 'invalid_or_non_finite_frame' ? 'Kamera görüntüsü güvenli biçimde işlenemedi.' : reason === 'too_few_frames' ? 'Kayıt çok kısa sürdü.' : 'Model güvenli bir öneri üretemedi.';
   const retry = async () => {
     if (!requiresServerReset) {
@@ -279,7 +297,11 @@ export function Fallback() {
       setState(current => ({ ...current, candidate: null })); router.push('/camera');
     } catch { router.push(manualPath); }
   };
-  return <Frame title="Anlaşılamadı" footer={<><Button onClick={retry}>Tekrar anlat</Button><Button href={manualPath} variant="outline">Seçerek anlat</Button></>}>
-    <div className="compact-center"><div className="text-6xl font-light text-brand-600" aria-hidden="true">?</div>{state.capture === 'answer' && state.pending && <div className="compact-card w-full"><p className="text-caption text-ink-muted">Doktorun sorusu</p><ReadText text={state.pending.text} /></div>}<p>{detail}</p><p className="text-caption text-ink-muted">Tekrar deneyin veya listeden seçin.</p></div>
+  const answering = state.capture === 'answer' && !!state.pending;
+  const hasChoices = answering && state.pending?.kind !== 'custom';
+  const manualLabel = !answering ? 'Seçerek anlat' : hasChoices ? 'Seçerek yanıtla' : 'Yazarak yanıtla';
+  const manualHint = !answering ? 'Tekrar deneyin veya listeden seçin.' : hasChoices ? 'Tekrar deneyin veya hazır yanıtlardan seçin.' : 'Tekrar deneyin veya yanıtınızı yazın.';
+  return <Frame title="Anlaşılamadı" footer={<><Button onClick={retry}>Tekrar anlat</Button><Button href={manualPath} variant="outline">{manualLabel}</Button></>}>
+    <div className="compact-center"><div className="text-6xl font-light text-brand-600" aria-hidden="true">?</div>{answering && state.pending && <div className="compact-card w-full"><p className="text-caption text-ink-muted">Doktorun sorusu</p><ReadText text={state.pending.text} /></div>}<p>{detail}</p><p className="text-caption text-ink-muted">{manualHint}</p></div>
   </Frame>;
 }

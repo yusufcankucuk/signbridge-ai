@@ -3,5 +3,6 @@ import nextVitals from 'eslint-config-next/core-web-vitals';
 
 export default defineConfig([
     ...nextVitals,
-    globalIgnores(['.next/**', 'out/**', 'build/**', 'next-env.d.ts', 'public/mediapipe/*.js']),
+    // Derleme çıktıları lint edilmez: `.next` dışında betiklerin ürettiği `.next-check`, `.next-preview` gibi klasörler de kapsanır.
+    globalIgnores(['.next/**', '.next-*/**', 'out/**', 'build/**', 'next-env.d.ts', 'public/mediapipe/*.js']),
 ]);
