@@ -23,14 +23,6 @@ export function manualPathFor(state: FlowState): string {
   return '/manual-select';
 }
 
-// Manuel çıkışın etiketi de yolu gibi bağlama göre değişir; hedefi "yanıtla" olan
-// bir bağlantıya "anlat" yazmak hastayı yanıltıyordu. Tek kaynak burasıdır.
-export function manualLabelFor(state: FlowState): string {
-  if (state.capture === 'answer' && state.pending) return state.pending.kind !== 'custom' ? 'Seçerek yanıtla' : 'Yazarak yanıtla';
-  if (state.capture === 'followup') return 'Seçerek sor';
-  return 'Seçerek anlat';
-}
-
 export function Home() {
   const { state, start } = useFlow();
   const router = useRouter();
@@ -75,7 +67,6 @@ export function Camera() {
   const [seconds, setSeconds] = useState(0);
   const [cameraWarning, setCameraWarning] = useState('');
   const alternative = manualPathFor(state);
-  const alternativeLabel = manualLabelFor(state);
 
   const stopCamera = () => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -265,7 +256,7 @@ export function Confirm() {
   </> : <>
     <Button onClick={confirm}>Doğru, doktora ilet</Button>
     <div className="grid grid-cols-2"><button type="button" onClick={retry} className="compact-link">Tekrar anlat</button><Link href={manualPath} className="compact-link">Değiştir</Link></div>
-  </>)}>
+
     {!candidate ? <Empty text="Henüz bir anlatım yok." href="/camera" /> : <>
       {expression ? <><div className="compact-illustration"><div><ExpressionVisual expression={expression} /></div></div><p className="compact-sentence">{expression.sentence}</p></> :
         // Model sözlüğündeki kelimelerin şikayet kataloğunda karşılığı olmayabilir; o zaman
@@ -318,7 +309,7 @@ export function Fallback() {
   };
   const answering = state.capture === 'answer' && !!state.pending;
   const hasChoices = answering && state.pending?.kind !== 'custom';
-  const manualLabel = manualLabelFor(state);
+
   const manualHint = !answering ? 'Tekrar deneyin veya listeden seçin.' : hasChoices ? 'Tekrar deneyin veya hazır yanıtlardan seçin.' : 'Tekrar deneyin veya yanıtınızı yazın.';
   return <Frame title="Anlaşılamadı" footer={<><Button onClick={retry}>Tekrar anlat</Button><Button href={manualPath} variant="outline">{manualLabel}</Button></>}>
     <div className="compact-center"><div className="text-6xl font-light text-brand-600" aria-hidden="true">?</div>{answering && state.pending && <div className="compact-card w-full"><p className="text-caption text-ink-muted">Doktorun sorusu</p><ReadText text={state.pending.text} /></div>}<p>{detail}</p><p className="text-caption text-ink-muted">{manualHint}</p></div>
