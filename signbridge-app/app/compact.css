@@ -408,6 +408,50 @@
     margin: 0 auto var(--sb-space-2);
 }
 
+/* --- Onay ekranı: diğer olası belirtiler -------------------------------- */
+.compact-alternatives {
+    display: grid;
+    gap: var(--sb-space-2);
+}
+.compact-alternatives > p {
+    text-align: center;
+    color: var(--sb-ink-muted);
+    font-size: var(--sb-text-secondary);
+    font-weight: var(--sb-weight-medium);
+}
+.compact-alternatives > div {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--sb-space-2);
+}
+.compact-alternatives button {
+    display: flex;
+    align-items: center;
+    gap: var(--sb-space-2);
+    min-height: var(--sb-tap);
+    padding: var(--sb-space-2);
+    border: 1px solid var(--sb-line-strong);
+    border-radius: var(--sb-radius);
+    background: var(--sb-surface);
+    color: var(--sb-ink-body);
+    font-size: var(--sb-text-secondary);
+    font-weight: var(--sb-weight-medium);
+    line-height: 1.2;
+    text-align: left;
+}
+.compact-alternatives button:hover {
+    border-color: var(--sb-brand-200);
+    background: var(--sb-brand-50);
+}
+.compact-alternative-art {
+    flex: none;
+    display: flex;
+    justify-content: center;
+    width: 44px;
+    height: 56px;
+    color: var(--sb-brand);
+}
+
 /* --- Açılış ekranı ------------------------------------------------------- */
 .compact-home {
     flex: 1;

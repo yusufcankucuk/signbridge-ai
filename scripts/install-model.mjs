@@ -12,24 +12,34 @@ import { dirname, resolve } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { sha256File, validateModelAssets } from './model-assets-lib.mjs';
+import { argumentValue, resolveModelRelease, sha256File, validateModelAssets } from './model-assets-lib.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
-const valueOf = (name) => {
-  const inline = args.find((value) => value.startsWith(`${name}=`));
-  if (inline) return inline.slice(name.length + 1);
-  const index = args.indexOf(name);
-  return index >= 0 ? args[index + 1] : undefined;
-};
+const valueOf = (name) => argumentValue(args, name);
 const archiveArgument = valueOf('--archive') ?? process.env.MODEL_ARCHIVE;
 const force = args.includes('--force');
-const outputRoot = resolve(repoRoot, valueOf('--model-dir') ?? 'ai-training/outputs');
-const release = JSON.parse(readFileSync(resolve(repoRoot, 'scripts/model-release.json'), 'utf8'));
-const manifest = JSON.parse(readFileSync(resolve(repoRoot, 'ai-training/configs/model-assets.json'), 'utf8'));
+const releaseFile = JSON.parse(readFileSync(resolve(repoRoot, 'scripts/model-release.json'), 'utf8'));
+let selection;
+try {
+  selection = resolveModelRelease(releaseFile, valueOf('--model') ?? process.env.SIGNBRIDGE_MODEL);
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+}
+const release = selection.release;
+const outputRoot = resolve(repoRoot, valueOf('--model-dir') ?? selection.modelDir);
+const manifest = JSON.parse(readFileSync(resolve(repoRoot, selection.assetsManifest), 'utf8'));
 
 async function download(url, destination) {
   const response = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(120_000) });
+  if (response.status === 404) {
+    throw new Error(
+      `Model indirilemedi: HTTP 404 (${url}).\n` +
+      'Release henüz yayınlanmamış olabilir. Ekipten ZIP dosyasını alıp şu komutla kurun:\n' +
+      `  node scripts/install-model.mjs --model ${selection.name} --archive <zip-yolu>`,
+    );
+  }
   if (!response.ok || !response.body) throw new Error(`Model indirilemedi: HTTP ${response.status}`);
   await pipeline(response.body, createWriteStream(destination, { flags: 'wx' }));
 }
@@ -53,7 +63,7 @@ function copyMissing(source, destination) {
 async function main() {
   const currentFailures = existsSync(outputRoot) ? await validateModelAssets(outputRoot, manifest) : ['model dizini yok'];
   if (!force && currentFailures.length === 0) {
-    console.log(`Model zaten doğrulanmış: ${release.modelVersion}`);
+    console.log(`Model zaten doğrulanmış: ${release.modelVersion} (${selection.name})`);
     console.log(`Model dizini: ${outputRoot}`);
     return;
   }
@@ -70,7 +80,7 @@ async function main() {
       archive = resolve(process.cwd(), archiveArgument);
       if (!existsSync(archive) || !statSync(archive).isFile()) throw new Error(`Model arşivi bulunamadı: ${archive}`);
     } else {
-      console.log(`Model indiriliyor: ${release.tag}`);
+      console.log(`Model indiriliyor: ${release.tag} (${selection.name})`);
       await download(release.downloadUrl, downloadedArchive);
       archive = downloadedArchive;
     }

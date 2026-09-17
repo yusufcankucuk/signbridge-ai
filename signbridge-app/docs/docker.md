@@ -2,7 +2,7 @@
 
 Docker yapısı dört parçadan oluşur:
 
-- `model-setup`: GitHub Release modelini indirip iki aşamalı SHA-256 kontrolüyle kuran tek seferlik iş.
+- `model-setup`: GitHub Release modelini indirip iki aşamalı SHA-256 kontrolüyle kuran tek seferlik iş. Varsayılan model `unified34` (20 kelime + 15 belirti avatarı); `.env` içinde `SIGNBRIDGE_MODEL=autsl20` eski modeli kurar.
 - `web`: Next.js uygulaması; yalnızca `3000` portundan bilgisayara açılır.
 - `ai-inference`: Eğitilmiş modeli yükleyen FastAPI servisi; yalnızca Docker iç ağından erişilir.
 - `ai-training`: Veri hazırlama ve model eğitimi için isteğe bağlı tek seferlik iş.
@@ -31,11 +31,11 @@ docker compose ps
 ```
 
 `model-setup` şu sırayı uygular: Release arşivini geçici alana indirir, arşivin SHA-256 değerini doğrular,
-modeli açar, SavedModel dosyalarını ayrı ayrı doğrular ve ancak bütün kontroller geçerse `ai-training/outputs`
-dizinini atomik biçimde değiştirir. İnternet yoksa arşivi depo içine kopyalamadan bilgisayardaki bir yoldan kurabilirsiniz:
+modeli açar, SavedModel dosyalarını ayrı ayrı doğrular ve ancak bütün kontroller geçerse model dizinini
+(`ai-training/outputs/unified34`, eski model için `ai-training/outputs`) atomik biçimde değiştirir. İnternet yoksa arşivi depo içine kopyalamadan bilgisayardaki bir yoldan kurabilirsiniz:
 
 ```powershell
-node scripts/install-model.mjs --archive C:\path\to\signbridge-autsl20-modelarts-v0.1.0.zip
+node scripts/install-model.mjs --archive C:\path\to\signbridge-unified34-v0.4.0.zip
 ```
 
 Kurulumdan sonra platformdan bağımsız ön kontrolü çalıştırın:
@@ -58,7 +58,7 @@ docker compose logs --tail 100 web ai-inference
 
 Tarayıcı adresi: `http://localhost:3000`
 
-CPU ile ilk model yükleme, bilgisayarın hızına göre yaklaşık 1-3 dakika sürebilir. Model yoksa ve `ALLOW_MANUAL_ONLY=true` ise AI servisi `manual_only` olarak sağlıklı başlar; kamera açılmaz ve görüşme manuel seçimle tamamlanır. Doğrulanmış model ve `decision_policy.team-camera.json` birlikte bulunduğunda `team_camera` açılır. Bu mod yalnız ekip testidir. `camera_ai` adı yalnız bütün fiziksel doğrulama ve OOD kapıları geçen, deneysel olmayan final politikası için kullanılır.
+CPU ile ilk model yükleme, bilgisayarın hızına göre yaklaşık 1-3 dakika sürebilir. Model yoksa ve `ALLOW_MANUAL_ONLY=true` ise AI servisi `manual_only` olarak sağlıklı başlar; kamera açılmaz ve görüşme manuel seçimle tamamlanır. Doğrulanmış model ve ekip kamera politikası (`decision_policy.unified34-team-camera.json`, eski model için `decision_policy.team-camera.json`) birlikte bulunduğunda `team_camera` açılır. Bu mod yalnız ekip testidir. `camera_ai` adı yalnız bütün fiziksel doğrulama ve OOD kapıları geçen, deneysel olmayan final politikası için kullanılır.
 
 Modu ve sürümleri tek yerden kontrol edin:
 

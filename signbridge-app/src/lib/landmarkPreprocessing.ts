@@ -115,6 +115,75 @@ export function assessPoseQuality(
     : { status: 'approved', reason: 'ok', shoulderFrameRatio, handFrameRatio, motionScore };
 }
 
+export const RECORDING_FPS = 10;
+export const MAX_GAP_FRAMES = 5;
+const TRIM_MARGIN_SECONDS = 0.1;
+const HAND_BLOCKS: Array<[number, number]> = [[33, 54], [54, 75]];
+const POSE_POINTS = [11, 12, 13, 14];
+
+function shortGaps(visible: boolean[], maxGap: number): Array<[number, number]> {
+  const gaps: Array<[number, number]> = [];
+  let index = 0;
+  while (index < visible.length) {
+    if (visible[index]) { index += 1; continue; }
+    const start = index;
+    while (index < visible.length && !visible[index]) index += 1;
+    if (start > 0 && index < visible.length && index - start <= maxGap) gaps.push([start, index]);
+  }
+  return gaps;
+}
+
+const handVisible = (frame: RawPoseFrame, [start, end]: [number, number], minimum: number) =>
+  frame.confidence.slice(start, end).some(value => value >= minimum);
+
+/**
+ * Kayıttaki kareleri eğitim verisiyle aynı biçime getirir (Python `trim_recording` ile aynı):
+ * kısa el/omuz kayıplarını doğrusal doldurur, ellerin hiç görünmediği baş ve son kareleri
+ * yaklaşık 0,1 sn pay bırakarak atar. Hasta kaydı başlatıp elini kadraja getirene kadar geçen
+ * süre ve işaret bittikten sonraki bekleme böylece tahmini ve kalite kapısını bozmaz.
+ */
+export function prepareRecordedFrames(
+  frames: RawPoseFrame[],
+  fps = RECORDING_FPS,
+  minimumFrames = 8,
+  minimumConfidence = 0.1,
+): RawPoseFrame[] {
+  if (!frames.length || !frames.every(validFrame)) return frames;
+  const out = frames.map(frame => ({ keypoints: frame.keypoints.map(point => [...point]), confidence: [...frame.confidence] }));
+  for (const block of HAND_BLOCKS) {
+    const visible = out.map(frame => handVisible(frame, block, minimumConfidence));
+    for (const [start, end] of shortGaps(visible, MAX_GAP_FRAMES)) {
+      const before = out[start - 1]; const after = out[end];
+      for (let frame = start; frame < end; frame += 1) {
+        const weight = (frame - start + 1) / (end - start + 1);
+        for (let point = block[0]; point < block[1]; point += 1) {
+          out[frame].keypoints[point] = before.keypoints[point].map((value, axis) => value + (after.keypoints[point][axis] - value) * weight);
+          out[frame].confidence[point] = Math.min(before.confidence[point], after.confidence[point]);
+        }
+      }
+    }
+  }
+  for (const point of POSE_POINTS) {
+    const visible = out.map(frame => frame.confidence[point] >= minimumConfidence);
+    for (const [start, end] of shortGaps(visible, MAX_GAP_FRAMES)) {
+      const before = out[start - 1]; const after = out[end];
+      for (let frame = start; frame < end; frame += 1) {
+        const weight = (frame - start + 1) / (end - start + 1);
+        out[frame].keypoints[point] = before.keypoints[point].map((value, axis) => value + (after.keypoints[point][axis] - value) * weight);
+        out[frame].confidence[point] = Math.min(before.confidence[point], after.confidence[point]);
+      }
+    }
+  }
+  const visible = out.map(frame => HAND_BLOCKS.some(block => handVisible(frame, block, minimumConfidence)));
+  const first = visible.indexOf(true);
+  if (first < 0) return out;
+  const last = visible.lastIndexOf(true);
+  const margin = Math.max(1, Math.round(TRIM_MARGIN_SECONDS * fps));
+  const start = Math.max(0, first - margin);
+  const end = Math.min(out.length, last + 1 + margin);
+  return end - start < minimumFrames ? out : out.slice(start, end);
+}
+
 function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
   const middle = Math.floor(sorted.length / 2);

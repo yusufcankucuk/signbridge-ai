@@ -9,7 +9,7 @@ from pathlib import Path, PureWindowsPath
 
 import numpy as np
 
-from src.common import AI_ROOT, CONFIG_DIR, autsl_labels, load_json, write_json
+from src.common import AI_ROOT, CONFIG_DIR, label_filename, load_json, model_labels, write_json
 from src.decision_policy import load_policy
 from src.model.dataset import sequence_to_features
 
@@ -46,7 +46,7 @@ def build_package(
     for evidence_file in evidence_files:
         if not evidence_file.is_file():
             raise ValueError(f"Evidence file does not exist: {evidence_file}")
-        if evidence_file.suffix.lower() not in {".json", ".csv", ".png"}:
+        if evidence_file.suffix.lower() not in {".json", ".csv", ".png", ".md"}:
             raise ValueError(f"Unsupported evidence file: {evidence_file}")
     destination.mkdir(parents=True, exist_ok=False)
     code = destination / "code"
@@ -60,7 +60,7 @@ def build_package(
     (data / "manifests").mkdir(parents=True)
     signers = {}
     counts = {}
-    labels = autsl_labels()
+    labels = model_labels(str(runtime["vocabularyVersion"]))
     for split in ["train", "validation", "test"]:
         with (manifest_dir / f"autsl20_{split}.csv").open(encoding="utf-8-sig", newline="") as f:
             rows = [r for r in csv.DictReader(f) if r["quality_status"] == "approved" and r["training_status"] == "trainable"]
@@ -90,14 +90,18 @@ def build_package(
     model = destination / "model"
     shutil.copytree(model_dir / "saved_model", model / "saved_model")
     shutil.copy2(model_dir / "runtime_config.json", model / "runtime_config.json")
-    for name in ["labels.autsl20.json", "preprocessing.json"]:
+    labels_filename = label_filename(str(runtime["vocabularyVersion"]))
+    for name in [labels_filename, "preprocessing.json"]:
         shutil.copy2(CONFIG_DIR / name, model / name)
     write_json(model / "decision_policy.json", policy)
-    model_card = AI_ROOT.parent / "docs/ai-scope-and-model-card-v2.md"
+    model_card = model_dir / "model_card.md"
+    if not model_card.is_file():
+        model_card = AI_ROOT.parent / "docs/ai-scope-and-model-card-v2.md"
     if model_card.is_file():
         shutil.copy2(model_card, model / "model_card.md")
     validation_report = AI_ROOT / "reports/ai-validation-2026-09-11.md"
-    if validation_report.is_file():
+    # Eski AUTSL-20 doğrulama eki birleşik modele ait değildir; yalnız AUTSL paketine eklenir.
+    if runtime["vocabularyVersion"] == "autsl20-v1" and validation_report.is_file():
         shutil.copy2(validation_report, model / "validation_addendum.md")
     docs = destination / "docs"
     docs.mkdir()
@@ -106,6 +110,7 @@ def build_package(
         "ai-weekly-validation.md",
         "ai-scope-and-model-card-v2.md",
         "autsl-camera-pose-compatibility.md",
+        "unified30-symptom-model.md",
     ]:
         source = AI_ROOT.parent / "docs" / name
         if source.is_file():

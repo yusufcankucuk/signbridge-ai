@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { HolisticLandmarker } from '@mediapipe/tasks-vision';
 import ExpressionVisual from './ExpressionVisual';
 import { EXPRESSIONS, expressionForCandidate } from '../../data/expressions';
-import { assessPoseQuality, preprocessPoseSequence, type QualityResult, type RawPoseFrame } from '../../lib/landmarkPreprocessing';
+import { assessPoseQuality, prepareRecordedFrames, preprocessPoseSequence, type QualityResult, type RawPoseFrame } from '../../lib/landmarkPreprocessing';
 import { getHolisticLandmarker, resultToRawFrame } from '../../lib/browserVision';
 import { isPredictionPayload } from '../../../lib/prediction';
 import {
@@ -101,7 +101,7 @@ export function CameraTrials() {
   const finish = async (current: PlannedTrial, currentAttempt: number) => {
     clearTimer();
     setPhase('processing'); setMessage('Tahmin alınıyor…');
-    const frames = framesRef.current;
+    const frames = prepareRecordedFrames(framesRef.current);
     const durationMs = now() - startedAtRef.current;
     const recordedAt = new Date();
     const quality = assessPoseQuality(frames, 0.1, 8, 0.6, 0.5, motionThresholdRef.current);
@@ -172,7 +172,7 @@ export function CameraTrials() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `symptom-camera-trials-${code || 'katilimci'}-${new Date().toISOString().replace(/[^0-9]/g, '').slice(0, 14)}.csv`;
+    anchor.download = `symptom-camera-trials-${code || 'katilimci'}-${new Date().toISOString().replace(/\D/g, '').slice(0, 14)}.csv`;
     document.body.appendChild(anchor); anchor.click(); anchor.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     setExported(rows.length);

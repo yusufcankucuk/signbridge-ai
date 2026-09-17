@@ -3,13 +3,13 @@ from __future__ import annotations
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 import numpy as np
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, ConfigDict, StrictInt
 
-from src.common import CONFIG_DIR, load_json
+from src.common import CONFIG_DIR, load_json, model_labels
 from src.decision_policy import default_policy, load_policy
 from src.model.predict import predict_landmarks, validate_bundle
 from src.model.dataset import sequence_to_features
@@ -22,6 +22,7 @@ class PredictionRequest(BaseModel):
     preprocessingVersion: str
     landmarks: list[list[list[float]]]
     mask: list[list[StrictInt]]
+    recognitionContext: Literal["general", "symptom"] = "general"
 
 
 state: dict[str, Any] = {}
@@ -43,11 +44,20 @@ async def lifespan(_app: FastAPI):
         )
     runtime = load_json(runtime_path if assets_available else fallback_runtime)
     state["runtime"] = runtime
-    label_path = Path(os.getenv("LABELS_PATH", str(CONFIG_DIR / "labels.autsl20.json")))
-    label_config = load_json(label_path)
-    if label_config["vocabularyVersion"] != runtime["vocabularyVersion"]:
-        raise RuntimeError("Etiket sözlüğü sürümü uyumsuz.")
-    state["labels"] = label_config["labels"]
+    label_value = os.getenv("LABELS_PATH")
+    label_config = load_json(Path(label_value)) if label_value else None
+    if label_config is not None and label_config["vocabularyVersion"] != runtime["vocabularyVersion"]:
+        if assets_available:
+            raise RuntimeError("Etiket sözlüğü sürümü uyumsuz.")
+        # Model yoksa manuel moda düşülür; sözlük manuel runtime sürümünden seçilir.
+        label_config = None
+    if label_config is None:
+        try:
+            state["labels"] = model_labels(str(runtime["vocabularyVersion"]))
+        except ValueError as exc:
+            raise RuntimeError("Etiket sözlüğü sürümü desteklenmiyor.") from exc
+    else:
+        state["labels"] = label_config["labels"]
     requested_policy_path = Path(policy_value) if policy_value else None
     # A team camera policy is allowed only when the versioned model assets exist.
     # Missing assets must still produce a healthy manual-only service.
@@ -88,16 +98,24 @@ def health() -> dict[str, object]:
         "decisionPolicyVersion": state["decision_policy"]["decisionPolicyVersion"],
         "experimental": state["decision_policy"].get("experimental") is True,
         "warning": state["decision_policy"].get("warning"),
+        "vocabularyVersion": runtime["vocabularyVersion"],
+        "preprocessingVersion": runtime["preprocessingVersion"],
     }
 
 
-def _policy_disabled_response(runtime: dict[str, Any], policy: dict[str, Any]) -> dict[str, object]:
+def _policy_disabled_response(
+    runtime: dict[str, Any], policy: dict[str, Any], recognition_context: str
+) -> dict[str, object]:
     return {
         "classId": None,
+        "expressionId": None,
         "displayText": "Kamera tahmini güvenlik politikası nedeniyle kapalı. Listeden seçim yapın.",
         "confidence": None,
         "alternatives": [],
         "isLowConfidence": True,
+        "forcedCandidate": False,
+        "experimental": policy.get("experimental") is True,
+        "recognitionContext": recognition_context,
         "predictionMode": "model",
         "modelVersion": runtime["modelVersion"],
         "preprocessingVersion": runtime["preprocessingVersion"],
@@ -126,7 +144,7 @@ def predict(request: PredictionRequest) -> dict[str, object]:
     except (ValueError, TypeError, OverflowError):
         raise HTTPException(status_code=422, detail="Geçersiz boyut/sayı veya boş/geçersiz mask.")
     if not policy.get("enabled", True):
-        return _policy_disabled_response(runtime, policy)
+        return _policy_disabled_response(runtime, policy, request.recognitionContext)
     if model is None:
         raise HTTPException(status_code=503, detail="Tam AI modu için model dosyaları eksik.")
     return predict_landmarks(
@@ -136,4 +154,5 @@ def predict(request: PredictionRequest) -> dict[str, object]:
         runtime,
         state.get("labels"),
         policy,
+        request.recognitionContext,
     )

@@ -4,10 +4,14 @@ const MODES = new Set(['model', 'mock', 'manual']);
 const REJECTION_REASONS = new Set(['low_score', 'ambiguous_prediction', 'unsupported_class', 'policy_disabled']);
 const PREDICTION_FIELDS = new Set([
     'classId',
+    'expressionId',
     'displayText',
     'confidence',
     'alternatives',
     'isLowConfidence',
+    'forcedCandidate',
+    'experimental',
+    'recognitionContext',
     'predictionMode',
     'modelVersion',
     'preprocessingVersion',
@@ -16,13 +20,14 @@ const PREDICTION_FIELDS = new Set([
     'rejectionReason',
     'requiresConfirmation',
 ]);
-const LANDMARK_REQUEST_FIELDS = new Set(['sessionId', 'preprocessingVersion', 'landmarks', 'mask']);
+const LANDMARK_REQUEST_FIELDS = new Set(['sessionId', 'preprocessingVersion', 'landmarks', 'mask', 'recognitionContext']);
 
 export interface LandmarkPredictionRequest {
     sessionId?: string;
     preprocessingVersion: string;
     landmarks: number[][][];
     mask: number[][];
+    recognitionContext?: 'general' | 'symptom';
 }
 
 function isNullableString(value: unknown): value is string | null {
@@ -47,12 +52,19 @@ export function isPredictionPayload(value: unknown): value is PredictionPayload 
     if (
         !isNullableString(payload.classId) ||
         (typeof payload.classId === 'string' && payload.classId.length > 100) ||
+        (payload.expressionId !== undefined &&
+            (!isNullableString(payload.expressionId) ||
+                (typeof payload.expressionId === 'string' && payload.expressionId.length > 100))) ||
         typeof payload.displayText !== 'string' ||
         payload.displayText.trim().length === 0 ||
         payload.displayText.length > 500 ||
         !confidenceIsValid ||
         !alternativesAreValid ||
         typeof payload.isLowConfidence !== 'boolean' ||
+        (payload.forcedCandidate !== undefined && typeof payload.forcedCandidate !== 'boolean') ||
+        (payload.experimental !== undefined && typeof payload.experimental !== 'boolean') ||
+        (payload.recognitionContext !== undefined &&
+            payload.recognitionContext !== 'general' && payload.recognitionContext !== 'symptom') ||
         typeof payload.predictionMode !== 'string' ||
         !MODES.has(payload.predictionMode) ||
         !isNullableString(payload.modelVersion) ||
@@ -71,10 +83,13 @@ export function isPredictionPayload(value: unknown): value is PredictionPayload 
         return false;
     }
 
-    if (payload.isLowConfidence && payload.classId !== null) return false;
+    const forcedCandidate = payload.forcedCandidate === true;
+    if (payload.isLowConfidence && payload.classId !== null && !forcedCandidate) return false;
+    if (forcedCandidate && (!payload.isLowConfidence || payload.classId === null)) return false;
+    if (forcedCandidate && payload.rejectionReason !== 'low_score' && payload.rejectionReason !== 'ambiguous_prediction') return false;
     if (payload.isLowConfidence && payload.rejectionReason === null) return false;
     if (!payload.isLowConfidence && payload.rejectionReason !== null) return false;
-    if (payload.requiresConfirmation !== (payload.predictionMode === 'model' && !payload.isLowConfidence)) return false;
+    if (payload.requiresConfirmation !== (payload.predictionMode === 'model' && payload.classId !== null)) return false;
     if (payload.predictionMode === 'manual' && payload.confidence !== null) return false;
     if (payload.predictionMode === 'model' && payload.modelVersion === null) return false;
     return true;
@@ -89,6 +104,7 @@ export function isLandmarkPredictionRequest(value: unknown): value is LandmarkPr
         (typeof request.sessionId !== 'string' || request.sessionId.length === 0 || request.sessionId.length > 100)
     ) return false;
     if (request.preprocessingVersion !== 'landmark46-v1') return false;
+    if (request.recognitionContext !== undefined && request.recognitionContext !== 'general' && request.recognitionContext !== 'symptom') return false;
     if (!Array.isArray(request.landmarks) || request.landmarks.length !== 60) return false;
     if (!Array.isArray(request.mask) || request.mask.length !== 60) return false;
 
