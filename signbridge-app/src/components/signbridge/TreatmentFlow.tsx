@@ -152,7 +152,9 @@ export function Treatment() {
 
 export function Summary() {
   const { state, setState } = useFlow(); const router = useRouter(); const [page, setPage] = useState(0);
-  const slides = summarySlides(state.expression, state.turns, state.plan); const index = Math.min(page, slides.length - 1);
+  const slides = summarySlides(state.expression, state.turns, state.plan);
+  const index = Math.min(page, slides.length - 1);
+
   return <Frame title="Doktorun yazdıkları" footer={state.plan.approved && <>
     <SlideNavigation page={index} total={slides.length} onBack={() => setPage(index - 1)} />
     <Button onClick={() => { if (index < slides.length - 1) setPage(index + 1); else { setState(s => ({ ...s, understood: true })); router.push('/print'); } }}>{index < slides.length - 1 ? 'Devam et' : 'Anladım'}</Button>

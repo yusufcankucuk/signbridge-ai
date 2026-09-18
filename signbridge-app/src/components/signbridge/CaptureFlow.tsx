@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useFlow } from '../providers/FlowProvider';
-import { Frame, Choice, Empty, Pager, ReadText, CameraIcon } from './CompactUI';
+import { Frame, Choice, Empty, Pager, ReadText, CameraIcon, SignIcon } from './CompactUI';
 import Button from '../ui/Button';
 import Logo from '../layout/Logo';
 import ExpressionVisual from './ExpressionVisual';
@@ -21,6 +21,10 @@ export function manualPathFor(state: FlowState): string {
   if (state.capture === 'answer') return state.pending ? `/patient/${state.pending.kind}` : '/manual-select';
   if (state.capture === 'followup') return '/patient/question';
   return '/manual-select';
+}
+
+export function manualLabelFor(state: FlowState): string {
+  return state.capture === 'answer' || state.capture === 'followup' ? 'Seçerek yanıtla' : 'Seçerek anlat';
 }
 
 export function Home() {
@@ -67,6 +71,7 @@ export function Camera() {
   const [seconds, setSeconds] = useState(0);
   const [cameraWarning, setCameraWarning] = useState('');
   const alternative = manualPathFor(state);
+  const alternativeLabel = manualLabelFor(state);
 
   const stopCamera = () => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -176,7 +181,7 @@ export function Camera() {
       phase === 'opening' || phase === 'processing' ? <Button disabled>{phase === 'opening' ? 'Hazırlanıyor…' : 'İşleniyor…'}</Button> :
       phase === 'ready' ? <button className="compact-record" onClick={startRecording} aria-label="Anlatımı başlat"><span aria-hidden="true">▶</span></button> :
       <button className="compact-record is-recording" onClick={() => void finishRecording()} aria-label="Anlatımı bitir"><span className="h-6 w-6 rounded bg-white" /></button>}
-    <div className="flex justify-between"><Link href={alternative} className="compact-link">Seçerek anlat</Link><Link href="/camera-help" className="compact-link">Yardım</Link></div>
+    <div className="flex justify-between"><Link href={alternative} className="compact-link">{alternativeLabel}</Link><Link href="/camera-help" className="compact-link">Yardım</Link></div>
   </>;
   return <Frame footer={<>
     {footer}
@@ -259,13 +264,21 @@ export function Confirm() {
       router.push('/camera');
     } catch (cause) { setLeaving(false); setError(cause instanceof Error ? cause.message : 'Yeni deneme başlatılamadı.'); }
   };
-  return <Frame title="Doğru anladım mı?" footer={candidate && <>
+  // Düşük güvenli bir model önerisinde birincil eylem onay olamaz: hasta tek dokunuşla
+  // yanlış bir ifadeyi tıbbi kayda sokabiliyordu. Bu durumda manuel seçim öne alınır.
+  const lowConfidence = candidate?.source === 'model' && candidate.prediction?.isLowConfidence === true;
+  return <Frame title="Doğru anladım mı?" footer={candidate && (lowConfidence ? <>
+    <Button href={manualPath}>{manualLabelFor(state)}</Button>
+    <div className="grid grid-cols-2"><button type="button" onClick={retry} className="compact-link">Tekrar anlat</button><button type="button" onClick={confirm} className="compact-link">Yine de doktora ilet</button></div>
+  </> : <>
     <Button onClick={confirm}>Doğru, doktora ilet</Button>
     <div className="grid grid-cols-2"><button type="button" onClick={retry} className="compact-link">Tekrar anlat</button><Link href={manualPath} className="compact-link">Değiştir</Link></div>
-  </>}>
+  </>)}>
+
     {!candidate ? <Empty text="Henüz bir anlatım yok." href="/camera" /> : <>
-      {expression ? <><div className="compact-illustration"><div><ExpressionVisual expression={expression} /></div></div><p className="compact-sentence">{expression.sentence}</p></> : <div className="compact-center"><ReadText text={candidate.text} /></div>}
+      {expression ? <><div className="compact-illustration"><div><ExpressionVisual expression={expression} /></div></div><p className="compact-sentence">{expression.sentence}</p></> : <><div className="compact-illustration"><div><SignIcon /></div></div><div className="compact-center"><ReadText text={candidate.text} /></div></>}
       {expression?.urgent && <p className="rounded-xl border border-warning-100 bg-warning-50 px-4 py-3 text-center text-caption font-semibold text-warning-700" role="alert">Acil olabilir. {candidate.prediction ? 'Bu, deneysel bir kamera önerisidir; ' : ''}belirtiler şiddetliyse hemen sağlık personeline haber verin veya 112’yi arayın.</p>}
+      {lowConfidence && <p className="rounded-xl border border-warning-100 bg-warning-50 px-4 py-3 text-center text-caption font-semibold text-warning-700" role="alert">Model bu işaretten emin değil. Doğru olduğundan emin değilseniz listeden seçin.</p>}
       {alternatives.length > 0 && <div className="compact-alternatives" role="group" aria-label="Diğer olası belirtiler">
         <p>Başka bir şey mi anlattınız?</p>
         <div>{alternatives.map(item => <button key={item.id} type="button" onClick={() => chooseAlternative(item.sentence)} aria-label={`${item.label}: bunu seç`}>
