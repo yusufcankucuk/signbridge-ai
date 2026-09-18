@@ -23,6 +23,10 @@ export function manualPathFor(state: FlowState): string {
   return '/manual-select';
 }
 
+export function manualLabelFor(state: FlowState): string {
+  return state.capture === 'answer' || state.capture === 'followup' ? 'Seçerek yanıtla' : 'Seçerek anlat';
+}
+
 export function Home() {
   const { state, start } = useFlow();
   const router = useRouter();
@@ -67,6 +71,7 @@ export function Camera() {
   const [seconds, setSeconds] = useState(0);
   const [cameraWarning, setCameraWarning] = useState('');
   const alternative = manualPathFor(state);
+  const alternativeLabel = manualLabelFor(state);
 
   const stopCamera = () => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -268,6 +273,7 @@ export function Confirm() {
   </> : <>
     <Button onClick={confirm}>Doğru, doktora ilet</Button>
     <div className="grid grid-cols-2"><button type="button" onClick={retry} className="compact-link">Tekrar anlat</button><Link href={manualPath} className="compact-link">Değiştir</Link></div>
+  </>)}>
 
     {!candidate ? <Empty text="Henüz bir anlatım yok." href="/camera" /> : <>
       {expression ? <><div className="compact-illustration"><div><ExpressionVisual expression={expression} /></div></div><p className="compact-sentence">{expression.sentence}</p></> : <><div className="compact-illustration"><div><SignIcon /></div></div><div className="compact-center"><ReadText text={candidate.text} /></div></>}

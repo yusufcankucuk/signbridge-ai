@@ -43,12 +43,14 @@ export function planSlides(plan: Plan): Slide[] {
   return slides;
 }
 
+export function summarySlides(expression: string, turns: Turn[], plan: Plan): Slide[] {
   const slides: Slide[] = [{ title: 'Onaylanan şikâyet', text: expression, visual: 'diagnosis' }];
   turns.forEach((turn, index) => slides.push({
     title: `Soru ve yanıt ${index + 1}`,
     text: `Doktor: ${turn.text}\n\nHasta: ${turn.answer}`,
     visual: 'diagnosis',
   }));
+  return [...slides, ...planSlides(plan)];
 }
 
 function SlideArt({ slide }: { slide: Slide }) {
@@ -150,6 +152,8 @@ export function Treatment() {
 
 export function Summary() {
   const { state, setState } = useFlow(); const router = useRouter(); const [page, setPage] = useState(0);
+  const slides = summarySlides(state.expression, state.turns, state.plan);
+  const index = Math.min(page, slides.length - 1);
 
   return <Frame title="Doktorun yazdıkları" footer={state.plan.approved && <>
     <SlideNavigation page={index} total={slides.length} onBack={() => setPage(index - 1)} />
