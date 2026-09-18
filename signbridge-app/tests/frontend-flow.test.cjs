@@ -60,3 +60,41 @@ test('Kontrol tarihi veya planlanmadı seçimi gereklidir', () => {
   assert.deepEqual(planErrors({ ...validPlan(), noFollowup: false, followupDate: '2026-10-15' }, '2026-09-15'), []);
   assert.ok(planErrors({ ...validPlan(), noFollowup: false, followupDate: '2020-01-01' }, '2026-09-15').some(error => error.includes('bugünden önce')));
 });
+
+const predictionFilename = path.resolve(__dirname, '../lib/prediction.ts');
+const predictionCompiled = ts.transpileModule(fs.readFileSync(predictionFilename, 'utf8'), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+});
+const predictionModule = new Module(predictionFilename, module);
+predictionModule._compile(predictionCompiled.outputText, predictionFilename);
+const { isPredictionPayload, isLandmarkPredictionRequest } = predictionModule.exports;
+
+test('Deneysel düşük güvenli belirti adayı hasta onayıyla kabul edilir', () => {
+  assert.equal(isPredictionPayload({
+    classId: 'seker', expressionId: 'diabetes', displayText: 'Şeker hastasıyım', confidence: 0.42,
+    alternatives: ['diabetes', 'pain'], isLowConfidence: true, forcedCandidate: true,
+    experimental: true, recognitionContext: 'symptom', predictionMode: 'model',
+    modelVersion: 'signbridge-unified30-bigru-v0.2.0', preprocessingVersion: 'landmark46-v1',
+    vocabularyVersion: 'signbridge30-v1', decisionPolicyVersion: 'signbridge30-team-camera-v1',
+    rejectionReason: 'low_score', requiresConfirmation: true,
+  }), true);
+});
+
+test('Zorlanmamış düşük güvenli cevap sınıf kimliği taşıyamaz', () => {
+  assert.equal(isPredictionPayload({
+    classId: 'seker', displayText: 'Şeker hastasıyım', confidence: 0.42, alternatives: [],
+    isLowConfidence: true, predictionMode: 'model', modelVersion: 'test',
+    preprocessingVersion: 'landmark46-v1', vocabularyVersion: 'signbridge30-v1',
+    decisionPolicyVersion: 'test', rejectionReason: 'low_score', requiresConfirmation: true,
+  }), false);
+});
+
+test('Landmark isteği symptom ve general bağlamlarını kabul eder', () => {
+  const request = {
+    preprocessingVersion: 'landmark46-v1', recognitionContext: 'symptom',
+    landmarks: Array.from({ length: 60 }, () => Array.from({ length: 46 }, () => [0, 0])),
+    mask: Array.from({ length: 60 }, () => Array.from({ length: 46 }, () => 1)),
+  };
+  assert.equal(isLandmarkPredictionRequest(request), true);
+  assert.equal(isLandmarkPredictionRequest({ ...request, recognitionContext: 'invalid' }), false);
+});

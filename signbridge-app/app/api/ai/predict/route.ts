@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: Request) {
     const parsed = await readJsonObject(request, {
         maxBytes: 256 * 1024,
-        allowedFields: ['sessionId', 'preprocessingVersion', 'landmarks', 'mask'],
+        allowedFields: ['sessionId', 'preprocessingVersion', 'landmarks', 'mask', 'recognitionContext'],
     });
     if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: parsed.status });
     const payload = parsed.value;

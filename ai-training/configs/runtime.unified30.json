@@ -1,0 +1,6 @@
+{
+  "modelVersion": "signbridge-unified30-bigru-v0.2.0",
+  "preprocessingVersion": "landmark46-v1",
+  "vocabularyVersion": "signbridge30-v1",
+  "confidenceThreshold": 0.95
+}

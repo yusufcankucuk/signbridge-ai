@@ -3,7 +3,7 @@ from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
-from src.common import AI_ROOT, autsl_labels, meb_labels
+from src.common import AI_ROOT, autsl_labels, label_config, meb_labels, model_labels
 
 
 def test_prediction_examples_match_contract():
@@ -28,3 +28,16 @@ def test_vocabularies_are_stable():
     assert len({item["classId"] for item in autsl}) == 20
     assert len(meb) == 16
     assert sum(bool(item.get("manualSelectable")) for item in meb) == 12
+
+    unified = label_config("signbridge30-v1")
+    labels = model_labels("signbridge30-v1")
+    assert [item["index"] for item in labels] == list(range(30))
+    assert [item["classId"] for item in labels[:20]] == [item["classId"] for item in autsl]
+    assert unified["symptomClassIds"] == [
+        "seker", "dizziness", "fever", "pain", "asthma", "rash",
+        "palpitations", "heart-attack", "bleeding", "vomiting", "burn",
+    ]
+    sugar = labels[14]
+    assert sugar["classId"] == "seker"
+    assert sugar["symptomExpressionId"] == "diabetes"
+    assert sugar["symptomDisplayText"] == "Şeker hastasıyım"

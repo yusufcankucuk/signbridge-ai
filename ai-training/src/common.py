@@ -42,6 +42,40 @@ def autsl_labels() -> list[dict[str, Any]]:
     return labels
 
 
+MODEL_LABEL_FILES = {
+    "autsl20-v1": "labels.autsl20.json",
+    "signbridge30-v1": "labels.signbridge30.json",
+    "signbridge34-v1": "labels.signbridge34.json",
+}
+
+
+def label_filename(vocabulary_version: str) -> str:
+    filename = MODEL_LABEL_FILES.get(vocabulary_version)
+    if filename is None:
+        raise ValueError(f"Desteklenmeyen model sözlüğü: {vocabulary_version}")
+    return filename
+
+
+def label_config(vocabulary_version: str) -> dict[str, Any]:
+    config = load_json(CONFIG_DIR / label_filename(vocabulary_version))
+    if config.get("vocabularyVersion") != vocabulary_version:
+        raise ValueError(f"Sözlük dosyası sürümü uyumsuz: {vocabulary_version}")
+    labels = config.get("labels")
+    if not isinstance(labels, list) or not labels:
+        raise ValueError("Model etiket sözlüğü boş veya geçersiz.")
+    indexes = [item.get("index") for item in labels]
+    if indexes != list(range(len(labels))):
+        raise ValueError("Model indeksleri 0'dan başlayan kesintisiz sırada olmalıdır.")
+    class_ids = [item.get("classId") for item in labels]
+    if any(not isinstance(item, str) or not item for item in class_ids) or len(set(class_ids)) != len(class_ids):
+        raise ValueError("Model sınıf kimlikleri geçersiz veya tekrarlı.")
+    return config
+
+
+def model_labels(vocabulary_version: str) -> list[dict[str, Any]]:
+    return label_config(vocabulary_version)["labels"]
+
+
 def meb_labels() -> list[dict[str, Any]]:
     return load_json(CONFIG_DIR / "labels.meb16.json")["labels"]
 

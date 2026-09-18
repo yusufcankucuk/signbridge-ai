@@ -1,3 +1,4 @@
+import { expectedAiVersions } from './versionGate';
 import type { AiContractVersions, AiFallbackProviderName, AiProviderName } from './contracts';
 import { AI_ERROR_CODES, AiServiceError } from './errors';
 
@@ -111,10 +112,6 @@ export function getAiServiceConfig(environment: Environment = process.env): AiSe
             provider === 'modelarts' ? modelartsEndpoint(environment) : environment.MODELARTS_ENDPOINT,
         modelartsAuthToken:
             provider === 'modelarts' ? requiredServerValue(environment, 'MODELARTS_AUTH_TOKEN') : environment.MODELARTS_AUTH_TOKEN,
-        versions: {
-            modelVersion: environment.AI_EXPECTED_MODEL_VERSION || 'autsl20-bigru-v0.1.0',
-            preprocessingVersion: environment.AI_EXPECTED_PREPROCESSING_VERSION || 'landmark46-v1',
-            vocabularyVersion: environment.AI_EXPECTED_VOCABULARY_VERSION || 'autsl20-v1'
-        }
+        versions: expectedAiVersions(environment)
     };
 }

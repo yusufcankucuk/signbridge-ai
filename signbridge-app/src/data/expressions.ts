@@ -1,8 +1,9 @@
 /**
  * Hastanın işaret diliyle anlatabileceği şikayetler.
  *
- * `id` değerleri AI modelinin sınıf adlarıyla eşleşir; ekranlar bu listeyi
- * hem elle seçimde (manual-select) hem de tahmin gösteriminde kullanır.
+ * Ekranlar bu listeyi hem elle seçimde (manual-select) hem de kamera tahmininin
+ * gösteriminde kullanır. Birleşik modelin `symptom` bağlamındaki cevabı
+ * `expressionId` alanında buradaki `id` değerini taşır (ör. `seker` → `diabetes`).
  *
  * İkonlar burada saf veri olarak duruyor (JSX değil), böylece bu dosya
  * hem sunucu hem istemci tarafında kullanılabilir. `ExpressionGlyph`
@@ -20,7 +21,7 @@ export interface ExpressionArt {
 }
 
 export interface Expression {
-    /** AI sınıf adı — API'ye bu gider. */
+    /** Avatar kimliği — modelin `expressionId` alanıyla eşleşir. */
     id: string;
     /** Ekranda görünen ad. */
     label: string;
@@ -37,6 +38,8 @@ export interface Expression {
     illustration?: string;
     /** Position in the unchanged, user-supplied 5 × 2 illustration sheet. */
     illustrationTile?: { column: number; row: number };
+    /** Acil olabilecek belirti: onay ekranında ayrıca uyarı gösterilir. */
+    urgent?: boolean;
 }
 
 export const EXPRESSIONS: Expression[] = [
@@ -194,6 +197,7 @@ export const EXPRESSIONS: Expression[] = [
     },
     {
         id: "heart-attack",
+        urgent: true,
         label: "Kalp krizi işareti",
         sentence: "Göğsümde şiddetli ağrı var",
         region: "govde",
@@ -207,6 +211,7 @@ export const EXPRESSIONS: Expression[] = [
     },
     {
         id: "bleeding",
+        urgent: true,
         label: "Kanama",
         sentence: "Kanamam var",
         region: "genel",
@@ -250,6 +255,7 @@ export const EXPRESSIONS: Expression[] = [
     },
     {
         id: "burn",
+        urgent: true,
         label: "Yanık",
         sentence: "Yanığım var",
         region: "genel",
@@ -265,6 +271,56 @@ export const EXPRESSIONS: Expression[] = [
 /** Kimlikten ifadeyi bulur; AI tahmini geldiğinde kullanılır. */
 export function findExpression(id: string): Expression | undefined {
     return EXPRESSIONS.find((item) => item.id === id);
+}
+
+interface CandidateLike {
+    text: string;
+    prediction?: { expressionId?: string | null } | null;
+}
+
+/**
+ * Onay ekranında gösterilecek avatarı seçer.
+ * Model cevabında `expressionId` varsa yalnız o avatar ve yalnız cümlesi cevap metniyle
+ * aynıysa gösterilir; böylece örneğin `diabetes` avatarı başka bir sınıfa yanlışlıkla bağlanmaz.
+ * `expressionId` yoksa (eski model veya elle seçim) cümle eşleşmesi kullanılır.
+ */
+export function expressionForCandidate(candidate: CandidateLike | null | undefined): Expression | undefined {
+    if (!candidate) return undefined;
+    const expressionId = candidate.prediction?.expressionId;
+    if (expressionId) {
+        const match = EXPRESSIONS.find((item) => item.id === expressionId);
+        return match && match.sentence === candidate.text ? match : undefined;
+    }
+    return EXPRESSIONS.find((item) => item.sentence === candidate.text);
+}
+
+/** Birleşik modelde belirti sınıf kimliği avatar kimliğinden farklı olanlar. */
+const SYMPTOM_CLASS_EXPRESSIONS: Record<string, string> = { seker: "diabetes" };
+
+interface AlternativesLike {
+    alternatives?: string[];
+    expressionId?: string | null;
+    recognitionContext?: string;
+}
+
+/**
+ * Kamera önerisinin ardından gelen olası belirti avatarları (modelin `alternatives` sırası).
+ * Ana öneri ve tekrarlar çıkarılır; yalnız belirti bağlamında döner. Kişiden kişiye işaret
+ * farkı büyük olduğu için doğru avatar çoğu zaman ilk üç öneri içindedir; hasta seçip onaylar.
+ */
+export function alternativeExpressions(prediction: AlternativesLike | null | undefined, limit = 2): Expression[] {
+    if (!prediction || prediction.recognitionContext !== "symptom") return [];
+    const seen = new Set<string>(prediction.expressionId ? [prediction.expressionId] : []);
+    const out: Expression[] = [];
+    for (const classId of prediction.alternatives ?? []) {
+        const id = SYMPTOM_CLASS_EXPRESSIONS[classId] ?? classId;
+        if (seen.has(id)) continue;
+        seen.add(id);
+        const match = findExpression(id);
+        if (match) out.push(match);
+        if (out.length >= limit) break;
+    }
+    return out;
 }
 
 /** Tahmin edilen sınıfın hastaya okunacak cümlesi; bilinmeyen sınıfta boş döner. */

@@ -9,6 +9,7 @@ services:
     command: ["node", "scripts/install-model.mjs"]
     environment:
       MODEL_ARCHIVE: ${MODEL_ARCHIVE:-}
+      SIGNBRIDGE_MODEL: ${SIGNBRIDGE_MODEL:-unified34}
     volumes:
       - type: bind
         source: .
@@ -25,12 +26,13 @@ services:
     environment:
       MODEL_PATH: /models/saved_model
       RUNTIME_CONFIG_PATH: /models/runtime_config.json
-      DECISION_POLICY_PATH: /app/configs/${DECISION_POLICY_FILE:-decision_policy.team-camera.json}
+      LABELS_PATH: /app/configs/${LABELS_FILE:-labels.signbridge34.json}
+      DECISION_POLICY_PATH: /app/configs/${DECISION_POLICY_FILE:-decision_policy.unified34-team-camera.json}
       ALLOW_MANUAL_ONLY: ${ALLOW_MANUAL_ONLY:-true}
       TF_CPP_MIN_LOG_LEVEL: "2"
     volumes:
       - type: bind
-        source: ${MODEL_DIR:-./ai-training/outputs}
+        source: ${MODEL_DIR:-./ai-training/outputs/unified34}
         target: /models
         read_only: true
     expose:
@@ -65,11 +67,12 @@ services:
       AI_FALLBACK_PROVIDER: ${AI_FALLBACK_PROVIDER:-none}
       MODELARTS_ENABLED: ${MODELARTS_ENABLED:-false}
       AI_LOCAL_URL: http://ai-inference:8000
-      AI_EXPECTED_MODEL_VERSION: ${AI_EXPECTED_MODEL_VERSION:-autsl20-bigru-v0.1.0}
+      AI_EXPECTED_MODEL_VERSION: ${AI_EXPECTED_MODEL_VERSION:-signbridge-unified34-bigru-v0.4.0}
       AI_EXPECTED_PREPROCESSING_VERSION: ${AI_EXPECTED_PREPROCESSING_VERSION:-landmark46-v1}
-      AI_EXPECTED_VOCABULARY_VERSION: ${AI_EXPECTED_VOCABULARY_VERSION:-autsl20-v1}
+      AI_EXPECTED_VOCABULARY_VERSION: ${AI_EXPECTED_VOCABULARY_VERSION:-signbridge34-v1}
       CAMERA_MOTION_POLICY_ENABLED: ${CAMERA_MOTION_POLICY_ENABLED:-true}
       CAMERA_MINIMUM_MOTION_SCORE: ${CAMERA_MINIMUM_MOTION_SCORE:-0.12}
+      CAMERA_TRIALS_ENABLED: ${CAMERA_TRIALS_ENABLED:-false}
       MODELARTS_ENDPOINT: ${MODELARTS_ENDPOINT:-}
       MODELARTS_AUTH_TOKEN: ${MODELARTS_AUTH_TOKEN:-}
     ports:
@@ -111,7 +114,7 @@ services:
         source: ${SIGNBRIDGE_DATA_ROOT:-./data}
         target: /data
       - type: bind
-        source: ${MODEL_DIR:-./ai-training/outputs}
+        source: ${TRAINING_OUTPUT_DIR:-./ai-training/outputs}
         target: /outputs
       - type: bind
         source: ./ai-training/manifests

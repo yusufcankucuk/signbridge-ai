@@ -1,15 +1,23 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { validateModelAssets } from './model-assets-lib.mjs';
+import { argumentValue, resolveModelRelease, validateModelAssets } from './model-assets-lib.mjs';
 
-const args = new Set(process.argv.slice(2));
-const modelArg = process.argv.slice(2).find((value) => value.startsWith('--model-dir='));
+const argv = process.argv.slice(2);
+const args = new Set(argv);
+const modelArg = argv.find((value) => value.startsWith('--model-dir='));
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const modelRoot = resolve(repoRoot, modelArg ? modelArg.slice('--model-dir='.length) : 'ai-training/outputs');
 const allowManualOnly = args.has('--allow-manual-only');
-const manifestPath = resolve(repoRoot, 'ai-training/configs/model-assets.json');
-
+let selection;
+try {
+  const releaseFile = JSON.parse(readFileSync(resolve(repoRoot, 'scripts/model-release.json'), 'utf8'));
+  selection = resolveModelRelease(releaseFile, argumentValue(argv, '--model') ?? process.env.SIGNBRIDGE_MODEL);
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+}
+const modelRoot = resolve(repoRoot, modelArg ? modelArg.slice('--model-dir='.length) : selection.modelDir);
+const manifestPath = resolve(repoRoot, selection.assetsManifest);
 if (!existsSync(manifestPath)) {
   console.error(`Model doğrulama manifesti bulunamadı: ${manifestPath}`);
   process.exit(1);
@@ -25,7 +33,7 @@ if (failures.length) {
   console.error('Tam AI modu başlatılamaz. Eksik veya uyumsuz dosyalar:');
   failures.forEach((failure) => console.error(`- ${failure}`));
   console.error(`Beklenen model dizini: ${modelRoot}`);
-  console.error('Model arşivini bu dizine çıkarın ve bu komutu yeniden çalıştırın.');
+  console.error(`Kurulum: node scripts/install-model.mjs --model ${selection.name}`);
   if (allowManualOnly) {
     console.warn('Model doğrulanamadı; güvenli manual_only modu kullanılabilir.');
     process.exit(0);
@@ -33,5 +41,5 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log(`Model paketi doğrulandı: ${manifest.modelVersion}`);
+console.log(`Model paketi doğrulandı: ${manifest.modelVersion} (${selection.name})`);
 console.log(`Model dizini: ${modelRoot}`);

@@ -46,10 +46,14 @@ export interface InteractionEvent {
 
 export interface PredictionPayload {
     classId: string | null;
+    expressionId?: string | null;
     displayText: string;
     confidence: number | null;
     alternatives: string[];
     isLowConfidence: boolean;
+    forcedCandidate?: boolean;
+    experimental?: boolean;
+    recognitionContext?: 'general' | 'symptom';
     predictionMode: 'model' | 'mock' | 'manual';
     modelVersion: string | null;
     preprocessingVersion: string;

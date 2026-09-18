@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 
 from src.common import load_json, write_json
-from src.model.dataset import sequence_to_features
+from src.model.dataset import features_for_model
 
 
 def distribution(values) -> dict[str, float | int] | None:
@@ -64,7 +64,7 @@ def main() -> None:
     with np.load(args.input, allow_pickle=False) as sample:
         landmarks = np.asarray(sample["landmarks"], dtype=np.float32)
         mask = np.asarray(sample["mask"], dtype=np.uint8)
-    features = sequence_to_features(landmarks, mask)
+    features = features_for_model(model, landmarks, mask)
     _, cold_ms = _timed(lambda: model.predict(features[None], verbose=0))
     warm_ms = []
     for _ in range(args.iterations):
