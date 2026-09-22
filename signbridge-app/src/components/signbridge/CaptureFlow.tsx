@@ -8,9 +8,13 @@ import Button from '../ui/Button';
 import Logo from '../layout/Logo';
 import ExpressionVisual from './ExpressionVisual';
 import { EXPRESSIONS, alternativeExpressions, expressionForCandidate } from '../../data/expressions';
+import {
+  ANSWER_LABELS, DURATION_UNITS, answerAlternatives, answerContextFor, answerText, durationAnswer,
+  isDurationNumber,
+} from '../../data/answers';
 import { recordAnswer, type FlowState } from '../../lib/consultationFlow';
 import { submitPatientAnswer } from '../../lib/sessionClient';
-import { assessPoseQuality, prepareRecordedFrames, preprocessPoseSequence, type RawPoseFrame } from '../../lib/landmarkPreprocessing';
+import { bestRecordingWindow, preprocessPoseSequence, type RawPoseFrame } from '../../lib/landmarkPreprocessing';
 import { getHolisticLandmarker, resultToRawFrame } from '../../lib/browserVision';
 import { isPredictionPayload } from '../../../lib/prediction';
 import type { HolisticLandmarker } from '@mediapipe/tasks-vision';
@@ -122,8 +126,9 @@ export function Camera() {
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = null;
     setPhase('processing'); setMessage('Landmark verileri hazırlanıyor ve model çalıştırılıyor…');
-    const frames = prepareRecordedFrames(framesRef.current);
-    const quality = assessPoseQuality(frames, 0.1, 8, 0.6, 0.5, motionThresholdRef.current);
+    // Kayıt bütünüyle kapıyı geçemezse aynı kaydın kesitleri denenir; tek kötü kare yüzünden
+    // "anlaşılamadı" ekranına düşülmez (bkz. bestRecordingWindow).
+    const { frames, quality } = bestRecordingWindow(framesRef.current, motionThresholdRef.current);
     if (quality.status !== 'approved') {
       setState(current => ({ ...current, candidate: null }));
       stopCamera();
@@ -137,7 +142,9 @@ export function Camera() {
         body: JSON.stringify({
           ...input,
           sessionId: state.sessionId,
-          recognitionContext: state.capture === 'complaint' ? 'symptom' : 'general',
+          // Şikayet anlatımı belirti sözlüğünü, doktorun sorusu ise soru tipinin aday listesini kullanır.
+          recognitionContext: state.capture === 'complaint' ? 'symptom'
+            : (state.capture === 'answer' && answerContextFor(state.pending?.kind)) || 'general',
         }),
       });
       const body = await response.json() as { prediction?: unknown; error?: unknown };
@@ -148,7 +155,11 @@ export function Camera() {
         setState(current => ({ ...current, candidate: null }));
         router.replace(`/fallback?reason=${encodeURIComponent(prediction.rejectionReason ?? 'low_score')}&advanced=1`);
       } else {
-        setState(current => ({ ...current, candidate: { text: prediction.displayText, source: 'model', prediction } }));
+        // Yanıt bağlamında gösterilen metin soru tipine göre biçimlenir (ör. şiddet "4 / 5").
+        const context = answerContextFor(state.pending?.kind);
+        const text = state.capture === 'answer' && context && prediction.classId
+          ? answerText(context, prediction.classId) : prediction.displayText;
+        setState(current => ({ ...current, candidate: { text, source: 'model', prediction } }));
         router.replace('/confirm');
       }
     } catch {
@@ -218,6 +229,15 @@ export function Confirm() {
   const candidate = state.candidate ?? (leaving ? shownCandidate : null);
   const expression = expressionForCandidate(candidate);
   const alternatives = candidate?.source === 'model' && state.capture === 'complaint' ? alternativeExpressions(candidate.prediction) : [];
+  // Yanıt modunda avatar yoktur; diğer iki aday sınıf metin düğmesi olarak gösterilir.
+  const answerOptions = state.capture === 'answer' && candidate?.source === 'model'
+    ? answerAlternatives(candidate.prediction, 3) : [];
+  // Süre yanıtı iki parçadır: sayı işaretle gelir, birim burada seçilir (zaman birimi işaretleri yok).
+  const [unit, setUnit] = useState<string | null>(null);
+  const needsUnit = state.capture === 'answer' && state.pending?.kind === 'duration'
+    && candidate?.source === 'model' && isDurationNumber(candidate.prediction?.classId);
+  const answerValue = needsUnit && unit && candidate?.prediction?.classId
+    ? durationAnswer(candidate.prediction.classId, unit) : candidate?.text ?? '';
   const [error, setError] = useState('');
   const manualPath = manualPathFor(state);
   // Olası diğer avatarlardan biri seçilirse elle seçim gibi onaylanır (hasta yine "Doğru" der).
@@ -229,11 +249,12 @@ export function Confirm() {
   };
   const confirm = async () => {
     if (!state.candidate || leaving) return;
+    if (needsUnit && !unit) { setError('Süre birimini seçin.'); return; }
     setLeaving(true);
     setError('');
     try {
-      if (state.capture === 'answer' && state.candidate.source === 'manual' && state.pending) {
-        await submitPatientAnswer(state.sessionId, state.pending.id, state.candidate.text);
+      if (state.capture === 'answer' && state.pending && (state.candidate.source === 'manual' || needsUnit)) {
+        await submitPatientAnswer(state.sessionId, state.pending.id, answerValue);
       } else {
         const body = state.candidate.source === 'manual' ? { confirmed: true, manualSelection: state.candidate.text } : { confirmed: true };
         const response = await fetch(`/api/consultations/${encodeURIComponent(state.sessionId)}/confirm`, {
@@ -246,7 +267,7 @@ export function Confirm() {
     }
     setState(s => {
       if (!s.candidate) return s;
-      if (s.capture === 'answer') return recordAnswer(s, s.candidate.text, s.candidate.source);
+      if (s.capture === 'answer') return recordAnswer(s, answerValue || s.candidate.text, s.candidate.source);
       if (s.capture === 'followup') return { ...s, patientQuestion: s.candidate.text, patientAnswer: '', candidate: null, understood: false };
       return { ...s, expression: s.candidate.text, reviewed: false, candidate: null, plan: { ...s.plan, approved: false }, understood: false };
     });
@@ -276,9 +297,23 @@ export function Confirm() {
   </>)}>
 
     {!candidate ? <Empty text="Henüz bir anlatım yok." href="/camera" /> : <>
-      {expression ? <><div className="compact-illustration"><div><ExpressionVisual expression={expression} /></div></div><p className="compact-sentence">{expression.sentence}</p></> : <><div className="compact-illustration"><div><SignIcon /></div></div><div className="compact-center"><ReadText text={candidate.text} /></div></>}
+      {expression
+        ? <><div className="compact-illustration"><div><ExpressionVisual expression={expression} /></div></div><p className="compact-sentence">{expression.sentence}</p></>
+        : state.capture === 'complaint'
+          ? <><div className="compact-illustration"><div><SignIcon /></div></div><div className="compact-center"><ReadText text={candidate.text} /></div></>
+          : <div className="compact-center"><ReadText text={answerValue || candidate.text} /></div>}
       {expression?.urgent && <p className="rounded-xl border border-warning-100 bg-warning-50 px-4 py-3 text-center text-caption font-semibold text-warning-700" role="alert">Acil olabilir. {candidate.prediction ? 'Bu, deneysel bir kamera önerisidir; ' : ''}belirtiler şiddetliyse hemen sağlık personeline haber verin veya 112’yi arayın.</p>}
       {lowConfidence && <p className="rounded-xl border border-warning-100 bg-warning-50 px-4 py-3 text-center text-caption font-semibold text-warning-700" role="alert">Model bu işaretten emin değil. Doğru olduğundan emin değilseniz listeden seçin.</p>}
+      {needsUnit && <div className="compact-alternatives" role="group" aria-label="Süre birimi">
+        <p>Ne kadar süredir? Birimi seçin.</p>
+        <div>{DURATION_UNITS.map(item => <button key={item} type="button" aria-pressed={unit === item}
+          onClick={() => setUnit(item)}>{unit === item ? '✓ ' : ''}{item}</button>)}</div>
+      </div>}
+      {answerOptions.length > 0 && <div className="compact-alternatives" role="group" aria-label="Diğer olası yanıtlar">
+        <p>Başka bir şey mi anlattınız?</p>
+        <div>{answerOptions.map(classId => <button key={classId} type="button"
+          onClick={() => chooseAlternative(ANSWER_LABELS[classId])}>{ANSWER_LABELS[classId]}</button>)}</div>
+      </div>}
       {alternatives.length > 0 && <div className="compact-alternatives" role="group" aria-label="Diğer olası belirtiler">
         <p>Başka bir şey mi anlattınız?</p>
         <div>{alternatives.map(item => <button key={item.id} type="button" onClick={() => chooseAlternative(item.sentence)} aria-label={`${item.label}: bunu seç`}>

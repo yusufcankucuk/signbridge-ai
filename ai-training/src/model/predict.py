@@ -9,6 +9,7 @@ import numpy as np
 from src.common import label_config, load_json, model_labels
 from src.decision_policy import decide, default_policy, load_policy, validate_policy
 from src.model.dataset import BASE_FEATURES, HAND_LOCAL_TOTAL_FEATURES, features_for_model, mirror_landmarks
+from src.model.prototypes import prototype_probabilities
 
 
 def validate_bundle(model, runtime: dict[str, object], labels: list[dict[str, object]]) -> None:
@@ -36,10 +37,13 @@ def predict_landmarks(
     labels: list[dict[str, object]] | None = None,
     decision_policy: dict[str, object] | None = None,
     recognition_context: str = "general",
+    prototypes: dict[str, object] | None = None,
 ) -> dict[str, object]:
     labels = model_labels(str(runtime["vocabularyVersion"])) if labels is None else labels
-    if recognition_context not in {"general", "symptom"}:
-        raise ValueError("Tanıma bağlamı general veya symptom olmalıdır.")
+    config = label_config(str(runtime["vocabularyVersion"]))
+    answer_contexts = config.get("answerContexts") or {}
+    if recognition_context not in ({"general", "symptom"} | set(answer_contexts)):
+        raise ValueError(f"Desteklenmeyen tanıma bağlamı: {recognition_context}")
     batch = [features_for_model(model, landmarks, mask)]
     if runtime.get("testTimeMirror") is True:
         # Sağ/sol el farkına karşı: ayna görüntünün olasılıklarıyla ortalama alınır.
@@ -49,52 +53,72 @@ def predict_landmarks(
         raise ValueError("Model geçersiz skor üretti.")
     if (probabilities < 0).any() or (probabilities > 1).any() or not np.isclose(probabilities.sum(), 1, atol=1e-4):
         raise ValueError("Model skoru olasılık vektörü değil.")
-    config = label_config(str(runtime["vocabularyVersion"]))
-    context_key = "symptomClassIds" if recognition_context == "symptom" else "generalClassIds"
-    configured_ids = config.get(context_key)
+    if recognition_context in answer_contexts:
+        # Doktorun sorduğu soru tipi adayları daraltır (ör. süre sorusunda yalnız sayılar).
+        configured_ids = answer_contexts[recognition_context]
+    else:
+        configured_ids = config.get("symptomClassIds" if recognition_context == "symptom" else "generalClassIds")
     allowed_ids = set(configured_ids if isinstance(configured_ids, list) else [item["classId"] for item in labels])
     context_indexes = [index for index, item in enumerate(labels) if item["classId"] in allowed_ids]
     if not context_indexes:
         raise ValueError("Tanıma bağlamında kullanılabilir sınıf bulunamadı.")
-    context_scores = np.full_like(probabilities, -1.0)
-    context_scores[context_indexes] = probabilities[context_indexes]
+    # Belirti bağlamında sınıf merkezi (prototip) skorlaması softmax'ın yerine geçer: son katman
+    # az kişiyle eğitildiği için ezberler, ara temsil kişiden bağımsızdır (bkz. src/model/prototypes.py).
+    scoring = "softmax"
+    scores = probabilities
+    prototype_contexts = runtime.get("prototypeScoring")
+    prototype_contexts = [prototype_contexts] if isinstance(prototype_contexts, str) else (prototype_contexts or [])
+    if prototypes is not None and recognition_context in prototype_contexts:
+        scores = prototype_probabilities(model, np.stack(batch), prototypes, labels, context_indexes)
+        scoring = str(prototypes.get("prototypeVersion"))
+    context_scores = np.full_like(scores, -1.0)
+    # Güven değeri "bağlamdaki adaylar arasında ne kadar emin" anlamına gelir: softmax olasılıkları
+    # 71 sınıfın tamamına dağıldığı için dar bağlamlarda (ör. 3 sınıflı ilaç sorusu) olduğu gibi
+    # kullanılamaz. Prototip skorları zaten bağlam içinde normalleştirilmiş gelir.
+    context_total = float(scores[context_indexes].sum())
+    if scoring == "softmax" and len(context_indexes) < len(labels) and context_total > 0:
+        context_scores[context_indexes] = scores[context_indexes] / context_total
+    else:
+        context_scores[context_indexes] = scores[context_indexes]
     ordered = np.asarray(context_indexes, dtype=np.int64)[
-        np.argsort(probabilities[context_indexes])[::-1]
+        np.argsort(scores[context_indexes])[::-1]
     ]
     policy = default_policy(runtime) if decision_policy is None else validate_policy(decision_policy, runtime)
     winner_index = int(ordered[0])
     decision = decide(context_scores, policy, str(labels[winner_index]["classId"]))
     winner = decision.winner_index
+    # Belirti ve yanıt bağlamlarında düşük güvenli tahmin de aday olarak gösterilir; hasta onay
+    # ekranında doğrular veya listeden başka bir adayı seçer. Genel bağlamda böyle bir ekran yoktur.
     forced_candidate = bool(
         not decision.accepted
-        and recognition_context == "symptom"
+        and recognition_context != "general"
         and policy.get("experimental") is True
         and decision.rejection_reason in {"low_score", "ambiguous_prediction"}
     )
     has_candidate = decision.accepted or forced_candidate
     low_confidence = not decision.accepted
     label = labels[winner]
-    expression_id = (
-        label.get("symptomExpressionId", label["classId"])
-        if recognition_context == "symptom"
-        else label["classId"]
-    )
-    display_text = (
-        label.get("symptomDisplayText", label["displayText"])
-        if recognition_context == "symptom"
-        else label["displayText"]
-    )
+    symptom = recognition_context == "symptom"
+    expression_id = label.get("symptomExpressionId", label["classId"]) if symptom else label["classId"]
+    display_text = label.get("symptomDisplayText", label["displayText"]) if symptom else label["displayText"]
     return {
         "classId": label["classId"] if has_candidate else None,
         "expressionId": expression_id if has_candidate else None,
         "displayText": display_text if has_candidate else "İşaret kesin olarak anlaşılamadı.",
         "confidence": round(decision.confidence, 6),
-        "alternatives": [labels[int(index)]["classId"] for index in ordered[:3]],
+        # Bir aday gösterildiğinde `alternatives` ana tahmini tekrar etmez. Tahmin
+        # tamamen reddedildiyse classId boş olduğundan tanılama için ilk üç skor saklanır.
+        # Ortak API sözleşmesinde iki durumda da üst sınır üçtür.
+        "alternatives": [
+            labels[int(index)]["classId"]
+            for index in (ordered[1:4] if has_candidate else ordered[:3])
+        ],
         "isLowConfidence": low_confidence,
         "forcedCandidate": forced_candidate,
         "experimental": policy.get("experimental") is True,
         "recognitionContext": recognition_context,
         "predictionMode": "model",
+        "scoringMode": scoring,
         "modelVersion": runtime["modelVersion"],
         "preprocessingVersion": runtime["preprocessingVersion"],
         "vocabularyVersion": runtime["vocabularyVersion"],

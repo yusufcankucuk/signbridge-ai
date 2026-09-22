@@ -3,16 +3,16 @@
   "defaultModel": "unified34",
   "models": {
     "unified34": {
-      "tag": "model-unified34-v0.4.0",
-      "assetName": "signbridge-unified34-v0.4.0.zip",
-      "downloadUrl": "https://github.com/yusufcankucuk/signbridge-ai/releases/download/model-unified34-v0.4.0/signbridge-unified34-v0.4.0.zip",
-      "sha256": "68c3836e71eadeccb4d0905ed5aa732a37025ead8dfcd830ccc4bb8e868dbf49",
-      "modelVersion": "signbridge-unified34-bigru-v0.4.0",
+      "tag": "model-unified34-v0.5.0",
+      "assetName": "signbridge-unified34-v0.5.0.zip",
+      "downloadUrl": "https://github.com/yusufcankucuk/signbridge-ai/releases/download/model-unified34-v0.5.0/signbridge-unified34-v0.5.0.zip",
+      "sha256": "8fd894f6d987cfefd07ec9664494d8a79c9ce98a323196e55afb37fd2872ca46",
+      "modelVersion": "signbridge-unified34-bigru-v0.5.0",
       "usage": "academic-and-research-only",
       "modelDir": "ai-training/outputs/unified34",
       "assetsManifest": "ai-training/configs/model-assets.unified34.json",
       "env": ".env.unified34.example",
-      "description": "20 AUTSL kelimesi + 15 belirti avatarı (deneysel)"
+      "description": "20 AUTSL kelimesi + 15 belirti avatarı (sınıf merkezi skorlaması, deneysel)"
     },
     "autsl20": {
       "tag": "model-autsl20-v0.1.0",
@@ -25,6 +25,18 @@
       "assetsManifest": "ai-training/configs/model-assets.json",
       "env": ".env.autsl20.example",
       "description": "AUTSL-20 genel işaret modeli (20 kelime)"
+    },
+    "unified71": {
+      "tag": "model-unified71-v0.8.0",
+      "assetName": "signbridge-unified71-v0.8.0.zip",
+      "downloadUrl": "https://github.com/yusufcankucuk/signbridge-ai/releases/download/model-unified71-v0.8.0/signbridge-unified71-v0.8.0.zip",
+      "sha256": "b76bb4153dfe7e5dac3c67c7abd2bf14b1a253a939e8535345aa5a50d2536e2d",
+      "modelVersion": "signbridge-unified71-bigru-v0.8.0",
+      "usage": "academic-and-research-only",
+      "modelDir": "ai-training/outputs/unified71",
+      "assetsManifest": "ai-training/configs/model-assets.unified71.json",
+      "env": ".env.unified71.example",
+      "description": "20 AUTSL kelimesi + 15 belirti avatarı + 37 yanıt işareti (13 sınıfta ikinci işaretleyici, soru bazlı, deneysel)"
     }
   }
 }
