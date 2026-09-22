@@ -11,7 +11,7 @@ const compiled = ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
 });
 const preprocessingModule = new Module(filename, module);
 preprocessingModule._compile(compiled.outputText, filename);
-const { assessPoseQuality, prepareRecordedFrames, preprocessPoseSequence } = preprocessingModule.exports;
+const { assessPoseQuality, bestRecordingWindow, prepareRecordedFrames, preprocessPoseSequence } = preprocessingModule.exports;
 
 function visibleFrames(count = 24) {
   return Array.from({ length: count }, (_, frameIndex) => {
@@ -134,4 +134,47 @@ test('eli hiç görünmeyen veya çok kısa kayıt kırpılmaz', () => {
   const short = recordingWithIdleEdges().slice(0, 9);
   short[7] = recordingWithIdleEdges()[7];
   assert.equal(prepareRecordedFrames(short).length, 9);
+});
+
+test('bestRecordingWindow kaydın kesitlerini deneyerek kalite kapısını geçer', () => {
+  // Ortasında ellerin uzun süre kaybolduğu kayıt: bütünüyle kapıyı geçmez, son kesiti geçer.
+  const frame = (handsVisible, shift) => {
+    const keypoints = Array.from({ length: 75 }, () => [0.5, 0.5]);
+    const confidence = Array.from({ length: 75 }, () => 0);
+    keypoints[11] = [0.4, 0.4]; keypoints[12] = [0.6, 0.4];
+    confidence[11] = 1; confidence[12] = 1;
+    if (handsVisible) {
+      for (let point = 54; point < 75; point += 1) {
+        keypoints[point] = [0.3 + shift * 0.02, 0.5 + (point - 54) / 500];
+        confidence[point] = 0.9;
+      }
+    }
+    return { keypoints, confidence };
+  };
+  const frames = [];
+  for (let i = 0; i < 14; i += 1) frames.push(frame(false, i));   // uzun boş baş
+  for (let i = 0; i < 12; i += 1) frames.push(frame(true, i));    // net işaret
+  const whole = assessPoseQuality(prepareRecordedFrames(frames));
+  const best = bestRecordingWindow(frames);
+  assert.equal(best.quality.status, 'approved');
+  assert.ok(best.frames.length <= frames.length);
+  assert.ok(best.quality.handFrameRatio >= whole.handFrameRatio);
+});
+
+test('bestRecordingWindow zaten geçen kaydı değiştirmez', () => {
+  const clean = Array.from({ length: 20 }, (unused, index) => {
+    const keypoints = Array.from({ length: 75 }, () => [0.5, 0.5]);
+    const confidence = Array.from({ length: 75 }, () => 0);
+    keypoints[11] = [0.4, 0.4]; keypoints[12] = [0.6, 0.4];
+    confidence[11] = 1; confidence[12] = 1;
+    for (let point = 54; point < 75; point += 1) {
+      keypoints[point] = [0.3 + index * 0.02, 0.5 + (point - 54) / 500];
+      confidence[point] = 0.9;
+    }
+    return { keypoints, confidence };
+  });
+  const direct = prepareRecordedFrames(clean);
+  const best = bestRecordingWindow(clean);
+  assert.equal(best.quality.status, 'approved');
+  assert.equal(best.frames.length, direct.length);
 });

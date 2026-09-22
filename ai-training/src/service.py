@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, StrictInt
 from src.common import CONFIG_DIR, load_json, model_labels
 from src.decision_policy import default_policy, load_policy
 from src.model.predict import predict_landmarks, validate_bundle
+from src.model.prototypes import load_prototypes
 from src.model.dataset import sequence_to_features
 
 
@@ -22,7 +23,8 @@ class PredictionRequest(BaseModel):
     preprocessingVersion: str
     landmarks: list[list[list[float]]]
     mask: list[list[StrictInt]]
-    recognitionContext: Literal["general", "symptom"] = "general"
+    recognitionContext: Literal["general", "symptom", "duration", "intensity",
+                                "location", "medication"] = "general"
 
 
 state: dict[str, Any] = {}
@@ -68,6 +70,14 @@ async def lifespan(_app: FastAPI):
 
         state["model"] = tf.keras.models.load_model(str(model_path))
         validate_bundle(state["model"], runtime, state["labels"])
+        # Sınıf merkezleri model paketiyle birlikte gelir; yoksa softmax skorlamasına düşülür.
+        prototype_path = Path(os.getenv("PROTOTYPES_PATH", str(runtime_path.parent / "prototypes.json")))
+        if runtime.get("prototypeScoring") and prototype_path.is_file():
+            state["prototypes"] = load_prototypes(
+                prototype_path, model_version=str(runtime["modelVersion"]),
+                vocabulary_version=str(runtime["vocabularyVersion"]))
+        elif runtime.get("prototypeScoring"):
+            raise RuntimeError(f"Model paketi prototip skorlaması istiyor ama dosya yok: {prototype_path}")
     elif state["decision_policy"].get("enabled", True):
         raise RuntimeError("Model olmadan yalnız enabled=false karar politikasıyla manual_only modu açılabilir.")
     if assets_available and state["decision_policy"].get("enabled", True):
@@ -155,4 +165,5 @@ def predict(request: PredictionRequest) -> dict[str, object]:
         state.get("labels"),
         policy,
         request.recognitionContext,
+        state.get("prototypes"),
     )

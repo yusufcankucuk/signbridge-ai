@@ -26,12 +26,17 @@ Komutları deponun ana klasöründe çalıştırın. Uygulamayı ilk kez deniyor
 Üç çalışma biçimi vardır:
 
 - **`manual_only`:** Model dosyası gerekmez. Kamera kapalıdır; kullanıcı listeden seçime yönlendirilir.
-- **`team_camera`:** Doğrulanmış model paketiyle deneysel kamera testidir. Varsayılan paket 15 belirti avatarını tanıyan `signbridge-unified34-bigru-v0.4.0` modelidir; eski AUTSL-20 paketi de seçilebilir. Sonuç bir öneridir ve hasta onayı zorunludur.
+- **`team_camera`:** Doğrulanmış model paketiyle deneysel kamera testidir. Varsayılan paket 15 belirti avatarını tanıyan `signbridge-unified34-bigru-v0.5.0` modelidir; eski AUTSL-20 paketi de seçilebilir. Sonuç bir öneridir ve hasta onayı zorunludur.
 - **`camera_ai`:** Ancak fiziksel kamera doğruluğu, kapsama, statik hareket, gecikme ve OOD yayın kapılarının tamamı geçtikten sonra kullanılacak final modudur. Bu karar henüz verilmemiştir.
 
 ### En hızlı deneme (Docker, 4 komut)
 
 Gerekenler: Git, Docker Desktop, kameralı bir bilgisayar ve Chrome veya Edge.
+
+Windows'ta v0.8.0 ekip modelini tek adımda kurmak ve çalıştırmak için depo kökündeki
+`signbridge-baslat.bat` dosyasına çift tıklayın. Betik eksikse `.env` dosyasını oluşturur, yerel model
+arşivinin ve Docker'ın varlığını kontrol eder, modeli SHA-256 ile doğrular, uygulamayı yeniden derler ve
+son durumda `modelVersion`, `cameraAiEnabled` ve `versionMismatch` alanlarını denetler.
 
 ```powershell
 git clone https://github.com/yusufcankucuk/signbridge-ai.git
@@ -55,7 +60,7 @@ boş kısımlar atılır. Model deneyseldir. Eğitimde görmediği kişilerde:
 - ilk öneri yaklaşık %61 doğrudur;
 - doğru avatar, onay ekranındaki üç avatardan birinde yaklaşık %81 oranında bulunur.
 
-Ayrıntı: [ai-training/reports/unified34-v0.4.0-2026-09-16.md](ai-training/reports/unified34-v0.4.0-2026-09-16.md).
+Ayrıntı: [ai-training/reports/unified34-v0.5.0-2026-09-19.md](ai-training/reports/unified34-v0.5.0-2026-09-19.md).
 
 ### Model paketleri
 
@@ -75,7 +80,7 @@ node scripts/check-model-assets.mjs
 İnternetsiz kurulumda ekipten alınan aynı ZIP dosyasını kullanabilirsiniz:
 
 ```bash
-node scripts/install-model.mjs --archive path/to/signbridge-unified34-v0.4.0.zip
+node scripts/install-model.mjs --archive path/to/signbridge-unified34-v0.5.0.zip
 ```
 
 Eski modeli kullanmak için `.env.autsl20.example` dosyasını `.env` olarak kopyalayın ve
@@ -284,21 +289,43 @@ sürümü beklenenle uyuşmazsa kamerayı açmaz (`versionMismatch=true`). 55 ka
 
 ### Birleşik 34 sınıflı model (15 belirti avatarı)
 
-`signbridge-unified34-bigru-v0.4.0` (`signbridge34-v1`), 20 AUTSL kelimesine 15 belirti avatarını ekler.
+`signbridge-unified34-bigru-v0.5.0` (`signbridge34-v1`), 20 AUTSL kelimesine 15 belirti avatarını ekler.
 
 - **Eğitim verisi:** MEB videoları, internetteki 8 TİD eğitmeninin ders/sözlük videolarından kesilmiş
   klipler ve az kaynaklı belirtiler için bileşimsel sentetik örnekler (ör. “ağrı” işaretinin başa/karna
   taşınması).
 - **Kodlayıcı:** AUTSL'nin 226 işaretinin tamamıyla (43 kişi) önceden eğitildi.
-- **Tahmin:** Ayna görüntüyle ortalama alınır.
+- **Tahmin:** Ayna görüntüyle ortalama alınır. Belirti bağlamında karar, son katman yerine
+  **sınıf merkezi (prototip) skorlamasıyla** verilir: her belirtinin eğitim örneklerinin ara temsil
+  ortalaması `prototypes.json` içinde gelir, kayıt hangi merkeze daha yakınsa o avatar önerilir.
+  Eğitimde görülmeyen kişilerde ilk öneri %61,2 → %68,5, ilk üç öneri %80,7 → %83,5.
 - **İstemci:** Kaydı eğitim verisiyle aynı biçimde kırpar.
 
 Bu bir öğrenci prototipidir, her sonuç hasta onayı ister. Çalıştırmak için
 `Copy-Item .env.unified34.example .env`. Ayrıntı, ölçümler ve eğitim komutları:
 [docs/external-symptom-videos.md](docs/external-symptom-videos.md) ve
-[ai-training/reports/unified34-v0.4.0-2026-09-16.md](ai-training/reports/unified34-v0.4.0-2026-09-16.md).
+[ai-training/reports/unified34-v0.5.0-2026-09-19.md](ai-training/reports/unified34-v0.5.0-2026-09-19.md).
 
-Ekip içinde, Spreadthesign ve Güncel TİD Sözlüğü kliplerini de eğitime katan `v0.4.1` modeli vardır.
+### Doktor sorularına kamerayla yanıt (71 sınıflık model)
+
+`signbridge-unified71-bigru-v0.8.0` (`signbridge71-v1`), 34 sınıfa doktorun dört sorusunu işaret
+diliyle yanıtlamak için 37 işaret ekler: 12 sayı, 4 şiddet, 4 yön ve 17 vücut bölgesi.
+
+- Kamera, soru tipine göre **yalnız o sorunun adayları** arasından seçer (süre → sayılar,
+  şiddet → 1–5 + sıfatlar, yer → bölge + yön, ilaç → evet/hayır).
+- Dört yanıt ekranında **birincil eylem kameradır**; hazır seçenek listesi ikincil yol olarak kalır.
+- Süre iki parçalıdır: sayı işaretle gelir, birim (gün/hafta/ay/yıl) onay ekranından seçilir.
+- Eğitimde görülmemiş kişide sayı doğruluğu: ilk öneri %40, ilk üç öneride %80.
+- **Belirti tanımadan kayıp yok:** kodlayıcı v0.5.0'dan dondurularak alınır, yalnız çıkış katmanı
+  yeni sınıfları öğrenir; görülmemiş kişilerde belirti ilk önerisi 211/282 ile birebir aynıdır.
+- v0.8.0, 13 yanıt sınıfına ikinci işaretleyiciden örnek ekler. Üçüncü, bağımsız bir işaretleyici
+  bulunmadığı için bu sürümün yeni kişideki kazancı henüz doğrulanmış sayılmaz.
+
+Kurulum: Windows'ta `signbridge-baslat.bat`; diğer sistemlerde
+`cp .env.unified71.example .env` ve `node scripts/install-model.mjs --model unified71`.
+Ayrıntı: [docs/kamera-yanit-akisi.md](docs/kamera-yanit-akisi.md).
+
+Ekip içinde, Spreadthesign ve Güncel TİD Sözlüğü kliplerini de eğitime katan `v0.5.1` modeli vardır.
 Release'te yoktur; `.env.unified34-team.example` ile kullanılır.
 MEB videoları, landmark dosyaları ve model ağırlıkları kullanım/dağıtım izni doğrulanmadan GitHub'a
 yüklenmemelidir.

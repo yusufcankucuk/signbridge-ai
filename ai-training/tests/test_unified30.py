@@ -398,11 +398,12 @@ def test_unified34_vocabulary_extends_unified30():
     assert [label["classId"] for label in unified34["labels"][30:]] == ["headache", "stomachache", "nausea", "shortness-of-breath"]
     assert len(unified34["symptomClassIds"]) == 15
     policy = load_policy(CONFIG_DIR / "decision_policy.unified34-team-camera.json",
-                         dict(UNIFIED_RUNTIME, modelVersion="signbridge-unified34-bigru-v0.4.0", vocabularyVersion="signbridge34-v1"))
+                         dict(UNIFIED_RUNTIME, modelVersion="signbridge-unified34-bigru-v0.5.0", vocabularyVersion="signbridge34-v1"))
     assert set(unified34["symptomClassIds"]) <= set(policy["allowedClassIds"])
     assert select_variant("signbridge34-v1") == 34
     assert select_variant("signbridge30-v1") == 30
-    assert set(VARIANTS) == {"signbridge30-v1", "signbridge34-v1"}
+    assert select_variant("signbridge71-v1") == 71
+    assert set(VARIANTS) == {"signbridge30-v1", "signbridge34-v1", "signbridge71-v1"}
 
 
 def test_hand_local_features_are_scale_invariant_and_model_selects_width():

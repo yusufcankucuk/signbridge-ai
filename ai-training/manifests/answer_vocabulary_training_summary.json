@@ -1,0 +1,187 @@
+{
+  "vocabularyVersion": "signbridge71-v1",
+  "videos": 46,
+  "views": 138,
+  "sources": [
+    "ans_meb",
+    "ans_sts"
+  ],
+  "signersPerClass": {
+    "agir": [
+      "ans_meb"
+    ],
+    "arka": [
+      "ans_meb"
+    ],
+    "asagi": [
+      "ans_meb"
+    ],
+    "ayak": [
+      "ans_meb"
+    ],
+    "az": [
+      "ans_meb"
+    ],
+    "bacak": [
+      "ans_meb"
+    ],
+    "bas": [
+      "ans_meb"
+    ],
+    "bel": [
+      "ans_meb"
+    ],
+    "bogaz": [
+      "ans_meb"
+    ],
+    "boyun": [
+      "ans_meb"
+    ],
+    "burun": [
+      "ans_meb"
+    ],
+    "cok": [
+      "ans_meb"
+    ],
+    "dis": [
+      "ans_meb"
+    ],
+    "diz": [
+      "ans_meb"
+    ],
+    "el": [
+      "ans_meb"
+    ],
+    "evet": [
+      "ans_meb"
+    ],
+    "gogus": [
+      "ans_meb"
+    ],
+    "goz": [
+      "ans_meb"
+    ],
+    "hafif": [
+      "ans_meb"
+    ],
+    "hayir": [
+      "ans_meb"
+    ],
+    "iyi": [
+      "ans_meb"
+    ],
+    "karin": [
+      "ans_meb"
+    ],
+    "kol": [
+      "ans_meb"
+    ],
+    "kotu": [
+      "ans_meb"
+    ],
+    "kulak": [
+      "ans_meb"
+    ],
+    "omuz": [
+      "ans_meb"
+    ],
+    "on": [
+      "ans_meb"
+    ],
+    "sayi-1": [
+      "ans_meb",
+      "ans_sts"
+    ],
+    "sayi-10": [
+      "ans_meb"
+    ],
+    "sayi-2": [
+      "ans_meb",
+      "ans_sts"
+    ],
+    "sayi-20": [
+      "ans_meb"
+    ],
+    "sayi-3": [
+      "ans_meb",
+      "ans_sts"
+    ],
+    "sayi-30": [
+      "ans_meb"
+    ],
+    "sayi-4": [
+      "ans_meb",
+      "ans_sts"
+    ],
+    "sayi-5": [
+      "ans_meb",
+      "ans_sts"
+    ],
+    "sayi-6": [
+      "ans_meb"
+    ],
+    "sayi-7": [
+      "ans_meb"
+    ],
+    "sayi-8": [
+      "ans_meb"
+    ],
+    "sayi-9": [
+      "ans_meb"
+    ],
+    "sirt": [
+      "ans_meb"
+    ],
+    "yukari": [
+      "ans_meb"
+    ]
+  },
+  "answerClassesWithoutVideo": [
+    "ilac"
+  ],
+  "viewsPerClass": {
+    "agir": 3,
+    "arka": 3,
+    "asagi": 3,
+    "ayak": 3,
+    "az": 3,
+    "bacak": 3,
+    "bas": 3,
+    "bel": 3,
+    "bogaz": 3,
+    "boyun": 3,
+    "burun": 3,
+    "cok": 3,
+    "dis": 3,
+    "diz": 3,
+    "el": 3,
+    "evet": 3,
+    "gogus": 3,
+    "goz": 3,
+    "hafif": 3,
+    "hayir": 3,
+    "iyi": 3,
+    "karin": 3,
+    "kol": 3,
+    "kotu": 3,
+    "kulak": 3,
+    "omuz": 3,
+    "on": 3,
+    "sayi-1": 6,
+    "sayi-10": 3,
+    "sayi-2": 6,
+    "sayi-20": 3,
+    "sayi-3": 6,
+    "sayi-30": 3,
+    "sayi-4": 6,
+    "sayi-5": 6,
+    "sayi-6": 3,
+    "sayi-7": 3,
+    "sayi-8": 3,
+    "sayi-9": 3,
+    "sirt": 3,
+    "yukari": 3
+  },
+  "skippedViews": [],
+  "consent": "user_reported_permission"
+}

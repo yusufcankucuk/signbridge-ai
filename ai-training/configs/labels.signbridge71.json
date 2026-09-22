@@ -1,0 +1,642 @@
+{
+  "schemaVersion": "1.1",
+  "vocabularyVersion": "signbridge71-v1",
+  "dataset": "AUTSL-20 + MEB + harici TİD sözlük videoları; 15 belirti avatarı; MEB tematik sözlüklerinden 37 yanıt işareti",
+  "generalClassIds": [
+    "doktor",
+    "eczane",
+    "evet",
+    "gostermek",
+    "hasta",
+    "hastane",
+    "hayir",
+    "icmek",
+    "igne",
+    "ilac",
+    "iyi",
+    "kaza",
+    "kotu",
+    "nerede",
+    "seker",
+    "tehlike",
+    "tuvalet",
+    "yarabandi",
+    "yardim",
+    "yorgun"
+  ],
+  "symptomClassIds": [
+    "seker",
+    "dizziness",
+    "fever",
+    "pain",
+    "asthma",
+    "rash",
+    "palpitations",
+    "heart-attack",
+    "bleeding",
+    "vomiting",
+    "burn",
+    "headache",
+    "stomachache",
+    "nausea",
+    "shortness-of-breath"
+  ],
+  "answerContexts": {
+    "duration": [
+      "sayi-1",
+      "sayi-2",
+      "sayi-3",
+      "sayi-4",
+      "sayi-5",
+      "sayi-6",
+      "sayi-7",
+      "sayi-8",
+      "sayi-9",
+      "sayi-10",
+      "sayi-20",
+      "sayi-30"
+    ],
+    "intensity": [
+      "sayi-1",
+      "sayi-2",
+      "sayi-3",
+      "sayi-4",
+      "sayi-5",
+      "az",
+      "hafif",
+      "cok",
+      "agir",
+      "iyi",
+      "kotu"
+    ],
+    "location": [
+      "bas",
+      "goz",
+      "kulak",
+      "burun",
+      "dis",
+      "bogaz",
+      "boyun",
+      "omuz",
+      "kol",
+      "el",
+      "gogus",
+      "karin",
+      "sirt",
+      "bel",
+      "bacak",
+      "diz",
+      "ayak",
+      "on",
+      "arka",
+      "yukari",
+      "asagi"
+    ],
+    "medication": [
+      "evet",
+      "hayir",
+      "ilac"
+    ]
+  },
+  "answerClassIds": [
+    "agir",
+    "arka",
+    "asagi",
+    "ayak",
+    "az",
+    "bacak",
+    "bas",
+    "bel",
+    "bogaz",
+    "boyun",
+    "burun",
+    "cok",
+    "dis",
+    "diz",
+    "el",
+    "evet",
+    "gogus",
+    "goz",
+    "hafif",
+    "hayir",
+    "ilac",
+    "iyi",
+    "karin",
+    "kol",
+    "kotu",
+    "kulak",
+    "omuz",
+    "on",
+    "sayi-1",
+    "sayi-10",
+    "sayi-2",
+    "sayi-20",
+    "sayi-3",
+    "sayi-30",
+    "sayi-4",
+    "sayi-5",
+    "sayi-6",
+    "sayi-7",
+    "sayi-8",
+    "sayi-9",
+    "sirt",
+    "yukari"
+  ],
+  "labels": [
+    {
+      "index": 0,
+      "classId": "doktor",
+      "displayText": "Doktor",
+      "originalClassId": 52,
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 1,
+      "classId": "eczane",
+      "displayText": "Eczane",
+      "originalClassId": 58,
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 2,
+      "classId": "evet",
+      "displayText": "Evet",
+      "originalClassId": 65,
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 3,
+      "classId": "gostermek",
+      "displayText": "Göstermek",
+      "originalClassId": 77,
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 4,
+      "classId": "hasta",
+      "displayText": "Hasta",
+      "originalClassId": 82,
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 5,
+      "classId": "hastane",
+      "displayText": "Hastane",
+      "originalClassId": 83,
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 6,
+      "classId": "hayir",
+      "displayText": "Hayır",
+      "originalClassId": 86,
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 7,
+      "classId": "icmek",
+      "displayText": "İçmek",
+      "originalClassId": 94,
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 8,
+      "classId": "igne",
+      "displayText": "İğne",
+      "originalClassId": 95,
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 9,
+      "classId": "ilac",
+      "displayText": "İlaç",
+      "originalClassId": 96,
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 10,
+      "classId": "iyi",
+      "displayText": "İyi",
+      "originalClassId": 100,
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 11,
+      "classId": "kaza",
+      "displayText": "Kaza",
+      "originalClassId": 108,
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 12,
+      "classId": "kotu",
+      "displayText": "Kötü",
+      "originalClassId": 122,
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 13,
+      "classId": "nerede",
+      "displayText": "Nerede",
+      "originalClassId": 138,
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 14,
+      "classId": "seker",
+      "displayText": "Şeker",
+      "symptomExpressionId": "diabetes",
+      "symptomDisplayText": "Şeker hastasıyım",
+      "originalClassId": 172,
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 15,
+      "classId": "tehlike",
+      "displayText": "Tehlike",
+      "originalClassId": 192,
+      "trainingStatus": "trainable",
+      "riskTier": "red_flag"
+    },
+    {
+      "index": 16,
+      "classId": "tuvalet",
+      "displayText": "Tuvalet",
+      "originalClassId": 200,
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 17,
+      "classId": "yarabandi",
+      "displayText": "Yara bandı",
+      "originalClassId": 210,
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 18,
+      "classId": "yardim",
+      "displayText": "Yardım",
+      "originalClassId": 211,
+      "trainingStatus": "trainable",
+      "riskTier": "red_flag"
+    },
+    {
+      "index": 19,
+      "classId": "yorgun",
+      "displayText": "Yorgun",
+      "originalClassId": 222,
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 20,
+      "classId": "dizziness",
+      "displayText": "Başım dönüyor",
+      "symptomExpressionId": "dizziness",
+      "symptomDisplayText": "Başım dönüyor",
+      "sourceClassId": "bas_donmesi",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 21,
+      "classId": "fever",
+      "displayText": "Ateşim var",
+      "symptomExpressionId": "fever",
+      "symptomDisplayText": "Ateşim var",
+      "sourceClassId": "ates",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 22,
+      "classId": "pain",
+      "displayText": "Bir yerim ağrıyor",
+      "symptomExpressionId": "pain",
+      "symptomDisplayText": "Bir yerim ağrıyor",
+      "sourceClassId": "agri",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 23,
+      "classId": "asthma",
+      "displayText": "Astımım var",
+      "symptomExpressionId": "asthma",
+      "symptomDisplayText": "Astımım var",
+      "sourceClassId": "astim",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 24,
+      "classId": "rash",
+      "displayText": "Cildimde döküntü var",
+      "symptomExpressionId": "rash",
+      "symptomDisplayText": "Cildimde döküntü var",
+      "sourceClassId": "dokuntu_alerji",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 25,
+      "classId": "palpitations",
+      "displayText": "Kalbim hızlı çarpıyor",
+      "symptomExpressionId": "palpitations",
+      "symptomDisplayText": "Kalbim hızlı çarpıyor",
+      "sourceClassId": "kalp_carpintisi",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 26,
+      "classId": "heart-attack",
+      "displayText": "Göğsümde şiddetli ağrı var",
+      "symptomExpressionId": "heart-attack",
+      "symptomDisplayText": "Göğsümde şiddetli ağrı var",
+      "sourceClassId": "kalp_krizi",
+      "trainingStatus": "trainable",
+      "riskTier": "red_flag"
+    },
+    {
+      "index": 27,
+      "classId": "bleeding",
+      "displayText": "Kanamam var",
+      "symptomExpressionId": "bleeding",
+      "symptomDisplayText": "Kanamam var",
+      "sourceClassId": "kanama",
+      "trainingStatus": "trainable",
+      "riskTier": "red_flag"
+    },
+    {
+      "index": 28,
+      "classId": "vomiting",
+      "displayText": "Kusuyorum",
+      "symptomExpressionId": "vomiting",
+      "symptomDisplayText": "Kusuyorum",
+      "sourceClassId": "kusma",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 29,
+      "classId": "burn",
+      "displayText": "Yanığım var",
+      "symptomExpressionId": "burn",
+      "symptomDisplayText": "Yanığım var",
+      "sourceClassId": "yanik",
+      "trainingStatus": "trainable",
+      "riskTier": "red_flag"
+    },
+    {
+      "index": 30,
+      "classId": "headache",
+      "displayText": "Başım ağrıyor",
+      "symptomExpressionId": "headache",
+      "symptomDisplayText": "Başım ağrıyor",
+      "sourceClassId": "external",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 31,
+      "classId": "stomachache",
+      "displayText": "Karnım ağrıyor",
+      "symptomExpressionId": "stomachache",
+      "symptomDisplayText": "Karnım ağrıyor",
+      "sourceClassId": "external",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 32,
+      "classId": "nausea",
+      "displayText": "Midem bulanıyor",
+      "symptomExpressionId": "nausea",
+      "symptomDisplayText": "Midem bulanıyor",
+      "sourceClassId": "external",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 33,
+      "classId": "shortness-of-breath",
+      "displayText": "Nefes almakta zorlanıyorum",
+      "symptomExpressionId": "shortness-of-breath",
+      "symptomDisplayText": "Nefes almakta zorlanıyorum",
+      "sourceClassId": "external",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 34,
+      "classId": "sayi-1",
+      "displayText": "Bir",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 35,
+      "classId": "sayi-2",
+      "displayText": "İki",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 36,
+      "classId": "sayi-3",
+      "displayText": "Üç",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 37,
+      "classId": "sayi-4",
+      "displayText": "Dört",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 38,
+      "classId": "sayi-5",
+      "displayText": "Beş",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 39,
+      "classId": "sayi-6",
+      "displayText": "Altı",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 40,
+      "classId": "sayi-7",
+      "displayText": "Yedi",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 41,
+      "classId": "sayi-8",
+      "displayText": "Sekiz",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 42,
+      "classId": "sayi-9",
+      "displayText": "Dokuz",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 43,
+      "classId": "sayi-10",
+      "displayText": "On",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 44,
+      "classId": "sayi-20",
+      "displayText": "Yirmi",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 45,
+      "classId": "sayi-30",
+      "displayText": "Otuz",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 46,
+      "classId": "az",
+      "displayText": "Az",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 47,
+      "classId": "hafif",
+      "displayText": "Hafif",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 48,
+      "classId": "cok",
+      "displayText": "Çok",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 49,
+      "classId": "agir",
+      "displayText": "Ağır",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 50,
+      "classId": "on",
+      "displayText": "Ön",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 51,
+      "classId": "arka",
+      "displayText": "Arka",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 52,
+      "classId": "yukari",
+      "displayText": "Yukarı",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 53,
+      "classId": "asagi",
+      "displayText": "Aşağı",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 54,
+      "classId": "bas",
+      "displayText": "Baş",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 55,
+      "classId": "goz",
+      "displayText": "Göz",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 56,
+      "classId": "kulak",
+      "displayText": "Kulak",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 57,
+      "classId": "burun",
+      "displayText": "Burun",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 58,
+      "classId": "dis",
+      "displayText": "Diş",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 59,
+      "classId": "bogaz",
+      "displayText": "Boğaz",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 60,
+      "classId": "boyun",
+      "displayText": "Boyun",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 61,
+      "classId": "omuz",
+      "displayText": "Omuz",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 62,
+      "classId": "kol",
+      "displayText": "Kol",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 63,
+      "classId": "el",
+      "displayText": "El",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 64,
+      "classId": "gogus",
+      "displayText": "Göğüs",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 65,
+      "classId": "karin",
+      "displayText": "Karın",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 66,
+      "classId": "sirt",
+      "displayText": "Sırt",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 67,
+      "classId": "bel",
+      "displayText": "Bel",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 68,
+      "classId": "bacak",
+      "displayText": "Bacak",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 69,
+      "classId": "diz",
+      "displayText": "Diz",
+      "trainingStatus": "trainable"
+    },
+    {
+      "index": 70,
+      "classId": "ayak",
+      "displayText": "Ayak",
+      "trainingStatus": "trainable"
+    }
+  ]
+}

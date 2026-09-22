@@ -1,6 +1,8 @@
 import type { PredictionPayload } from '@/types/session';
 
 const MODES = new Set(['model', 'mock', 'manual']);
+// Doktor sorularına kamerayla yanıt: soru tipi aday sınıfları daraltır (labels.signbridge71.json).
+const RECOGNITION_CONTEXTS = new Set(['general', 'symptom', 'duration', 'intensity', 'location', 'medication']);
 const REJECTION_REASONS = new Set(['low_score', 'ambiguous_prediction', 'unsupported_class', 'policy_disabled']);
 const PREDICTION_FIELDS = new Set([
     'classId',
@@ -19,15 +21,19 @@ const PREDICTION_FIELDS = new Set([
     'decisionPolicyVersion',
     'rejectionReason',
     'requiresConfirmation',
+    // Belirti bağlamında kararın softmax'tan mı sınıf merkezinden mi geldiğini söyler.
+    'scoringMode',
 ]);
 const LANDMARK_REQUEST_FIELDS = new Set(['sessionId', 'preprocessingVersion', 'landmarks', 'mask', 'recognitionContext']);
+
+export type RecognitionContext = 'general' | 'symptom' | 'duration' | 'intensity' | 'location' | 'medication';
 
 export interface LandmarkPredictionRequest {
     sessionId?: string;
     preprocessingVersion: string;
     landmarks: number[][][];
     mask: number[][];
-    recognitionContext?: 'general' | 'symptom';
+    recognitionContext?: RecognitionContext;
 }
 
 function isNullableString(value: unknown): value is string | null {
@@ -64,7 +70,7 @@ export function isPredictionPayload(value: unknown): value is PredictionPayload 
         (payload.forcedCandidate !== undefined && typeof payload.forcedCandidate !== 'boolean') ||
         (payload.experimental !== undefined && typeof payload.experimental !== 'boolean') ||
         (payload.recognitionContext !== undefined &&
-            payload.recognitionContext !== 'general' && payload.recognitionContext !== 'symptom') ||
+            (typeof payload.recognitionContext !== 'string' || !RECOGNITION_CONTEXTS.has(payload.recognitionContext))) ||
         typeof payload.predictionMode !== 'string' ||
         !MODES.has(payload.predictionMode) ||
         !isNullableString(payload.modelVersion) ||
@@ -78,7 +84,9 @@ export function isPredictionPayload(value: unknown): value is PredictionPayload 
         payload.decisionPolicyVersion.length > 100 ||
         (payload.rejectionReason !== null &&
             (typeof payload.rejectionReason !== 'string' || !REJECTION_REASONS.has(payload.rejectionReason))) ||
-        typeof payload.requiresConfirmation !== 'boolean'
+        typeof payload.requiresConfirmation !== 'boolean' ||
+        (payload.scoringMode !== undefined &&
+            (typeof payload.scoringMode !== 'string' || payload.scoringMode.length > 100))
     ) {
         return false;
     }
@@ -104,7 +112,8 @@ export function isLandmarkPredictionRequest(value: unknown): value is LandmarkPr
         (typeof request.sessionId !== 'string' || request.sessionId.length === 0 || request.sessionId.length > 100)
     ) return false;
     if (request.preprocessingVersion !== 'landmark46-v1') return false;
-    if (request.recognitionContext !== undefined && request.recognitionContext !== 'general' && request.recognitionContext !== 'symptom') return false;
+    if (request.recognitionContext !== undefined &&
+        (typeof request.recognitionContext !== 'string' || !RECOGNITION_CONTEXTS.has(request.recognitionContext))) return false;
     if (!Array.isArray(request.landmarks) || request.landmarks.length !== 60) return false;
     if (!Array.isArray(request.mask) || request.mask.length !== 60) return false;
 
