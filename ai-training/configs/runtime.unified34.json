@@ -1,8 +1,9 @@
 {
-  "modelVersion": "signbridge-unified34-bigru-v0.4.0",
+  "modelVersion": "signbridge-unified34-bigru-v0.5.0",
   "preprocessingVersion": "landmark46-v1",
   "vocabularyVersion": "signbridge34-v1",
-  "confidenceThreshold": 0.95,
+  "confidenceThreshold": 0.8,
   "featureLayout": "xy-mask-138+handlocal-84",
-  "testTimeMirror": true
+  "testTimeMirror": true,
+  "prototypeScoring": "symptom"
 }

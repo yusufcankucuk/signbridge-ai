@@ -53,7 +53,7 @@ export interface PredictionPayload {
     isLowConfidence: boolean;
     forcedCandidate?: boolean;
     experimental?: boolean;
-    recognitionContext?: 'general' | 'symptom';
+    recognitionContext?: 'general' | 'symptom' | 'duration' | 'intensity' | 'location' | 'medication';
     predictionMode: 'model' | 'mock' | 'manual';
     modelVersion: string | null;
     preprocessingVersion: string;
@@ -66,6 +66,7 @@ export interface PredictionPayload {
         | 'policy_disabled'
         | null;
     requiresConfirmation: boolean;
+    scoringMode?: string;
 }
 
 export interface ConfirmationPayload {

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { HolisticLandmarker } from '@mediapipe/tasks-vision';
 import ExpressionVisual from './ExpressionVisual';
 import { EXPRESSIONS, expressionForCandidate } from '../../data/expressions';
-import { assessPoseQuality, prepareRecordedFrames, preprocessPoseSequence, type QualityResult, type RawPoseFrame } from '../../lib/landmarkPreprocessing';
+import { bestRecordingWindow, preprocessPoseSequence, type QualityResult, type RawPoseFrame } from '../../lib/landmarkPreprocessing';
 import { getHolisticLandmarker, resultToRawFrame } from '../../lib/browserVision';
 import { isPredictionPayload } from '../../../lib/prediction';
 import {
@@ -101,10 +101,9 @@ export function CameraTrials() {
   const finish = async (current: PlannedTrial, currentAttempt: number) => {
     clearTimer();
     setPhase('processing'); setMessage('Tahmin alınıyor…');
-    const frames = prepareRecordedFrames(framesRef.current);
+    const { frames, quality } = bestRecordingWindow(framesRef.current, motionThresholdRef.current);
     const durationMs = now() - startedAtRef.current;
     const recordedAt = new Date();
-    const quality = assessPoseQuality(frames, 0.1, 8, 0.6, 0.5, motionThresholdRef.current);
     const base = { trial: current, attempt: currentAttempt, recordedAt, frames: frames.length, durationMs, quality };
     if (quality.status !== 'approved') {
       // Kalite kapısını geçmeyen kayıt için aday üretilmez; deneme aynı hedefle tekrarlanır.

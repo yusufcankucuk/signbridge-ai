@@ -70,6 +70,9 @@ export function Questions() {
   </Frame>;
 }
 
+// Kameranın yanıt arayabildiği soru tipleri; custom (serbest soru) sözlükte karşılığı olmadığı için dışarıda.
+const CAMERA_ANSWER_KINDS = new Set<QuestionKind>(['duration', 'intensity', 'location', 'medication']);
+
 export function PatientResponse({ kind }: { kind: QuestionKind }) {
   const { state, setState } = useFlow(); const router = useRouter();
   const [selected, setSelected] = useState(''); const [detail, setDetail] = useState(''); const [groups, setGroups] = useState<string[]>([]);
@@ -104,11 +107,15 @@ export function PatientResponse({ kind }: { kind: QuestionKind }) {
     stage === 'name' ? 'Devam etmek için ilacın adını yazın.' :
     stage === 'groups' ? 'Devam etmek için en az bir ilaç grubu seçin.' :
     'Devam etmek için bir seçenek seçin.';
+  // Kamera birincil yol: hasta soruyu işaret diliyle yanıtlar, hazır seçenekler ikincil kalır.
+  const signAnswer = () => { setState(s => ({ ...s, capture: 'answer', candidate: null })); router.push('/camera'); };
+  const cameraFirst = stage === 'choice' && CAMERA_ANSWER_KINDS.has(kind);
   return <Frame title={titles[kind]} footer={ready && <>
-    <Button disabled={!canContinue || leaving} onClick={next}>{kind === 'medication' && selected === 'Evet' && (stage === 'choice' || (stage === 'groups' && groups.includes('Başka bir ilaç'))) ? 'Devam et' : 'Doktora ilet'}</Button>
-    {!canContinue && !leaving && <p className="text-center text-caption text-ink-muted">{hint}</p>}
+    {cameraFirst && <Button disabled={leaving} onClick={signAnswer}>İşaret diliyle yanıtla</Button>}
+    <Button variant={cameraFirst ? 'outline' : 'primary'} disabled={!canContinue || leaving} onClick={next}>{kind === 'medication' && selected === 'Evet' && (stage === 'choice' || (stage === 'groups' && groups.includes('Başka bir ilaç'))) ? 'Devam et' : cameraFirst ? 'Seçerek yanıtla' : 'Doktora ilet'}</Button>
+    {!canContinue && !leaving && <p className="text-center text-caption text-ink-muted">{cameraFirst ? 'Kamerayı kullanmak istemezseniz aşağıdan seçebilirsiniz.' : hint}</p>}
     {stage !== 'choice' ? <button className="compact-link" onClick={() => setStage(stage === 'name' ? 'groups' : 'choice')}>Geri</button> :
-      <button className="compact-link" onClick={() => { setState(s => ({ ...s, capture: 'answer', candidate: null })); router.push('/camera'); }}>İşaret diliyle yanıtla</button>}
+      !cameraFirst && <button className="compact-link" onClick={signAnswer}>İşaret diliyle yanıtla</button>}
   </>}>
     {error && <p className="compact-error" role="alert">{error}</p>}
     {!pending ? <Empty text="Yanıt bekleyen soru yok." /> : !ready ? <Empty text="Diğer soruya devam edin." href={`/patient/${pending.kind}`} /> :

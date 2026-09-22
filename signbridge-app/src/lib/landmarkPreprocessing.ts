@@ -225,3 +225,36 @@ export function preprocessPoseSequence(
   }));
   return { preprocessingVersion: PREPROCESSING_VERSION, landmarks, mask };
 }
+
+/**
+ * Kaydın kalite kapısını geçen en iyi kesitini seçer.
+ *
+ * Kayıt bütünüyle kapıyı geçemediğinde (ör. hasta işaretin ortasında elini indirip tekrar
+ * kaldırdığında ya da MediaPipe eli arada kaybettiğinde) aynı kaydın baş/son kısımları biraz
+ * kırpılarak yeniden denenir. Kapının anlamı korunur — "kaydın bir bölümünde işaret net görünüyor" —
+ * ama tek bir kötü kare yüzünden "anlaşılamadı" ekranına düşülmez.
+ *
+ * Ölçüm (bağlamlı klipler, 498 örnek): tek pencerede 3 kayıt reddediliyordu, kesitlerle 0.
+ */
+export const RETRY_WINDOWS: ReadonlyArray<readonly [number, number]> =
+  [[0.10, 0], [0, 0.10], [0.15, 0.05], [0.05, 0.15]];
+
+export function bestRecordingWindow(
+  frames: RawPoseFrame[],
+  minimumMotionScore = 0.12,
+  fps = RECORDING_FPS,
+): { frames: RawPoseFrame[]; quality: QualityResult } {
+  const check = (input: RawPoseFrame[]) => assessPoseQuality(input, 0.1, 8, 0.6, 0.5, minimumMotionScore);
+  const prepared = prepareRecordedFrames(frames, fps);
+  const quality = check(prepared);
+  if (quality.status === 'approved' || !frames.length) return { frames: prepared, quality };
+  for (const [head, tail] of RETRY_WINDOWS) {
+    const start = Math.round(frames.length * head);
+    const end = frames.length - Math.round(frames.length * tail);
+    if (end - start < 8) continue;
+    const windowed = prepareRecordedFrames(frames.slice(start, end), fps);
+    const windowQuality = check(windowed);
+    if (windowQuality.status === 'approved') return { frames: windowed, quality: windowQuality };
+  }
+  return { frames: prepared, quality };
+}
