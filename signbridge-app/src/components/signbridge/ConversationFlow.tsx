@@ -7,6 +7,10 @@ import Button from '../ui/Button';
 import BodyMap from './BodyMap';
 import ExpressionVisual from './ExpressionVisual';
 import QuestionSymbol from './QuestionSymbol';
+import DurationAnswer from './DurationAnswer';
+import IntensityAnswer from './IntensityAnswer';
+import LocationAnswer from './LocationAnswer';
+import MedicationAnswer from './MedicationAnswer';
 import { EXPRESSIONS } from '../../data/expressions';
 import { BODY_REGIONS, MEDICATION_GROUPS } from '../../data/regions';
 import { questionLabels, recordAnswer, type QuestionKind } from '../../lib/consultationFlow';
@@ -73,7 +77,14 @@ export function Questions() {
 // Kameranın yanıt arayabildiği soru tipleri; custom (serbest soru) sözlükte karşılığı olmadığı için dışarıda.
 const CAMERA_ANSWER_KINDS = new Set<QuestionKind>(['duration', 'intensity', 'location', 'medication']);
 
+// Süre, şiddet, yer ve ilaç sorularının kendi kamera öncelikli ekranı var (avatarlar hazır); diğer tipler ortak ekranı kullanır.
 export function PatientResponse({ kind }: { kind: QuestionKind }) {
+  return kind === 'duration' ? <DurationAnswer /> : kind === 'intensity' ? <IntensityAnswer />
+    : kind === 'location' ? <LocationAnswer />
+    : kind === 'medication' ? <MedicationAnswer /> : <ChoiceResponse kind={kind} />;
+}
+
+function ChoiceResponse({ kind }: { kind: QuestionKind }) {
   const { state, setState } = useFlow(); const router = useRouter();
   const [selected, setSelected] = useState(''); const [detail, setDetail] = useState(''); const [groups, setGroups] = useState<string[]>([]);
   const [stage, setStage] = useState<'choice' | 'groups' | 'name'>('choice');

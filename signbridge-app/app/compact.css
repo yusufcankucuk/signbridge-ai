@@ -785,3 +785,377 @@
         height: auto !important;
     }
 }
+
+/* --- Doktor sorusuna kamerayla yanıt (avatarlı) --------------------------- */
+.answer-question {
+    display: flex;
+    align-items: center;
+    gap: var(--sb-space-3);
+    flex-shrink: 0;
+}
+.answer-question img {
+    flex: none;
+    width: 72px;
+    height: 72px;
+}
+.answer-question.is-compact img {
+    width: 48px;
+    height: 48px;
+}
+.answer-question p {
+    margin: 2px 0 0;
+    color: var(--sb-ink-muted);
+    font-size: var(--sb-text-secondary);
+}
+.answer-camera-preview {
+    cursor: pointer;
+    border: 0;
+    min-height: 220px;
+}
+.answer-camera-preview:hover svg {
+    opacity: 1;
+}
+.answer-unit-block > p,
+.answer-alternatives > p {
+    margin: 0;
+    color: var(--sb-ink);
+    font-size: var(--sb-text-secondary);
+    font-weight: var(--sb-weight-strong);
+}
+.answer-alternatives > p {
+    text-align: center;
+    color: var(--sb-ink-muted);
+    font-weight: var(--sb-weight-medium);
+}
+.answer-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sb-space-3);
+    padding: 2px;
+}
+.answer-quick,
+.answer-regions,
+.answer-numbers,
+.answer-units,
+.answer-alternatives > div {
+    display: grid;
+    gap: var(--sb-space-2);
+}
+.answer-quick {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.answer-numbers {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.answer-units {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.answer-alternatives > div {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.answer-quick button,
+.answer-regions button,
+.answer-numbers button,
+.answer-units button,
+.answer-alternatives button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-height: var(--sb-tap);
+    padding: var(--sb-space-1);
+    border: 1px solid var(--sb-line-strong);
+    border-radius: var(--sb-radius-sm);
+    background: var(--sb-surface);
+    color: var(--sb-ink-body);
+    font-size: var(--sb-text-secondary);
+    font-weight: var(--sb-weight-medium);
+    line-height: 1.2;
+    text-align: center;
+    transition: background-color 160ms ease, border-color 160ms ease;
+}
+.answer-quick button:hover,
+.answer-regions button:hover,
+.answer-numbers button:hover,
+.answer-units button:hover,
+.answer-alternatives button:hover {
+    border-color: var(--sb-brand-200);
+    background: var(--sb-brand-50);
+}
+.answer-quick button[aria-pressed="true"],
+.answer-regions button[aria-pressed="true"],
+.answer-numbers button[aria-pressed="true"],
+.answer-units button[aria-pressed="true"],
+.answer-alternatives button[aria-pressed="true"] {
+    border-color: var(--sb-brand);
+    background: var(--sb-brand-50);
+    box-shadow: inset 0 0 0 1px var(--sb-brand);
+    color: var(--sb-brand-deep);
+}
+.answer-quick img {
+    width: 56px;
+    height: 56px;
+    object-fit: contain;
+}
+.answer-numbers img,
+.answer-alternatives img {
+    width: 52px;
+    height: 52px;
+    object-fit: contain;
+}
+.answer-units img {
+    width: 36px;
+    height: 36px;
+    object-fit: contain;
+}
+.answer-divider {
+    display: flex;
+    align-items: center;
+    gap: var(--sb-space-2);
+    margin: 0;
+    color: var(--sb-ink-muted);
+    font-size: var(--sb-text-secondary);
+}
+.answer-divider::before,
+.answer-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--sb-line);
+}
+.answer-more {
+    min-height: 44px;
+    border: 1px dashed var(--sb-line-strong);
+    border-radius: var(--sb-radius-sm);
+    background: var(--sb-surface);
+    color: var(--sb-brand-deep);
+    font-size: var(--sb-text-secondary);
+    font-weight: var(--sb-weight-medium);
+}
+.answer-typed {
+    display: flex;
+    align-items: center;
+    gap: var(--sb-space-3);
+    color: var(--sb-ink);
+    font-weight: var(--sb-weight-medium);
+}
+.answer-typed input {
+    flex: 1;
+    min-height: var(--sb-tap);
+    padding: 0 var(--sb-space-3);
+    border: 1px solid var(--sb-line-strong);
+    border-radius: var(--sb-radius-sm);
+    font-size: var(--sb-text-section);
+    font-variant-numeric: tabular-nums;
+}
+.answer-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sb-space-3);
+    flex-shrink: 0;
+    padding: var(--sb-space-2) var(--sb-space-4);
+    border-radius: var(--sb-radius-sm);
+    background: var(--sb-brand-50);
+    color: var(--sb-brand-deep);
+    font-size: var(--sb-text-secondary);
+}
+.answer-summary strong {
+    color: var(--sb-ink);
+    font-size: var(--sb-text-section);
+    font-weight: var(--sb-weight-strong);
+    font-variant-numeric: tabular-nums;
+}
+.answer-hero {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sb-space-1);
+}
+.answer-hero img {
+    width: auto;
+    height: 100%;
+    max-height: 168px;
+    min-height: 96px;
+    object-fit: contain;
+}
+.answer-hero strong {
+    color: var(--sb-ink);
+    font-size: var(--sb-text-title);
+    font-weight: var(--sb-weight-strong);
+}
+.answer-unit-block,
+.answer-alternatives {
+    display: grid;
+    gap: var(--sb-space-2);
+    flex-shrink: 0;
+}
+.answer-scale {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: var(--sb-space-2);
+}
+.answer-scale button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    min-height: var(--sb-tap);
+    padding: var(--sb-space-2) var(--sb-space-1);
+    border: 1px solid var(--sb-line-strong);
+    border-radius: var(--sb-radius-sm);
+    background: var(--sb-surface);
+    color: var(--sb-ink-body);
+    font-size: var(--sb-text-secondary);
+    font-weight: var(--sb-weight-medium);
+    line-height: 1.2;
+    transition: background-color 160ms ease, border-color 160ms ease;
+}
+.answer-scale button:hover {
+    border-color: var(--sb-brand-200);
+    background: var(--sb-brand-50);
+}
+.answer-scale button[aria-pressed="true"] {
+    border-color: var(--sb-brand);
+    background: var(--sb-brand-50);
+    box-shadow: inset 0 0 0 1px var(--sb-brand);
+    color: var(--sb-brand-deep);
+}
+.answer-scale img {
+    width: 100%;
+    max-width: 52px;
+    height: auto;
+    aspect-ratio: 1;
+    object-fit: contain;
+}
+.answer-scale strong {
+    color: var(--sb-ink);
+    font-size: var(--sb-text-section);
+    font-weight: var(--sb-weight-strong);
+    font-variant-numeric: tabular-nums;
+}
+.answer-moods {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.answer-hero > span {
+    color: var(--sb-ink-muted);
+    font-size: var(--sb-text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+/* Süre onayı: Evet/Hayır ve büyük birim seçimi (kaydırmasız) */
+.answer-yesno {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--sb-space-3);
+}
+.answer-hero.is-large img {
+    max-height: 240px;
+}
+.answer-hero.is-large strong {
+    font-size: 2rem;
+}
+.answer-unit-screen {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--sb-space-4);
+}
+.answer-picked {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sb-space-3);
+    color: var(--sb-ink-muted);
+    font-size: var(--sb-text-section);
+}
+.answer-picked img {
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+}
+.answer-picked strong {
+    color: var(--sb-ink);
+    font-size: 2.25rem;
+    font-weight: var(--sb-weight-strong);
+    font-variant-numeric: tabular-nums;
+}
+.answer-units.is-large {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: var(--sb-space-3);
+}
+.answer-units.is-large button {
+    grid-column: span 2;
+    padding: var(--sb-space-3) var(--sb-space-2);
+    font-size: var(--sb-text-body);
+    gap: var(--sb-space-1);
+}
+.answer-units.is-large button:nth-child(4) {
+    grid-column: 2 / span 2;
+}
+.answer-units.is-large img {
+    width: 56px;
+    height: 56px;
+}
+.answer-regions {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.answer-regions img {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+}
+/* İlk kamera ekranı: kameranın üstündeki kısa yönlendirme */
+.camera-intro {
+    flex-shrink: 0;
+    display: grid;
+    gap: var(--sb-space-1);
+    text-align: center;
+}
+.camera-intro p {
+    margin: 0;
+    color: var(--sb-ink-muted);
+    font-size: var(--sb-text-secondary);
+}
+/* İlaç sorusu, seçerek: iki büyük avatarlı Evet / Hayır kartı */
+.answer-yesno-cards {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: center;
+    gap: var(--sb-space-3);
+}
+.answer-yesno-cards button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--sb-space-2);
+    padding: var(--sb-space-4) var(--sb-space-2);
+    border: 1px solid var(--sb-line-strong);
+    border-radius: var(--sb-radius-lg);
+    background: var(--sb-surface);
+    color: var(--sb-ink);
+    font-size: var(--sb-text-section);
+    font-weight: var(--sb-weight-strong);
+    transition: background-color 160ms ease, border-color 160ms ease;
+}
+.answer-yesno-cards button:hover {
+    border-color: var(--sb-brand-200);
+    background: var(--sb-brand-50);
+}
+.answer-yesno-cards img {
+    width: 100%;
+    max-width: 120px;
+    height: auto;
+    aspect-ratio: 1;
+    object-fit: contain;
+}
