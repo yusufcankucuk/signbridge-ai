@@ -1,0 +1,98 @@
+{
+  "vocabularyVersion": "signbridge71-v1",
+  "videos": 13,
+  "views": 39,
+  "sources": [
+    "ans_medyatik",
+    "ans_turkce"
+  ],
+  "signersPerClass": {
+    "bacak": [
+      "ans_medyatik"
+    ],
+    "bas": [
+      "ans_medyatik"
+    ],
+    "bel": [
+      "ans_medyatik"
+    ],
+    "bogaz": [
+      "ans_medyatik"
+    ],
+    "dis": [
+      "ans_medyatik"
+    ],
+    "diz": [
+      "ans_medyatik"
+    ],
+    "el": [
+      "ans_medyatik"
+    ],
+    "evet": [
+      "ans_turkce"
+    ],
+    "goz": [
+      "ans_medyatik"
+    ],
+    "hayir": [
+      "ans_turkce"
+    ],
+    "kol": [
+      "ans_medyatik"
+    ],
+    "kulak": [
+      "ans_medyatik"
+    ],
+    "sirt": [
+      "ans_medyatik"
+    ]
+  },
+  "answerClassesWithoutVideo": [
+    "agir",
+    "arka",
+    "asagi",
+    "ayak",
+    "az",
+    "boyun",
+    "burun",
+    "cok",
+    "gogus",
+    "hafif",
+    "ilac",
+    "iyi",
+    "karin",
+    "kotu",
+    "omuz",
+    "on",
+    "sayi-1",
+    "sayi-10",
+    "sayi-2",
+    "sayi-20",
+    "sayi-3",
+    "sayi-30",
+    "sayi-4",
+    "sayi-5",
+    "sayi-6",
+    "sayi-7",
+    "sayi-8",
+    "sayi-9",
+    "yukari"
+  ],
+  "viewsPerClass": {
+    "bacak": 3,
+    "bas": 3,
+    "bel": 3,
+    "bogaz": 3,
+    "dis": 3,
+    "diz": 3,
+    "el": 3,
+    "evet": 3,
+    "goz": 3,
+    "hayir": 3,
+    "kol": 3,
+    "kulak": 3,
+    "sirt": 3
+  },
+  "skippedViews": [],
+  "consent": "user_reported_permission"
+}

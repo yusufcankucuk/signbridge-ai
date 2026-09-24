@@ -3,14 +3,20 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useFlow } from '../providers/FlowProvider';
-import { Frame, Choice, Empty, Pager, ReadText, CameraIcon } from './CompactUI';
+import { Frame, Choice, Empty, Pager, ReadText, CameraIcon, SignIcon } from './CompactUI';
 import Button from '../ui/Button';
 import Logo from '../layout/Logo';
 import ExpressionVisual from './ExpressionVisual';
 import { EXPRESSIONS, alternativeExpressions, expressionForCandidate } from '../../data/expressions';
+import {
+  ANSWER_LABELS, answerAlternatives, answerAvatar, answerContextFor, answerText, isDurationNumber,
+} from '../../data/answers';
+import Image from 'next/image';
+import { DurationConfirm, SingleAnswerConfirm } from './DurationAnswer';
+import { MedicationConfirm } from './MedicationAnswer';
 import { recordAnswer, type FlowState } from '../../lib/consultationFlow';
 import { submitPatientAnswer } from '../../lib/sessionClient';
-import { assessPoseQuality, prepareRecordedFrames, preprocessPoseSequence, type RawPoseFrame } from '../../lib/landmarkPreprocessing';
+import { bestRecordingWindow, preprocessPoseSequence, type RawPoseFrame } from '../../lib/landmarkPreprocessing';
 import { getHolisticLandmarker, resultToRawFrame } from '../../lib/browserVision';
 import { isPredictionPayload } from '../../../lib/prediction';
 import type { HolisticLandmarker } from '@mediapipe/tasks-vision';
@@ -18,9 +24,14 @@ import type { HolisticLandmarker } from '@mediapipe/tasks-vision';
 // Kamera yolundan çıkılırken hastanın düşeceği manuel ekran, akışın bağlamına göre belirlenir.
 // Yanıt modunda soru tipine ait hazır seçenek ekranı, ek soru modunda soru ekranı, aksi hâlde şikayet listesi.
 export function manualPathFor(state: FlowState): string {
-  if (state.capture === 'answer') return state.pending ? `/patient/${state.pending.kind}` : '/manual-select';
+  if (state.capture === 'answer') return state.pending
+    ? `/patient/${state.pending.kind}${['duration', 'intensity', 'location', 'medication'].includes(state.pending.kind) ? '?mode=manual' : ''}` : '/manual-select';
   if (state.capture === 'followup') return '/patient/question';
   return '/manual-select';
+}
+
+export function manualLabelFor(state: FlowState): string {
+  return state.capture === 'answer' || state.capture === 'followup' ? 'Seçerek yanıtla' : 'Seçerek anlat';
 }
 
 export function Home() {
@@ -65,8 +76,8 @@ export function Camera() {
   const [phase, setPhase] = useState<'idle' | 'opening' | 'ready' | 'recording' | 'processing' | 'error'>('idle');
   const [message, setMessage] = useState('Kamera henüz açılmadı.');
   const [seconds, setSeconds] = useState(0);
-  const [cameraWarning, setCameraWarning] = useState('');
   const alternative = manualPathFor(state);
+  const alternativeLabel = manualLabelFor(state);
 
   const stopCamera = () => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -85,8 +96,6 @@ export function Camera() {
       const status = await statusResponse.json() as {
         cameraAiEnabled?: unknown;
         minimumMotionScore?: unknown;
-        experimental?: unknown;
-        warning?: unknown;
       };
       if (!statusResponse.ok || status.cameraAiEnabled !== true) {
         router.replace('/fallback?reason=policy_disabled');
@@ -95,7 +104,6 @@ export function Camera() {
       if (typeof status.minimumMotionScore === 'number' && Number.isFinite(status.minimumMotionScore) && status.minimumMotionScore >= 0) {
         motionThresholdRef.current = status.minimumMotionScore;
       }
-      setCameraWarning(status.experimental === true && typeof status.warning === 'string' ? status.warning : '');
       const [stream, landmarker] = await Promise.all([
         navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 960 }, height: { ideal: 720 } }, audio: false }),
         getHolisticLandmarker(),
@@ -117,8 +125,9 @@ export function Camera() {
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = null;
     setPhase('processing'); setMessage('Landmark verileri hazırlanıyor ve model çalıştırılıyor…');
-    const frames = prepareRecordedFrames(framesRef.current);
-    const quality = assessPoseQuality(frames, 0.1, 8, 0.6, 0.5, motionThresholdRef.current);
+    // Kayıt bütünüyle kapıyı geçemezse aynı kaydın kesitleri denenir; tek kötü kare yüzünden
+    // "anlaşılamadı" ekranına düşülmez (bkz. bestRecordingWindow).
+    const { frames, quality } = bestRecordingWindow(framesRef.current, motionThresholdRef.current);
     if (quality.status !== 'approved') {
       setState(current => ({ ...current, candidate: null }));
       stopCamera();
@@ -132,7 +141,9 @@ export function Camera() {
         body: JSON.stringify({
           ...input,
           sessionId: state.sessionId,
-          recognitionContext: state.capture === 'complaint' ? 'symptom' : 'general',
+          // Şikayet anlatımı belirti sözlüğünü, doktorun sorusu ise soru tipinin aday listesini kullanır.
+          recognitionContext: state.capture === 'complaint' ? 'symptom'
+            : (state.capture === 'answer' && answerContextFor(state.pending?.kind)) || 'general',
         }),
       });
       const body = await response.json() as { prediction?: unknown; error?: unknown };
@@ -143,7 +154,11 @@ export function Camera() {
         setState(current => ({ ...current, candidate: null }));
         router.replace(`/fallback?reason=${encodeURIComponent(prediction.rejectionReason ?? 'low_score')}&advanced=1`);
       } else {
-        setState(current => ({ ...current, candidate: { text: prediction.displayText, source: 'model', prediction } }));
+        // Yanıt bağlamında gösterilen metin soru tipine göre biçimlenir (ör. şiddet "4 / 5").
+        const context = answerContextFor(state.pending?.kind);
+        const text = state.capture === 'answer' && context && prediction.classId
+          ? answerText(context, prediction.classId) : prediction.displayText;
+        setState(current => ({ ...current, candidate: { text, source: 'model', prediction } }));
         router.replace('/confirm');
       }
     } catch {
@@ -176,13 +191,16 @@ export function Camera() {
       phase === 'opening' || phase === 'processing' ? <Button disabled>{phase === 'opening' ? 'Hazırlanıyor…' : 'İşleniyor…'}</Button> :
       phase === 'ready' ? <button className="compact-record" onClick={startRecording} aria-label="Anlatımı başlat"><span aria-hidden="true">▶</span></button> :
       <button className="compact-record is-recording" onClick={() => void finishRecording()} aria-label="Anlatımı bitir"><span className="h-6 w-6 rounded bg-white" /></button>}
-    <div className="flex justify-between"><Link href={alternative} className="compact-link">Seçerek anlat</Link><Link href="/camera-help" className="compact-link">Yardım</Link></div>
+    <div className="flex justify-between"><Link href={alternative} className="compact-link">{alternativeLabel}</Link><Link href="/camera-help" className="compact-link">Yardım</Link></div>
   </>;
   return <Frame footer={<>
     {footer}
   </>}>
+    {state.capture === 'complaint' && <div className="camera-intro">
+      <h1 className="compact-title">Şikâyetinizi anlatın</h1>
+      <p>Neyiniz olduğunu işaret diliyle anlatın.</p>
+    </div>}
     {state.capture === 'answer' && <p className="text-center font-semibold">{state.pending?.text}</p>}
-    {cameraWarning && <p className="compact-card border-warning-100 bg-warning-50 text-center text-caption" role="note">{cameraWarning}</p>}
     <div className="compact-camera"><video ref={videoRef} playsInline muted aria-label="Canlı kamera önizlemesi" />{phase === 'idle' || phase === 'opening' || phase === 'error' ? <CameraIcon /> : null}<span role="status">{message}</span>{phase === 'recording' && <strong className="compact-camera-timer">{seconds.toFixed(1)} sn</strong>}</div>
     <p className="text-center text-caption text-ink-muted">Elleriniz ve iki omzunuz görünsün. Önerilen kayıt süresi 2–4 saniyedir.</p>
   </Frame>;
@@ -213,6 +231,17 @@ export function Confirm() {
   const candidate = state.candidate ?? (leaving ? shownCandidate : null);
   const expression = expressionForCandidate(candidate);
   const alternatives = candidate?.source === 'model' && state.capture === 'complaint' ? alternativeExpressions(candidate.prediction) : [];
+  // Avatarı olmayan yanıt tiplerinde diğer iki aday sınıf metin düğmesi olarak gösterilir.
+  const answerOptions = state.capture === 'answer' && candidate?.source === 'model'
+    ? answerAlternatives(candidate.prediction, 3) : [];
+  // Süre sorusunda kamera sayıyı tanır; onay (Evet/Hayır) ve birim seçimi ayrı, sade ekranda yapılır.
+  const durationNumber = state.capture === 'answer' && state.pending?.kind === 'duration'
+    && candidate?.source === 'model' && isDurationNumber(candidate.prediction?.classId) ? candidate.prediction!.classId! : null;
+  // Şiddet ve yer sorularında tanınan yanıt avatarla gösterilir ve yalnız Evet / Hayır sorulur.
+  const singleContext = state.capture === 'answer' && (state.pending?.kind === 'intensity' || state.pending?.kind === 'location')
+    ? state.pending.kind : null;
+  const singleClass = singleContext && candidate?.source === 'model' && answerAvatar(candidate.prediction?.classId)
+    ? candidate.prediction!.classId! : null;
   const [error, setError] = useState('');
   const manualPath = manualPathFor(state);
   // Olası diğer avatarlardan biri seçilirse elle seçim gibi onaylanır (hasta yine "Doğru" der).
@@ -227,7 +256,7 @@ export function Confirm() {
     setLeaving(true);
     setError('');
     try {
-      if (state.capture === 'answer' && state.candidate.source === 'manual' && state.pending) {
+      if (state.capture === 'answer' && state.pending && state.candidate.source === 'manual') {
         await submitPatientAnswer(state.sessionId, state.pending.id, state.candidate.text);
       } else {
         const body = state.candidate.source === 'manual' ? { confirmed: true, manualSelection: state.candidate.text } : { confirmed: true };
@@ -259,13 +288,50 @@ export function Confirm() {
       router.push('/camera');
     } catch (cause) { setLeaving(false); setError(cause instanceof Error ? cause.message : 'Yeni deneme başlatılamadı.'); }
   };
-  return <Frame title="Doğru anladım mı?" footer={candidate && <>
+  // Düşük güvenli bir model önerisinde birincil eylem onay olamaz: hasta tek dokunuşla
+  // yanlış bir ifadeyi tıbbi kayda sokabiliyordu. Bu durumda manuel seçim öne alınır.
+  const lowConfidence = candidate?.source === 'model' && candidate.prediction?.isLowConfidence === true;
+  const medicationClass = state.capture === 'answer' && state.pending?.kind === 'medication' && candidate?.source === 'model'
+    && answerAvatar(candidate.prediction?.classId) ? candidate.prediction!.classId! : null;
+  if (medicationClass) return <MedicationConfirm classId={medicationClass} lowConfidence={lowConfidence} onRetry={retry} manualPath={manualPath} retryError={error} />;
+  if (singleContext && singleClass) return <SingleAnswerConfirm context={singleContext} classId={singleClass} lowConfidence={lowConfidence} onRetry={retry} manualPath={manualPath} retryError={error} />;
+  if (durationNumber) return <DurationConfirm classId={durationNumber} lowConfidence={lowConfidence} onRetry={retry} manualPath={manualPath} retryError={error} />;
+  // İlk şikâyet onayı da diğer sorularla aynı: tanınan anlatım + ✓ Evet / ✕ Hayır; alternatif liste gösterilmez.
+  if (state.capture === 'complaint' && candidate) return <Frame title="Doğru anladım mı?" footer={<>
+    <div className="answer-yesno">
+      <Button disabled={leaving} onClick={() => void confirm()}>✓ Evet</Button>
+      <Button variant="outline" disabled={leaving} onClick={() => void retry()}>✕ Hayır</Button>
+    </div>
+    <Link href={manualPath} className="compact-link">Seçerek anlat</Link>
+  </>}>
+    {expression
+      ? <><div className="compact-illustration"><div><ExpressionVisual expression={expression} /></div></div><p className="compact-sentence">{expression.sentence}</p></>
+      : <><div className="compact-illustration"><div><SignIcon /></div></div><div className="compact-center"><ReadText text={candidate.text} /></div></>}
+    {expression?.urgent && <p className="rounded-xl border border-warning-100 bg-warning-50 px-4 py-3 text-center text-caption font-semibold text-warning-700" role="alert">Acil olabilir. Belirtiler şiddetliyse hemen sağlık personeline haber verin veya 112’yi arayın.</p>}
+    {lowConfidence && <p className="rounded-xl border border-warning-100 bg-warning-50 px-4 py-3 text-center text-caption font-semibold text-warning-700" role="alert">Model bu işaretten emin değil.</p>}
+    {error && <p className="compact-error" role="alert">{error}</p>}
+  </Frame>;
+  return <Frame title="Doğru anladım mı?" footer={candidate && (lowConfidence ? <>
+    <Button href={manualPath}>{manualLabelFor(state)}</Button>
+    <div className="grid grid-cols-2"><button type="button" onClick={retry} className="compact-link">Tekrar anlat</button><button type="button" onClick={confirm} className="compact-link">Yine de doktora ilet</button></div>
+  </> : <>
     <Button onClick={confirm}>Doğru, doktora ilet</Button>
     <div className="grid grid-cols-2"><button type="button" onClick={retry} className="compact-link">Tekrar anlat</button><Link href={manualPath} className="compact-link">Değiştir</Link></div>
-  </>}>
+  </>)}>
+
     {!candidate ? <Empty text="Henüz bir anlatım yok." href="/camera" /> : <>
-      {expression ? <><div className="compact-illustration"><div><ExpressionVisual expression={expression} /></div></div><p className="compact-sentence">{expression.sentence}</p></> : <div className="compact-center"><ReadText text={candidate.text} /></div>}
+      {expression
+        ? <><div className="compact-illustration"><div><ExpressionVisual expression={expression} /></div></div><p className="compact-sentence">{expression.sentence}</p></>
+        : state.capture === 'complaint'
+          ? <><div className="compact-illustration"><div><SignIcon /></div></div><div className="compact-center"><ReadText text={candidate.text} /></div></>
+          : <div className="compact-center"><ReadText text={candidate.text} /></div>}
       {expression?.urgent && <p className="rounded-xl border border-warning-100 bg-warning-50 px-4 py-3 text-center text-caption font-semibold text-warning-700" role="alert">Acil olabilir. {candidate.prediction ? 'Bu, deneysel bir kamera önerisidir; ' : ''}belirtiler şiddetliyse hemen sağlık personeline haber verin veya 112’yi arayın.</p>}
+      {lowConfidence && <p className="rounded-xl border border-warning-100 bg-warning-50 px-4 py-3 text-center text-caption font-semibold text-warning-700" role="alert">Model bu işaretten emin değil. Doğru olduğundan emin değilseniz listeden seçin.</p>}
+      {answerOptions.length > 0 && <div className="compact-alternatives" role="group" aria-label="Diğer olası yanıtlar">
+        <p>Başka bir şey mi anlattınız?</p>
+        <div>{answerOptions.map(classId => <button key={classId} type="button"
+          onClick={() => chooseAlternative(ANSWER_LABELS[classId])}>{ANSWER_LABELS[classId]}</button>)}</div>
+      </div>}
       {alternatives.length > 0 && <div className="compact-alternatives" role="group" aria-label="Diğer olası belirtiler">
         <p>Başka bir şey mi anlattınız?</p>
         <div>{alternatives.map(item => <button key={item.id} type="button" onClick={() => chooseAlternative(item.sentence)} aria-label={`${item.label}: bunu seç`}>

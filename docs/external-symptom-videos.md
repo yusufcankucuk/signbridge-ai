@@ -94,8 +94,8 @@ $common = @("--vocabulary", "signbridge34-v1", "--hand-local-features", "--test-
 python -m src.train_unified @common --seeds 42 --output-dir outputs/unified34-holdout-b `
   --holdout-source ext_serpil-avci --holdout-source ext_filiz-caglar --holdout-source ext_sozluk-b
 
-# b) Yayın modeli (v0.4.0): sözlük siteleri eğitime girmez, yalnız ölçülür
-python -m src.train_unified @common --model-version signbridge-unified34-bigru-v0.4.0 `
+# b) Yayın modeli (v0.5.0): sözlük siteleri eğitime girmez, yalnız ölçülür
+python -m src.train_unified @common --model-version signbridge-unified34-bigru-v0.5.0 `
   --holdout-source ext_spreadthesign --holdout-source ext_tidsozluk --output-dir outputs/unified34
 ```
 
@@ -134,7 +134,7 @@ bittikten sonra biter. Bu yüzden kişi bağımsız ölçüm ayrıca iki yolla y
 - **Benzetim:** `src/data/simulate_recordings.py`, bekleme ve el kaldırma/indirme kareleri ekler.
   Benzetimle eğitim denendi ama bağlamlı kliplerde iyileşme vermediği için yayın modelinde kullanılmadı.
 
-Sonuçlar: [unified34-v0.4.0 raporu](../ai-training/reports/unified34-v0.4.0-2026-09-16.md).
+Sonuçlar: [unified34-v0.5.0 raporu](../ai-training/reports/unified34-v0.5.0-2026-09-19.md).
 
 ## 5. Canlı kayıt: kırpma ve olası diğer avatarlar
 
@@ -149,13 +149,13 @@ Sonuçlar: [unified34-v0.4.0 raporu](../ai-training/reports/unified34-v0.4.0-202
 ## 6. Çalıştırma
 
 Bu model varsayılandır; hazır paketi kurmak için eğitim gerekmez
-([model-release-unified34-v0.4.0.md](model-release-unified34-v0.4.0.md)):
+([model-release-unified34-v0.5.0.md](model-release-unified34-v0.5.0.md)):
 
 ```powershell
 Copy-Item .env.docker.example .env      # .env.unified34.example ile aynıdır
 docker compose --profile setup run --rm model-setup
 docker compose up --build -d
-Invoke-RestMethod http://localhost:3000/api/ai/status   # modelVersion = signbridge-unified34-bigru-v0.4.0
+Invoke-RestMethod http://localhost:3000/api/ai/status   # modelVersion = signbridge-unified34-bigru-v0.5.0
 ```
 
 Kendi eğittiğiniz modeli kullanmak için `outputs/unified34` klasörünü eğitim çıktısıyla değiştirin ve
@@ -166,7 +166,7 @@ yerine doğrudan `docker compose up` kullanın). `/camera-trials` ekranı sözl�
 
 ## 7. Sözlük videoları (Spreadthesign, Güncel TİD Sözlüğü) ve ekip içi model
 
-Ekip içi `signbridge-unified34-bigru-v0.4.1`, v0.4.0 ile aynı yöntemle eğitilir. Tek farkı,
+Ekip içi `signbridge-unified34-bigru-v0.5.1`, v0.5.0 ile aynı yöntemle eğitilir. Tek farkı,
 Spreadthesign TİD sayfalarından (15 klip, en az 7 işaretleyici) ve Aile ve Sosyal Hizmetler Bakanlığı
 Güncel TİD Sözlüğü'nden (11 klip) elle indirilen tek işaretlik videoların da eğitime girmesidir.
 
@@ -175,10 +175,10 @@ Güncel TİD Sözlüğü'nden (11 klip) elle indirilen tek işaretlik videoları
   indirme (ör. kaşıntı = alerji) SHA-256 ile ayıklanır.
 
 Bu sitelerin içerikleri açık lisanslı değildir; kullanım izni ekibin sorumluluğundadır. Bu nedenle
-v0.4.1 GitHub Release'e konmaz. Ekip içinde denemek için:
+v0.5.1 GitHub Release'e konmaz. Ekip içinde denemek için:
 
 ```powershell
-# outputs/unified34-v0.4.1 klasörünü ekipten alın
+# outputs/unified34-v0.5.1 klasörünü ekipten alın
 Copy-Item .env.unified34-team.example .env
 docker compose up --build -d
 ```

@@ -27,6 +27,7 @@ import numpy as np
 
 from src.common import AI_ROOT, CONFIG_DIR, label_config, label_filename, resolve_data_root, write_json
 from src.model.dataset import BASE_FEATURES, HAND_LOCAL_TOTAL_FEATURES, MIRROR_ORDER, load_split
+from src.model.prototypes import build_prototypes, write_prototypes
 
 
 MODEL_VERSION = "signbridge-unified30-bigru-v0.2.0"
@@ -43,7 +44,8 @@ HAND_LOCAL = False
 # Sözlük → (model sürümü, politika dosyası, beklenen sınıf sayısı)
 VARIANTS = {
     "signbridge30-v1": ("signbridge-unified30-bigru-v0.2.0", "decision_policy.unified30-team-camera.json", 30),
-    "signbridge34-v1": ("signbridge-unified34-bigru-v0.4.0", "decision_policy.unified34-team-camera.json", 34),
+    "signbridge34-v1": ("signbridge-unified34-bigru-v0.5.0", "decision_policy.unified34-team-camera.json", 34),
+    "signbridge71-v1": ("signbridge-unified71-bigru-v0.7.0", "decision_policy.unified71-team-camera.json", 71),
 }
 
 
@@ -72,7 +74,7 @@ def build_model(class_count: int, width: int | None = None):
             tf.keras.layers.Bidirectional(
                 tf.keras.layers.GRU(128, return_sequences=True), name="encoder_bigru_128"
             ),
-            tf.keras.layers.Dropout(0.30, name="encoder_dropout"),
+            tf.keras.layers.Dropout(DROPOUT, name="encoder_dropout"),
             tf.keras.layers.Bidirectional(tf.keras.layers.GRU(64), name="encoder_bigru_64"),
             tf.keras.layers.Dense(64, activation="relu", name="embedding_64"),
             tf.keras.layers.Dense(class_count, activation="softmax", name="class_probabilities"),
@@ -135,6 +137,29 @@ def initialize_from_encoder(encoder, student, old_original_ids: list[int]) -> No
     student.layers[-1].set_weights([destination_kernel, destination_bias])
 
 
+def initialize_from_unified(previous, student) -> None:
+    """Daha az sınıflı, aynı mimarideki eğitilmiş bir birleşik modelden başlatır.
+
+    Kodlayıcı hem AUTSL-226 ön eğitimini hem de belirti eğitimini taşıdığı için, sözlük
+    büyütülürken (34 → 71) belirti doğruluğu korunur; yalnız AUTSL-226 kodlayıcısından
+    başlatıldığında belirti doğruluğu B grubunda 211 → 195 / 282'ye düşüyordu.
+    """
+    if tuple(previous.input_shape[1:]) != tuple(student.input_shape[1:]):
+        raise ValueError("Önceki modelin girdi biçimi yeni modelle aynı olmalıdır.")
+    if len(previous.layers) != len(student.layers):
+        raise ValueError("Önceki model beklenen BiGRU mimarisiyle uyumsuz.")
+    previous_classes = int(previous.output_shape[-1])
+    if previous_classes > int(student.output_shape[-1]):
+        raise ValueError("Önceki modelin sınıf sayısı yeni sözlükten büyük olamaz.")
+    for source, destination in zip(previous.layers[:-1], student.layers[:-1]):
+        destination.set_weights(source.get_weights())
+    source_kernel, source_bias = previous.layers[-1].get_weights()
+    destination_kernel, destination_bias = student.layers[-1].get_weights()
+    destination_kernel[:, :previous_classes] = source_kernel
+    destination_bias[:previous_classes] = source_bias
+    student.layers[-1].set_weights([destination_kernel, destination_bias])
+
+
 def _time_warp(coordinates, mask):
     """Hızı %80–120 arasında değiştirir ve başlangıç/bitişi küçükçe kaydırır."""
     import tensorflow as tf
@@ -162,6 +187,10 @@ def _time_warp(coordinates, mask):
 
 
 DERIVED_SOURCES = {"SYNTHETIC", "RECORDING_SIM"}
+# Kişi farklarına yönelik ek artırma (kol uzunluğu, el boyu, duruş sürüklenmesi) ve mixup.
+SIGNER_AUGMENT = False
+DROPOUT = 0.30
+MIXUP_ALPHA = 0.0
 
 
 def is_derived(row: dict) -> bool:
@@ -169,6 +198,27 @@ def is_derived(row: dict) -> bool:
     return row.get("source") in DERIVED_SOURCES
 
 
+
+
+def _signer_variation(coordinates):
+    """Kişiye göre değişen el boyunu ve duruş sürüklenmesini taklit eder.
+
+    Nokta düzeni (`landmark46-v1`): 0-1 omuzlar, 2-3 dirsekler, 4-24 sol el, 25-45 sağ el.
+    El noktaları **bileğe göre** ölçeklenir; bilek konumu değişmez. Omuz-el mesafesi (baş/karın
+    ayrımını taşıyan bilgi) bozulmaz — omuz merkezli ölçekleme denendi ve doğruluğu düşürdü
+    (B grubu 187 → 173 / 282).
+    """
+    import tensorflow as tf
+
+    hands = []
+    for start, end in ((4, 25), (25, 46)):
+        wrist = coordinates[:, start:start + 1, :]
+        size = tf.random.uniform((), 0.84, 1.16)
+        hands.append(wrist + (coordinates[:, start:end, :] - wrist) * size)
+    coordinates = tf.concat([coordinates[:, :4, :], hands[0], hands[1]], axis=1)
+    steps = tf.linspace(0.0, 1.0, 60)[:, None, None]
+    drift = tf.random.uniform((1, 1, 2), -0.025, 0.025) * tf.sin(3.14159 * steps)
+    return coordinates + drift
 
 
 def augment_feature(features, target):
@@ -186,6 +236,8 @@ def augment_feature(features, target):
     mirrored_mask = tf.gather(mask, MIRROR_ORDER, axis=1)
     coordinates = tf.where(mirror, mirrored_coordinates, coordinates)
     mask = tf.where(mirror, mirrored_mask, mask)
+    if SIGNER_AUGMENT:
+        coordinates = _signer_variation(coordinates)
     angle = tf.random.uniform((), -0.14, 0.14)
     rotation = tf.stack([[tf.cos(angle), -tf.sin(angle)], [tf.sin(angle), tf.cos(angle)]])
     coordinates = tf.einsum("tlc,dc->tld", coordinates, rotation)
@@ -205,6 +257,20 @@ def augment_feature(features, target):
     if HAND_LOCAL:
         output = tf.concat([output, _tf_hand_local(coordinates, mask[..., 0])], axis=-1)
     return output, target
+
+
+def _mixup_batch(features, targets):
+    """Toplu örnekleri Beta(a,a) ağırlığıyla karıştırır (mixup)."""
+    import tensorflow as tf
+
+    alpha = tf.constant(MIXUP_ALPHA, tf.float32)
+    first = tf.random.gamma((), alpha)
+    second = tf.random.gamma((), alpha)
+    weight = first / (first + second + 1e-8)
+    weight = tf.maximum(weight, 1.0 - weight)
+    order = tf.random.shuffle(tf.range(tf.shape(features)[0]))
+    return (weight * features + (1.0 - weight) * tf.gather(features, order),
+            weight * targets + (1.0 - weight) * tf.gather(targets, order))
 
 
 def _tf_hand_local(coordinates, mask):
@@ -270,6 +336,26 @@ def regression_rows(
     return rows
 
 
+def _answer_accuracy(probabilities: np.ndarray, targets: np.ndarray, rows: list[dict],
+                     labels: list[dict]) -> dict[str, object]:
+    """Yanıt sözlüğü örneklerinin kendi soru bağlamındaki doğruluğu (soru tipine göre daraltılmış)."""
+    config = label_config(VOCABULARY_VERSION)
+    contexts = config.get("answerContexts") or {}
+    if not contexts:
+        return {}
+    index_of = {item["classId"]: int(item["index"]) for item in labels}
+    members = np.asarray([row.get("source") == "ANSWER" for row in rows], dtype=bool)
+    output: dict[str, object] = {}
+    for context, class_ids in contexts.items():
+        indexes = [index_of[class_id] for class_id in class_ids if class_id in index_of]
+        pool = members & np.isin(targets, np.asarray(indexes))
+        if not pool.any():
+            continue
+        winners = context_predictions(probabilities[pool], indexes)
+        output[context] = {"samples": int(pool.sum()), "correct": int((winners == targets[pool]).sum())}
+    return output
+
+
 def evaluate_student(
     student, teacher_probabilities: dict[str, np.ndarray], data: dict[str, tuple[np.ndarray, np.ndarray, list]],
     labels: list[dict], symptom_indexes: list[int], general_indexes: list[int],
@@ -287,7 +373,10 @@ def evaluate_student(
     sugar_members = y_test == sugar
     sugar_symptom = context_predictions(test_probabilities[sugar_members], symptom_indexes)
     meb_context = context_predictions(meb_probabilities, symptom_indexes)
-    real_meb = np.asarray([not is_derived(row) for row in meb_rows], dtype=bool)
+    # Sağlık havuzu artık yanıt sözlüğü örneklerini de içerir; belirti bağlamı ölçümü yalnız
+    # belirti sınıflarının örnekleriyle yapılır, yoksa sayı/vücut örnekleri hata gibi sayılır.
+    symptom_members = np.isin(y_meb, np.asarray(symptom_indexes))
+    real_meb = np.asarray([not is_derived(row) for row in meb_rows], dtype=bool) & symptom_members
     meb_details = []
     for row, target, probabilities, context_winner in zip(meb_rows, y_meb, meb_probabilities, meb_context):
         if is_derived(row):
@@ -318,6 +407,7 @@ def evaluate_student(
         "sekerSymptomContextAccuracy": float((sugar_symptom == sugar).mean()),
         "mebReferenceContextAccuracy": float((meb_context == y_meb)[real_meb].mean()),
         "mebReferenceIsIndependentTest": False,
+        "answerVocabularyAccuracy": _answer_accuracy(meb_probabilities, y_meb, meb_rows, labels),
         "mebReferenceDetails": meb_details,
         "classRegression": regression_rows(labels, y_test, teacher_probabilities["test"], test_probabilities),
     }
@@ -547,6 +637,38 @@ kullanım izni doğrulanana kadar yapılmamalıdır. Düşük görünürlüklü 
     )
 
 
+def _weight_average_class():
+    import tensorflow as tf
+
+    class WeightAverage(tf.keras.callbacks.Callback):
+        """Son `count` epoch'un ağırlık ortalamasını alır (SWA).
+
+        Model toplu normalleştirme (BatchNorm) içermediği için ortalama ağırlıklar doğrudan
+        kullanılabilir; yeniden kalibrasyon gerekmez.
+        """
+
+        def __init__(self, count: int, total: int):
+            super().__init__()
+            self.start = max(0, total - count)
+            self.sums: list | None = None
+            self.count = 0
+
+        def on_epoch_end(self, epoch, logs=None):
+            if epoch < self.start:
+                return
+            weights = self.model.get_weights()
+            self.sums = weights if self.sums is None else [a + b for a, b in zip(self.sums, weights)]
+            self.count += 1
+
+        def apply(self) -> bool:
+            if not self.sums or self.count < 2:
+                return False
+            self.model.set_weights([value / self.count for value in self.sums])
+            return True
+
+    return WeightAverage
+
+
 def _best_after_epoch_class():
     import tensorflow as tf
 
@@ -588,7 +710,11 @@ def train_one_seed(args, seed: int, output_dir: Path, data: dict, labels: list[d
     x_meb, y_meb, _ = data["meb"]
 
     student = build_model(class_count)
-    if args.encoder_init:
+    if args.student_init:
+        previous = tf.keras.models.load_model(str(Path(args.student_init).resolve()))
+        initialize_from_unified(previous, student)
+        del previous
+    elif args.encoder_init:
         encoder = tf.keras.models.load_model(str(Path(args.encoder_init).resolve()))
         old_ids = [int(item["originalClassId"]) for item in label_config(BASE_VOCABULARY_VERSION)["labels"]]
         initialize_from_encoder(encoder, student, old_ids)
@@ -620,13 +746,18 @@ def train_one_seed(args, seed: int, output_dir: Path, data: dict, labels: list[d
             return parts[0]
         return tf.data.Dataset.sample_from_datasets(parts, weights=[1.0 / len(parts)] * len(parts), seed=seed)
 
+    # Belirti ve yanıt sınıfları arasında yarı yarıya paylaştırma denendi ve ölçüldü: belirti
+    # doğruluğunu düzeltmedi (B grubu 195 → 190 / 282), bu yüzden sınıf başına eşit örnekleme korunur.
     per_class = [class_dataset(label) for label in np.unique(y_meb)]
     new_dataset = tf.data.Dataset.sample_from_datasets(per_class, seed=seed).map(
         augment_feature, num_parallel_calls=tf.data.AUTOTUNE
     )
     train_dataset = tf.data.Dataset.sample_from_datasets(
         [old_dataset, new_dataset], weights=[2.0 / 3.0, 1.0 / 3.0], seed=seed
-    ).batch(args.batch_size).prefetch(tf.data.AUTOTUNE)
+    ).batch(args.batch_size)
+    if MIXUP_ALPHA > 0:
+        train_dataset = train_dataset.map(_mixup_batch, num_parallel_calls=tf.data.AUTOTUNE)
+    train_dataset = train_dataset.prefetch(tf.data.AUTOTUNE)
     reference_videos = len({row.get("raw_path") or row["sample_id"] for row in data["meb"][2]
                             if not is_derived(row)})
     steps_per_epoch = max(
@@ -638,22 +769,36 @@ def train_one_seed(args, seed: int, output_dir: Path, data: dict, labels: list[d
     for layer in student.layers[:-1]:
         layer.trainable = False
     student.layers[-1].trainable = True
+    loss_fn = tf.keras.losses.CategoricalCrossentropy(label_smoothing=args.label_smoothing)
     student.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3),
-                    loss="categorical_crossentropy", metrics=["accuracy"])
+                    loss=loss_fn, metrics=["accuracy"])
+    best_path = output_dir / f"{MODEL_VERSION}.keras"
     head_history = student.fit(
         train_dataset, steps_per_epoch=steps_per_epoch,
         validation_data=(x_validation, validation_targets), epochs=args.head_epochs, verbose=2,
     )
 
+    if args.finetune_epochs == 0:
+        # Kodlayıcı dondurulmuş eğitim: sözlük büyütülürken belirti davranışı **birebir** korunur,
+        # çünkü prototip skorlaması bu kodlayıcının temsilini kullanır ve temsil hiç değişmez.
+        # Yalnız çıkış katmanı (yeni sınıfların satırları) öğrenilir.
+        student.save(str(best_path))
+        finetune_history = tf.keras.callbacks.History()
+        finetune_history.history = {}
+        student = tf.keras.models.load_model(str(best_path))
+        return _finish_seed(args, seed, output_dir, data, labels, student, teacher_probabilities,
+                            symptom_indexes, general_indexes, head_history, finetune_history,
+                            x_meb, y_meb, x_train, y_train)
+
     trainable = {"encoder_bigru_64", "embedding_64", "class_probabilities"}
-    if HAND_LOCAL or args.encoder_init:
+    if HAND_LOCAL or args.encoder_init or args.student_init:
         # Ek el biçimi girdileri ilk BiGRU'ya bağlıdır; bu katman eğitilmezse sıfır ağırlıklar öğrenilemez.
         trainable.add("encoder_bigru_128")
     for layer in student.layers:
         layer.trainable = layer.name in trainable
     student.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
-                    loss="categorical_crossentropy", metrics=["accuracy"])
-    best_path = output_dir / f"{MODEL_VERSION}.keras"
+                    loss=loss_fn, metrics=["accuracy"])
+    averager = _weight_average_class()(args.swa, args.finetune_epochs) if args.swa else None
     callbacks = [
         # AUTSL doğrulama kaybı gürültülüdür; ilk epoch'larda durmak sağlık sınıflarını eksik öğretir.
         # Bu yüzden en iyi model ve erken durdurma ancak --min-finetune-epochs sonrasında değerlendirilir.
@@ -661,12 +806,28 @@ def train_one_seed(args, seed: int, output_dir: Path, data: dict, labels: list[d
                                          start_from_epoch=args.min_finetune_epochs),
         _BestAfterEpoch(str(best_path), args.min_finetune_epochs),
     ]
+    if averager is not None:
+        # Ağırlık ortalaması alınacaksa erken durdurma ve "en iyi epoch" seçimi devre dışıdır;
+        # son `--swa` epoch'un ortalaması kullanılır.
+        callbacks = []
     finetune_history = student.fit(
         train_dataset, steps_per_epoch=steps_per_epoch,
         validation_data=(x_validation, validation_targets), epochs=args.finetune_epochs,
         callbacks=callbacks, verbose=2,
     )
+    if averager is not None:
+        averager.apply()
+        student.save(str(best_path))
     student = tf.keras.models.load_model(str(best_path))
+    return _finish_seed(args, seed, output_dir, data, labels, student, teacher_probabilities,
+                        symptom_indexes, general_indexes, head_history, finetune_history,
+                        x_meb, y_meb, x_train, y_train)
+
+
+def _finish_seed(args, seed, output_dir, data, labels, student, teacher_probabilities,
+                 symptom_indexes, general_indexes, head_history, finetune_history,
+                 x_meb, y_meb, x_train, y_train):
+    """Eğitim sonrası ortak adımlar: ölçüm, kayıt, sınıf merkezleri."""
     result = evaluate_student(student, teacher_probabilities, data, labels, symptom_indexes, general_indexes)
     result.update(
         seed=seed,
@@ -676,6 +837,18 @@ def train_one_seed(args, seed: int, output_dir: Path, data: dict, labels: list[d
         finetuneHistory={k: [float(v) for v in values] for k, values in finetune_history.history.items()},
     )
     student.save(str(output_dir / "saved_model"))
+    # Sınıf merkezleri yalnız gerçek (sentetik/benzetim olmayan) sağlık örneklerinden çıkarılır;
+    # türetilmiş örnekler merkezleri bağışçı kişiye doğru çeker ve doğruluğu düşürür.
+    genuine = np.asarray([not is_derived(row) for row in data["meb"][2]])
+    # AUTSL sınıflarının merkezleri kendi eğitim örneklerinden gelir; böylece her sınıfın merkezi olur
+    # ve yanıt bağlamları (ör. ilaç sorusundaki `ilac`) eksik kalmaz.
+    prototype_x = np.concatenate([x_train, x_meb[genuine]])
+    prototype_y = np.concatenate([y_train, y_meb[genuine]])
+    prototypes = build_prototypes(student, prototype_x, prototype_y,
+                                  {int(item["index"]): str(item["classId"]) for item in labels})
+    write_prototypes(output_dir / "prototypes.json", prototypes, model_version=MODEL_VERSION,
+                     vocabulary_version=VOCABULARY_VERSION)
+    result["prototypeClasses"] = len(prototypes)
     write_json(output_dir / "metrics.json", {k: v for k, v in result.items() if k != "classRegression"})
     _write_class_regression(output_dir / "class_regression.csv", result["classRegression"])
     return result
@@ -720,6 +893,19 @@ def main() -> None:
     parser.add_argument("--encoder-init",
                         help="AUTSL-226 ön eğitimli kodlayıcı (src.pretrain_autsl226 çıktısı saved_model); "
                              "--hand-local-features gerektirir. Öğretmen (--base-model) damıtma ve kapı için kalır.")
+    parser.add_argument("--student-init",
+                        help="Aynı mimarideki eğitilmiş birleşik modelin SavedModel klasörü "
+                             "(ör. outputs/unified34); sözlük büyütülürken belirti doğruluğunu korur. "
+                             "Verilirse --encoder-init yerine kullanılır.")
+    parser.add_argument("--swa", type=int, default=0,
+                        help="Son N epoch'un ağırlık ortalaması (SWA); 0 kapalı. Erken durdurmayı devre dışı bırakır.")
+    parser.add_argument("--label-smoothing", type=float, default=0.0,
+                        help="Etiket yumuşatma (ör. 0.1); sağlık sınıflarında ezberlemeyi azaltır")
+    parser.add_argument("--dropout", type=float, help="Kodlayıcı dropout oranını değiştirir (varsayılan 0.30)")
+    parser.add_argument("--signer-augment", action="store_true",
+                        help="Kişi ölçüsü çeşitliliği (kol uzunluğu, el boyu, duruş sürüklenmesi) artırması")
+    parser.add_argument("--mixup", type=float, default=0.0,
+                        help="Mixup Beta(a,a) parametresi; 0 kapalı (ör. 0.2)")
     parser.add_argument("--hand-local-features", action="store_true",
                         help="El biçimi özelliklerini ekler (girdi 222); servis modele göre otomatik seçer")
     args = parser.parse_args()
@@ -728,8 +914,15 @@ def main() -> None:
     if args.model_version:
         global MODEL_VERSION
         MODEL_VERSION = args.model_version
-    global HAND_LOCAL
+    global HAND_LOCAL, SIGNER_AUGMENT, MIXUP_ALPHA
     HAND_LOCAL = bool(args.hand_local_features)
+    SIGNER_AUGMENT = bool(args.signer_augment)
+    if args.dropout is not None:
+        global DROPOUT
+        DROPOUT = float(args.dropout)
+    MIXUP_ALPHA = float(args.mixup)
+    if MIXUP_ALPHA < 0:
+        raise ValueError("--mixup negatif olamaz.")
     if args.encoder_init and not HAND_LOCAL:
         raise ValueError("--encoder-init, --hand-local-features ile birlikte kullanılmalıdır (60×222).")
     if args.output_dir is None:
@@ -824,6 +1017,7 @@ def main() -> None:
     shutil.copytree(selected_dir / "saved_model", output_dir / "saved_model")
     shutil.copy2(selected_dir / f"{MODEL_VERSION}.keras", output_dir / f"{MODEL_VERSION}.keras")
     shutil.copy2(selected_dir / "class_regression.csv", output_dir / "class_regression.csv")
+    shutil.copy2(selected_dir / "prototypes.json", output_dir / "prototypes.json")
 
     summary = {
         "modelVersion": MODEL_VERSION,
@@ -832,6 +1026,7 @@ def main() -> None:
         "smokeOnly": bool(args.smoke),
         "baseModel": teacher_path.name,
         "encoderInit": Path(args.encoder_init).parent.name + "/" + Path(args.encoder_init).name if args.encoder_init else None,
+        "studentInit": Path(args.student_init).parent.name + "/" + Path(args.student_init).name if args.student_init else None,
         "selectionCriterion": "gate-passing run with highest AUTSL validation accuracy",
         "extraManifests": [Path(item).name for item in args.extra_manifest],
         "classCount": len(labels),
@@ -881,9 +1076,12 @@ def main() -> None:
         "modelVersion": MODEL_VERSION,
         "preprocessingVersion": "landmark46-v1",
         "vocabularyVersion": VOCABULARY_VERSION,
-        "confidenceThreshold": 0.95,
+        # 0,80 eşiği bağlam içi normalleştirilmiş güvene göre kalibre edildi
+        # (v0.5.0 raporu 4. bölüm): eşik üstü kayıtların %94,5'i doğru.
+        "confidenceThreshold": 0.8,
         "featureLayout": "xy-mask-138+handlocal-84" if HAND_LOCAL else "xy-mask-138",
         **({"testTimeMirror": True} if args.test_time_mirror else {}),
+        "prototypeScoring": "symptom",
     })
     shutil.copy2(CONFIG_DIR / LABELS_FILE, output_dir / LABELS_FILE)
     policy = json.loads((CONFIG_DIR / POLICY_FILE).read_text(encoding="utf-8"))

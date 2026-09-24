@@ -46,6 +46,7 @@ MODEL_LABEL_FILES = {
     "autsl20-v1": "labels.autsl20.json",
     "signbridge30-v1": "labels.signbridge30.json",
     "signbridge34-v1": "labels.signbridge34.json",
+    "signbridge71-v1": "labels.signbridge71.json",
 }
 
 

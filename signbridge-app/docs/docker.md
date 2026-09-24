@@ -19,6 +19,9 @@ Yerel demo varsayılan olarak `SESSION_STORE=memory` ile çalışır; Supabase z
 
 ## İlk çalıştırma
 
+Windows'ta depo kökündeki `signbridge-baslat.bat`, yerel unified71 v0.8.0 arşivini doğrulayıp aşağıdaki
+adımları otomatik uygular. Diğer model seçenekleri veya macOS/Linux için komutları elle çalıştırın.
+
 PowerShell'de depo kökünde:
 
 ```powershell
@@ -35,7 +38,7 @@ modeli açar, SavedModel dosyalarını ayrı ayrı doğrular ve ancak bütün ko
 (`ai-training/outputs/unified34`, eski model için `ai-training/outputs`) atomik biçimde değiştirir. İnternet yoksa arşivi depo içine kopyalamadan bilgisayardaki bir yoldan kurabilirsiniz:
 
 ```powershell
-node scripts/install-model.mjs --archive C:\path\to\signbridge-unified34-v0.4.0.zip
+node scripts/install-model.mjs --archive C:\path\to\signbridge-unified34-v0.5.0.zip
 ```
 
 Kurulumdan sonra platformdan bağımsız ön kontrolü çalıştırın:

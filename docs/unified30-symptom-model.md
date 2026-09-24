@@ -155,7 +155,7 @@ AI_EXPECTED_VOCABULARY_VERSION=autsl20-v1
 ```
 
 Hazır ayar dosyası: `.env.autsl20.example`. Varsayılan ayarlar (`.env.docker.example`) artık 15 belirti
-avatarlı `unified34` paketini kullanır ([model-release-unified34-v0.4.0.md](model-release-unified34-v0.4.0.md)).
+avatarlı `unified34` paketini kullanır ([model-release-unified34-v0.5.0.md](model-release-unified34-v0.5.0.md)).
 
 ## 4. 55 kamera denemesi
 

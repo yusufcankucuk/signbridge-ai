@@ -128,9 +128,12 @@ def test_test_time_mirror_averages_original_and_mirrored_predictions():
     plain = predict_landmarks(SideModel(), landmarks, mask, runtime, labels, recognition_context="symptom")
     averaged = predict_landmarks(SideModel(), landmarks, mask, {**runtime, "testTimeMirror": True}, labels,
                                  recognition_context="symptom")
-    assert plain["alternatives"][0] == labels[right]["classId"] and plain["confidence"] > 0.9
+    assert plain["classId"] == labels[right]["classId"] and plain["confidence"] > 0.9
+    assert plain["classId"] not in plain["alternatives"] and len(plain["alternatives"]) <= 3
     # Ayna görüntü diğer sınıfı seçtiği için ortalamada iki sınıf yarı yarıya kalır.
+    assert averaged["classId"] is None
     assert set(averaged["alternatives"][:2]) == {labels[right]["classId"], labels[left]["classId"]}
+    assert len(averaged["alternatives"]) <= 3
     assert averaged["confidence"] < 0.6
     assert sequence_to_features(mirrored, mirrored_mask).shape == (60, 138)
 

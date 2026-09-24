@@ -7,6 +7,10 @@ import Button from '../ui/Button';
 import BodyMap from './BodyMap';
 import ExpressionVisual from './ExpressionVisual';
 import QuestionSymbol from './QuestionSymbol';
+import DurationAnswer from './DurationAnswer';
+import IntensityAnswer from './IntensityAnswer';
+import LocationAnswer from './LocationAnswer';
+import MedicationAnswer from './MedicationAnswer';
 import { EXPRESSIONS } from '../../data/expressions';
 import { BODY_REGIONS, MEDICATION_GROUPS } from '../../data/regions';
 import { questionLabels, recordAnswer, type QuestionKind } from '../../lib/consultationFlow';
@@ -70,7 +74,17 @@ export function Questions() {
   </Frame>;
 }
 
+// Kameranın yanıt arayabildiği soru tipleri; custom (serbest soru) sözlükte karşılığı olmadığı için dışarıda.
+const CAMERA_ANSWER_KINDS = new Set<QuestionKind>(['duration', 'intensity', 'location', 'medication']);
+
+// Süre, şiddet, yer ve ilaç sorularının kendi kamera öncelikli ekranı var (avatarlar hazır); diğer tipler ortak ekranı kullanır.
 export function PatientResponse({ kind }: { kind: QuestionKind }) {
+  return kind === 'duration' ? <DurationAnswer /> : kind === 'intensity' ? <IntensityAnswer />
+    : kind === 'location' ? <LocationAnswer />
+    : kind === 'medication' ? <MedicationAnswer /> : <ChoiceResponse kind={kind} />;
+}
+
+function ChoiceResponse({ kind }: { kind: QuestionKind }) {
   const { state, setState } = useFlow(); const router = useRouter();
   const [selected, setSelected] = useState(''); const [detail, setDetail] = useState(''); const [groups, setGroups] = useState<string[]>([]);
   const [stage, setStage] = useState<'choice' | 'groups' | 'name'>('choice');
@@ -104,17 +118,21 @@ export function PatientResponse({ kind }: { kind: QuestionKind }) {
     stage === 'name' ? 'Devam etmek için ilacın adını yazın.' :
     stage === 'groups' ? 'Devam etmek için en az bir ilaç grubu seçin.' :
     'Devam etmek için bir seçenek seçin.';
+  // Kamera birincil yol: hasta soruyu işaret diliyle yanıtlar, hazır seçenekler ikincil kalır.
+  const signAnswer = () => { setState(s => ({ ...s, capture: 'answer', candidate: null })); router.push('/camera'); };
+  const cameraFirst = stage === 'choice' && CAMERA_ANSWER_KINDS.has(kind);
   return <Frame title={titles[kind]} footer={ready && <>
-    <Button disabled={!canContinue || leaving} onClick={next}>{kind === 'medication' && selected === 'Evet' && (stage === 'choice' || (stage === 'groups' && groups.includes('Başka bir ilaç'))) ? 'Devam et' : 'Doktora ilet'}</Button>
-    {!canContinue && !leaving && <p className="text-center text-caption text-ink-muted">{hint}</p>}
+    {cameraFirst && <Button disabled={leaving} onClick={signAnswer}>İşaret diliyle yanıtla</Button>}
+    <Button variant={cameraFirst ? 'outline' : 'primary'} disabled={!canContinue || leaving} onClick={next}>{kind === 'medication' && selected === 'Evet' && (stage === 'choice' || (stage === 'groups' && groups.includes('Başka bir ilaç'))) ? 'Devam et' : cameraFirst ? 'Seçerek yanıtla' : 'Doktora ilet'}</Button>
+    {!canContinue && !leaving && <p className="text-center text-caption text-ink-muted">{cameraFirst ? 'Kamerayı kullanmak istemezseniz aşağıdan seçebilirsiniz.' : hint}</p>}
     {stage !== 'choice' ? <button className="compact-link" onClick={() => setStage(stage === 'name' ? 'groups' : 'choice')}>Geri</button> :
-      <button className="compact-link" onClick={() => { setState(s => ({ ...s, capture: 'answer', candidate: null })); router.push('/camera'); }}>İşaret diliyle yanıtla</button>}
+      !cameraFirst && <button className="compact-link" onClick={signAnswer}>İşaret diliyle yanıtla</button>}
   </>}>
     {error && <p className="compact-error" role="alert">{error}</p>}
     {!pending ? <Empty text="Yanıt bekleyen soru yok." /> : !ready ? <Empty text="Diğer soruya devam edin." href={`/patient/${pending.kind}`} /> :
       kind === 'custom' ? <><div className="compact-card"><ReadText text={pending.text} /></div><div className="compact-form flex-1 justify-center"><label>Yanıtınız<textarea maxLength={500} rows={4} value={detail} onChange={e => setDetail(e.target.value)} /></label></div></> :
       kind === 'duration' ? <div className="my-auto"><div className="compact-grid">{['Bugün', 'Birkaç gün', '1 hafta', 'Daha uzun'].map(v => <Choice key={v} selected={selected === v} onClick={() => setSelected(v)}>{v}</Choice>)}</div><button className="compact-link mt-3 w-full" aria-pressed={selected === 'Hatırlamıyorum'} onClick={() => setSelected('Hatırlamıyorum')}>{selected === 'Hatırlamıyorum' ? '✓ ' : ''}Hatırlamıyorum</button></div> :
-      kind === 'intensity' ? <div className="compact-center"><div className="grid w-full grid-cols-5 gap-2">{['Çok hafif', 'Hafif', 'Orta', 'Şiddetli', 'Çok şiddetli'].map((label, i) => <Choice key={label} selected={selected === `${i + 1} / 5 — ${label}`} onClick={() => setSelected(`${i + 1} / 5 — ${label}`)}><span className="text-xl">{i + 1}</span></Choice>)}</div><p className="text-center text-lead font-semibold text-brand-700">{selected ? selected.split('—')[1] : 'Size uygun olanı seçin'}</p><div className="flex w-full justify-between text-caption text-ink-muted"><span>Çok hafif</span><span>Çok şiddetli</span></div></div> :
+      kind === 'intensity' ? <div className="compact-center"><div className="grid w-full grid-cols-5 gap-2">{['Çok hafif', 'Hafif', 'Orta', 'Şiddetli', 'Çok şiddetli'].map((label, i) => <Choice key={label} label={`${i + 1} / 5 — ${label}`} selected={selected === `${i + 1} / 5 — ${label}`} onClick={() => setSelected(`${i + 1} / 5 — ${label}`)}><span className="text-xl">{i + 1}</span></Choice>)}</div><p className="text-center text-lead font-semibold text-brand-700">{selected ? selected.split('—')[1] : 'Size uygun olanı seçin'}</p><div className="flex w-full justify-between text-caption text-ink-muted"><span>Çok hafif</span><span>Çok şiddetli</span></div></div> :
       kind === 'location' ? <><div className="min-h-0 flex-1 flex items-center justify-center"><BodyMap selectedId={BODY_REGIONS.find(r => r.sentence === selected)?.id} onSelect={r => setSelected(r.sentence)} className="h-full max-h-[240px] w-[120px]" /></div><div className="compact-grid">{BODY_REGIONS.map(r => <Choice key={r.id} selected={selected === r.sentence} onClick={() => setSelected(r.sentence)}>{r.label}</Choice>)}</div></> :
       stage === 'choice' ? <div className="compact-center w-full"><div className="compact-grid w-full">{['Evet', 'Hayır'].map(v => <Choice key={v} selected={selected === v} onClick={() => setSelected(v)}>{v}</Choice>)}</div><button className="compact-link" aria-pressed={selected === 'Bilmiyorum'} onClick={() => setSelected('Bilmiyorum')}>{selected === 'Bilmiyorum' ? '✓ ' : ''}Bilmiyorum</button></div> :
       stage === 'name' ? <div className="compact-form my-auto"><label>İlacın adı<input maxLength={100} value={detail} onChange={e => setDetail(e.target.value)} /></label></div> :
